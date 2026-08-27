@@ -1,0 +1,44 @@
+[
+  {
+    "name": "tokyo",
+    "south": 35.64,
+    "west": 139.68,
+    "north": 35.72,
+    "east": 139.79
+  },
+  {
+    "name": "new_york",
+    "south": 40.68,
+    "west": -74.05,
+    "north": 40.82,
+    "east": -73.86
+  },
+  {
+    "name": "london",
+    "south": 51.48,
+    "west": -0.25,
+    "north": 51.55,
+    "east": 0.05
+  },
+  {
+    "name": "paris",
+    "south": 48.82,
+    "west": 2.2,
+    "north": 48.9,
+    "east": 2.45
+  },
+  {
+    "name": "berlin",
+    "south": 52.47,
+    "west": 13.3,
+    "north": 52.55,
+    "east": 13.5
+  },
+  {
+    "name": "sydney",
+    "south": -33.9,
+    "west": 151.18,
+    "north": -33.82,
+    "east": 151.3
+  }
+]

@@ -1,0 +1,191 @@
+region_id,name,latitude,longitude,admin_level,boundary,place,country,state,county,city,parent_name,source_type
+node/13766017,Surry Hills,-33.8845123,151.2100301,suburb,,suburb,,,,,,node
+node/13766899,Sydney,-33.8698439,151.2082848,city,,city,,,,,,node
+node/13766915,Pyrmont,-33.8692145,151.1923633,suburb,,suburb,,,,,,node
+node/13887183,Woolloomooloo,-33.8718758,151.2192218,suburb,,suburb,,,,,,node
+node/14697010,Bondi Beach,-33.8906977,151.2724119,suburb,,suburb,,,,,,node
+node/15158970,Chippendale,-33.8863291,151.1998211,suburb,,suburb,,,,,,node
+node/18370040,North Sydney,-33.8354519,151.2083011,town,,town,,,,,,node
+node/18372989,Darling Point,-33.8730723,151.2376378,suburb,,suburb,,,,,,node
+node/18372993,Point Piper,-33.8676276,151.2515727,suburb,,suburb,,,,,,node
+node/18372994,Double Bay,-33.8766373,151.24245,suburb,,suburb,,,,,,node
+node/18372995,Vaucluse,-33.8558564,151.2761018,suburb,,suburb,,,,,,node
+node/18373862,Watsons Bay,-33.8432736,151.2825736,suburb,,suburb,,,,,,node
+node/18373863,Bondi Junction,-33.8930034,151.2501228,suburb,,suburb,,,,,,node
+node/18375403,St Leonards,-33.8225666,151.1923402,suburb,,suburb,,,,,,node
+node/18375406,Kirribilli,-33.8476659,151.2158138,suburb,,suburb,,,,,,node
+node/18375407,Mosman,-33.8301355,151.2447663,suburb,,suburb,,,,,,node
+node/18375409,Neutral Bay,-33.8342887,151.2182049,suburb,,suburb,,,,,,node
+node/18375410,Cammeray,-33.8222738,151.2139868,suburb,,suburb,,,,,,node
+node/18802313,Redfern,-33.8931044,151.2040292,suburb,,suburb,,,,,,node
+node/19966821,Crows Nest,-33.8256273,151.2014745,suburb,,suburb,,,,,,node
+node/19977678,Waverton,-33.8375313,151.1973535,suburb,,suburb,,,,,,node
+node/20955136,Tamarama,-33.8987452,151.2710753,suburb,,suburb,,,,,,node
+node/20958967,Millers Point,-33.8591,151.2042529,suburb,,suburb,,,,,,node
+node/21398002,The Rocks,-33.859992,151.2083216,suburb,,suburb,,,,,,node
+node/25843274,Camperdown,-33.8896116,151.1800986,suburb,,suburb,,,,,,node
+node/25921070,Paddington,-33.8841572,151.2272766,suburb,,suburb,,,,,,node
+node/26376006,Balmain,-33.8583992,151.1807353,suburb,,suburb,,,,,,node
+node/26410146,Balmain East,-33.8571789,151.192354,suburb,,suburb,,,,,,node
+node/26410541,Glebe Point,-33.8712418,151.1804934,neighbourhood,,neighbourhood,,,,,,node
+node/117107212,Greenwich,-33.8300104,151.1855621,suburb,,suburb,,,,,,node
+node/117123990,Balmoral,-33.8316667,151.2511111,neighbourhood,,neighbourhood,,,,,,node
+node/117124009,Clifton Gardens,-33.84,151.2511111,neighbourhood,,neighbourhood,,,,,,node
+node/117124039,Cremorne,-33.8260081,151.2254326,suburb,,suburb,,,,,,node
+node/117124063,Cremorne Point,-33.8409547,151.2279762,suburb,,suburb,,,,,,node
+node/117124077,Lavender Bay,-33.8432002,151.2074155,suburb,,suburb,,,,,,node
+node/117124087,McMahons Point,-33.8443387,151.2027957,suburb,,suburb,,,,,,node
+node/117124112,Milsons Point,-33.8471255,151.2115234,suburb,,suburb,,,,,,node
+node/117182719,Centennial Park,-33.8977778,151.2338889,suburb,,suburb,,,,,,node
+node/117182757,Centennial Square,-33.89,151.2344444,suburb,,suburb,,,,,,node
+node/117198599,Eveleigh,-33.895,151.1913889,suburb,,suburb,,,,,,node
+node/117198625,Macdonaldtown,-33.8983333,151.1927778,neighbourhood,,neighbourhood,,,,,,node
+node/117198666,Strawberry Hills,-33.8892149,151.2084122,neighbourhood,,neighbourhood,,,,,,node
+node/117198736,Darlington,-33.890862,151.1932156,suburb,,suburb,,,,,,node
+node/117198756,Haymarket,-33.8814408,151.2044524,suburb,,suburb,,,,,,node
+node/117198815,Moore Park,-33.8958333,151.2219444,suburb,,suburb,,,,,,node
+node/117198833,Wynyard,-33.8650257,151.2057288,neighbourhood,,neighbourhood,,,,,,node
+node/117202326,Queens Park,-33.8991667,151.2472222,suburb,,suburb,,,,,,node
+node/117202360,North Bondi,-33.882351,151.2768611,suburb,,suburb,,,,,,node
+node/117202372,Bondi,-33.8930556,151.2633333,suburb,,suburb,,,,,,node
+node/117202392,Dover Heights,-33.8739831,151.2810366,suburb,,suburb,,,,,,node
+node/117205684,Woollahra,-33.8857968,151.2440867,suburb,,suburb,,,,,,node
+node/117205706,Bellevue Hill,-33.8797123,151.2561988,suburb,,suburb,,,,,,node
+node/117205722,Rose Bay,-33.8741644,151.265471,suburb,,suburb,,,,,,node
+node/1587002601,Ultimo,-33.8794728,151.1984346,suburb,,suburb,,,,,,node
+node/1587090504,Glebe,-33.8777782,151.1862377,suburb,,suburb,,,,,,node
+node/1647971432,Potts Point,-33.867522,151.2243115,suburb,,suburb,,,,,,node
+node/1712374560,Kurraba Point,-33.8415873,151.223028,suburb,,suburb,,,,,,node
+node/2292085073,Newtown,-33.8961132,151.1801893,suburb,,suburb,,,,,,node
+node/3727200648,Barangaroo,-33.8614084,151.2016877,suburb,,suburb,,,,,,node
+node/3824229161,Wollstonecraft,-33.8332039,151.1959273,suburb,,suburb,,,,,,node
+node/3848628371,Birchgrove,-33.8507685,151.1830352,suburb,,suburb,,,,,,node
+node/3877388370,Edgecliff,-33.8797692,151.2361116,suburb,,suburb,,,,,,node
+node/3882396770,Darlinghurst,-33.8783381,151.219225,suburb,,suburb,,,,,,node
+node/3883854447,Elizabeth Bay,-33.8716908,151.2282875,suburb,,suburb,,,,,,node
+node/3883879580,Rushcutters Bay,-33.8750365,151.2276557,suburb,,suburb,,,,,,node
+node/3884399453,Dawes Point,-33.8572223,151.2067756,suburb,,suburb,,,,,,node
+node/4010650294,Victoria Cross,-33.8388637,151.2066496,neighbourhood,,neighbourhood,,,,,,node
+node/4792788624,Chinatown,-33.8783674,151.204068,neighbourhood,,neighbourhood,,,,,,node
+node/4860741433,Crows Nest Junction,-33.8276962,151.2007098,neighbourhood,,neighbourhood,,,,,,node
+node/7904679762,Seven Ways,-33.8853767,151.2735682,neighbourhood,,neighbourhood,,,,,,node
+node/8117706600,Six Ways,-33.8890849,151.2704152,neighbourhood,,neighbourhood,,,,,,node
+node/8547111397,Ben Buckler,-33.891517,151.2841942,neighbourhood,,neighbourhood,,,,,,node
+node/9254756562,Koreatown,-33.8766464,151.2078492,neighbourhood,,neighbourhood,,,,,,node
+node/9395991754,South Eveleigh,-33.8960744,151.1958335,neighbourhood,,neighbourhood,,,,,,node
+node/10031697405,Quay Quarter,-33.8626799,151.2111434,neighbourhood,,neighbourhood,,,,,,node
+node/10064372985,Five Ways,-33.8822544,151.2282801,neighbourhood,,neighbourhood,,,,,,node
+node/10567862251,Spit Junction,-33.8245167,151.2409127,neighbourhood,,neighbourhood,,,,,,node
+node/11080091384,Glebe Island,-33.8662904,151.1838513,neighbourhood,,neighbourhood,,,,,,node
+node/12165611927,Neutral Bay Junction,-33.8315407,151.2224212,neighbourhood,,neighbourhood,,,,,,node
+node/12165611928,Cremorne Junction,-33.8281058,151.230289,neighbourhood,,neighbourhood,,,,,,node
+node/12558606172,Thai Town,-33.8793467,151.2070452,neighbourhood,,neighbourhood,,,,,,node
+node/14051524657,Greenwich Point,-33.8397821,151.1830343,neighbourhood,,neighbourhood,,,,,,node
+way/940888111,The Hungry Mile,-33.8612415,151.2028557,neighbourhood,,neighbourhood,,,,,,way
+way/1470170829,Darling Square,-33.8784043,151.2021069,neighbourhood,,neighbourhood,,,,,,way
+relation/1251053,Inner West Council,-33.8898887,151.1544416,6,administrative,municipality,,,,,,relation
+relation/1251066,Council of the City of Sydney,-33.8889914,151.2039371,6,administrative,municipality,,,,,,relation
+relation/2013719,Greenwich,-33.8300102,151.1855575,9,administrative,suburb,,,,,,relation
+relation/2025307,Barangaroo,-33.860542,151.2016354,9,administrative,suburb,,,,,,relation
+relation/2068545,Kirribilli,-33.8475173,151.2158819,9,administrative,suburb,,,,,,relation
+relation/2068546,Milsons Point,-33.8471008,151.2115438,9,administrative,suburb,,,,,,relation
+relation/2316593,New South Wales,-32.8347701,150.1691517,4,administrative,state,,,,,,relation
+relation/2916624,Alexandria,-33.9082084,151.1918409,9,administrative,suburb,,,,,,relation
+relation/2943469,Paddington,-33.8833605,151.227891,9,administrative,suburb,,,,,,relation
+relation/2947510,Balmain East,-33.8571467,151.1924637,9,administrative,suburb,,,,,,relation
+relation/2959861,Artarmon,-33.8119631,151.1849783,9,administrative,suburb,,,,,,relation
+relation/2978550,Northern Beaches Council,-33.697849,151.2523226,6,administrative,municipality,,,,,,relation
+relation/3044806,Bondi,-33.8930969,151.2669542,9,administrative,suburb,,,,,,relation
+relation/3697552,Centennial Park,-33.8978149,151.2326039,9,administrative,suburb,,,,,,relation
+relation/3707173,Moore Park,-33.895211,151.2221219,9,administrative,suburb,,,,,,relation
+relation/3730769,Redfern,-33.8931293,151.2066351,9,administrative,suburb,,,,,,relation
+relation/5644641,Woolwich,-33.839408,151.1729049,9,administrative,suburb,,,,,,relation
+relation/5644806,St Leonards,-33.8223098,151.1929141,9,administrative,suburb,,,,,,relation
+relation/5646784,Lane Cove,-33.8180567,151.1650373,9,administrative,suburb,,,,,,relation
+relation/5646832,Northwood,-33.8288275,151.1788677,9,administrative,suburb,,,,,,relation
+relation/5647291,Wollstonecraft,-33.8332036,151.1959332,9,administrative,suburb,,,,,,relation
+relation/5650432,Lavender Bay,-33.8438545,151.2076116,9,administrative,suburb,,,,,,relation
+relation/5650433,McMahons Point,-33.8454253,151.2030035,9,administrative,suburb,,,,,,relation
+relation/5650434,Waverton,-33.8402733,151.1988185,9,administrative,suburb,,,,,,relation
+relation/5650497,North Sydney,-33.8366164,151.2095867,9,administrative,suburb,,,,,,relation
+relation/5650673,Cremorne Point,-33.8425262,151.2283907,9,administrative,suburb,,,,,,relation
+relation/5650674,Kurraba Point,-33.8419759,151.2228311,9,administrative,suburb,,,,,,relation
+relation/5650675,Neutral Bay,-33.8349073,151.2181784,9,administrative,suburb,,,,,,relation
+relation/5652143,Mosman,-33.8283505,151.2486594,9,administrative,suburb,,,,,,relation
+relation/5653063,Manly,-33.8033787,151.2911366,9,administrative,town,,,,,,relation
+relation/5655122,Cremorne,-33.827337,151.2251151,9,administrative,suburb,,,,,,relation
+relation/5655149,Cammeray,-33.8227825,151.2149381,9,administrative,suburb,,,,,,relation
+relation/5655194,Crows Nest,-33.8255772,151.2036499,9,administrative,suburb,,,,,,relation
+relation/5655233,Naremburn,-33.8172409,151.2016283,9,administrative,suburb,,,,,,relation
+relation/5657442,Middle Harbour,-33.791124,151.2284571,9,administrative,locality,,,,,,relation
+relation/5657443,North Harbour,-33.8124824,151.2763791,9,administrative,locality,,,,,,relation
+relation/5680947,Balmain,-33.8583458,151.1806912,9,administrative,suburb,,,,,,relation
+relation/5680948,Birchgrove,-33.8507638,151.1830939,9,administrative,suburb,,,,,,relation
+relation/5680949,Rozelle,-33.8644358,151.1742931,9,administrative,suburb,,,,,,relation
+relation/5688500,Camperdown,-33.8886735,151.1831995,9,administrative,suburb,,,,,,relation
+relation/5688724,Newtown,-33.8999028,151.1801757,9,administrative,suburb,,,,,,relation
+relation/5690596,Eveleigh,-33.8957604,151.1924499,9,administrative,suburb,,,,,,relation
+relation/5700654,Erskineville,-33.9021852,151.186216,9,administrative,suburb,,,,,,relation
+relation/5708492,Bronte,-33.904247,151.2636922,9,administrative,suburb,,,,,,relation
+relation/5708503,Tamarama,-33.8987781,151.2711214,9,administrative,suburb,,,,,,relation
+relation/5709558,Bondi Beach,-33.890975,151.2727315,9,administrative,suburb,,,,,,relation
+relation/5709559,North Bondi,-33.8861771,151.2769933,9,administrative,suburb,,,,,,relation
+relation/5710427,Dover Heights,-33.8740268,151.2809959,9,administrative,suburb,,,,,,relation
+relation/5710428,Rose Bay,-33.8741536,151.265684,9,administrative,suburb,,,,,,relation
+relation/5710429,Vaucluse,-33.8558338,151.2760495,9,administrative,suburb,,,,,,relation
+relation/5710430,Watsons Bay,-33.8401401,151.2817873,9,administrative,suburb,,,,,,relation
+relation/5714805,Waterloo,-33.9003493,151.2073985,9,administrative,suburb,,,,,,relation
+relation/5716137,Queens Park,-33.8993641,151.2472214,9,administrative,suburb,,,,,,relation
+relation/5717436,Waverley,-33.9020438,151.25604,9,administrative,suburb,,,,,,relation
+relation/5718743,Bellevue Hill,-33.8797493,151.2563217,9,administrative,suburb,,,,,,relation
+relation/5718744,Double Bay,-33.8790286,151.2430988,9,administrative,suburb,,,,,,relation
+relation/5718745,Point Piper,-33.868132,151.2522814,9,administrative,suburb,,,,,,relation
+relation/5718955,Edgecliff,-33.8797558,151.2361043,9,administrative,suburb,,,,,,relation
+relation/5718966,Woollahra,-33.8857375,151.2441763,9,administrative,suburb,,,,,,relation
+relation/5719084,Bondi Junction,-33.8929895,151.2502943,9,administrative,suburb,,,,,,relation
+relation/5719088,Darling Point,-33.8723959,151.2357094,9,administrative,suburb,,,,,,relation
+relation/5719124,Darlington,-33.8908631,151.1932995,9,administrative,suburb,,,,,,relation
+relation/5719323,Forest Lodge,-33.8806156,151.1816694,9,administrative,suburb,,,,,,relation
+relation/5720618,Glebe,-33.8778551,151.1862397,9,administrative,suburb,,,,,,relation
+relation/5724226,Pyrmont,-33.8692119,151.1925851,9,administrative,suburb,,,,,,relation
+relation/5724254,Ultimo,-33.8794959,151.1984245,9,administrative,suburb,,,,,,relation
+relation/5724367,Haymarket,-33.8815028,151.204498,9,administrative,suburb,,,,,,relation
+relation/5724532,Surry Hills,-33.8845042,151.2100558,9,administrative,suburb,,,,,,relation
+relation/5725737,Chippendale,-33.8862377,151.2000602,9,administrative,suburb,,,,,,relation
+relation/5726016,Darlinghurst,-33.8794903,151.2208259,9,administrative,suburb,,,,,,relation
+relation/5728885,Elizabeth Bay,-33.8716943,151.2283074,9,administrative,suburb,,,,,,relation
+relation/5728909,Rushcutters Bay,-33.8744837,151.2274811,9,administrative,suburb,,,,,,relation
+relation/5729350,Potts Point,-33.8669081,151.226058,9,administrative,suburb,,,,,,relation
+relation/5729458,Woolloomooloo,-33.8703546,151.2183923,9,administrative,suburb,,,,,,relation
+relation/5729503,Dawes Point,-33.8562192,151.2070657,9,administrative,suburb,,,,,,relation
+relation/5729504,Millers Point,-33.8594446,151.2042584,9,administrative,suburb,,,,,,relation
+relation/5729505,The Rocks,-33.8587569,151.2080156,9,administrative,suburb,,,,,,relation
+relation/5729534,Sydney,-33.8679426,151.2100079,9,administrative,suburb,,,,,,relation
+relation/5750005,Sydney,-33.8120116,150.8023615,city,place,city,,,,,,relation
+relation/6201664,Randwick City Council,-33.945818,151.2396038,6,administrative,municipality,,,,,,relation
+relation/6203556,Waverley Council,-33.884034,151.2635484,6,administrative,municipality,,,,,,relation
+relation/6203650,Woollahra Municipal Council,-33.8618363,151.2535216,6,administrative,municipality,,,,,,relation
+relation/6230051,Willoughby City Council,-33.8016269,151.1880749,6,administrative,municipality,,,,,,relation
+relation/6273237,The Council of the Municipality of Hunters Hill,-33.8298773,151.1535418,6,administrative,municipality,,,,,,relation
+relation/6275976,North Sydney Council,-33.834261,151.2102921,6,administrative,municipality,,,,,,relation
+relation/6275980,Lane Cove Municipal Council,-33.8232157,151.1701531,6,administrative,municipality,,,,,,relation
+relation/6276645,Mosman Municipal Council,-33.8283505,151.2486594,6,administrative,municipality,,,,,,relation
+relation/17038839,Railway Square,-33.8836588,151.2035131,neighbourhood,,neighbourhood,,,,,,relation
+relation/17752628,Darling Island,-33.8653494,151.1962739,neighbourhood,,neighbourhood,,,,,,relation
+relation/18183648,Bradleys Head,-33.8532702,151.2459783,6,administrative,,,,,,,relation
+relation/18183649,Mosman Bay Marina,-33.8373489,151.2321228,6,administrative,,,,,,,relation
+relation/18183651,Pyrmont Bay Park,-33.8679707,151.1966172,6,administrative,,,,,,,relation
+relation/18183652,Australian National Maritime Museum,-33.8691471,151.198617,6,administrative,,,,,,,relation
+relation/18183653,Cockle Bay Wharf,-33.8735548,151.2013549,6,administrative,,,,,,,relation
+relation/18183654,Walsh Bay Wharves,-33.8552209,151.2057595,6,administrative,,,,,,,relation
+relation/18183655,Circular Quay,-33.8608642,151.2109823,6,administrative,,,,,,,relation
+relation/18183656,Finger Wharf,-33.8674078,151.2208425,6,administrative,,,,,,,relation
+relation/18183657,Double Bay Marina,-33.8733837,151.242289,6,administrative,,,,,,,relation
+relation/18183658,Royal Motor Yacht Club,-33.8670101,151.2544075,6,administrative,,,,,,,relation
+relation/18183659,Bottle and Glass Rocks,-33.8475564,151.2706883,6,administrative,,,,,,,relation
+relation/18183660,Shark Island,-33.8586257,151.2578072,6,administrative,,,,,,,relation
+relation/18183661,Billong-Olo-Lah / Clark Island,-33.8627686,151.2410602,6,administrative,,,,,,,relation
+relation/18183662,Pinchgut Island,-33.8549283,151.2255261,6,administrative,,,,,,,relation
+relation/18183663,Goat Island,-33.8523892,151.1968192,6,administrative,,,,,,,relation
+relation/18183667,Unincorporated Sydney Harbour,-33.8364452,151.2191015,6,administrative,,,,,,,relation
+relation/18183905,Unincorporated New South Wales,-32.3759616,150.1691517,6,administrative,,,,,,,relation

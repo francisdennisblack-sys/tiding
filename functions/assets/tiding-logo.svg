@@ -1,0 +1,13 @@
+<svg width="360" height="120" viewBox="0 0 360 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="360" height="120" rx="28" fill="#EEF3FF"/>
+  <rect x="18" y="18" width="84" height="84" rx="22" fill="url(#paint0_linear_1_2)"/>
+  <path d="M52 36H80V46H67V82H61V46H48V36H52Z" fill="white"/>
+  <path d="M108 38H154C169.464 38 182 50.536 182 66C182 81.464 169.464 94 154 94H108V38ZM138 66H154C159.523 66 164 61.523 164 56C164 50.477 159.523 46 154 46H138V66ZM138 68V82H154C159.523 82 164 77.523 164 72C164 66.477 159.523 62 154 62H138Z" fill="#1B4DFF"/>
+  <text x="202" y="72" fill="#121A2A" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">Tiding</text>
+  <defs>
+    <linearGradient id="paint0_linear_1_2" x1="18" y1="18" x2="102" y2="102" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F5EF7"/>
+      <stop offset="1" stop-color="#1739B3"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,488 @@
+region_id,name,latitude,longitude,admin_level,boundary,place,country,state,county,city,parent_name,source_type
+node/17807753,Paris,48.8534951,2.3483915,2,,city,,,,,,node
+node/26686593,Boulogne-Billancourt,48.8356649,2.240206,city,,city,,,,,,node
+node/26691586,Nanterre,48.8924273,2.2071267,town,,town,,,,,,node
+node/26691621,Les Lilas,48.8795658,2.415796,town,,town,,,,,,node
+node/26691761,Neuilly-sur-Seine,48.884683,2.2695658,town,,town,,,,,,node
+node/26691805,Malakoff,48.8211559,2.3019814,town,,town,,,,,,node
+node/26691807,Saint-Mandé,48.8432434,2.4159739,town,,town,,,,,,node
+node/26691856,Courbevoie,48.8953328,2.2561602,town,,town,,,,,,node
+node/26691883,Le Pré-Saint-Gervais,48.8830565,2.4040111,town,,town,,,,,,node
+node/26691894,Suresnes,48.8709053,2.2255727,town,,town,,,,,,node
+node/26692000,Issy-les-Moulineaux,48.8250508,2.273457,town,,town,,,,,,node
+node/26692029,Saint-Cloud,48.8437412,2.219344,town,,town,,,,,,node
+node/26692150,Bagnolet,48.8688199,2.4173658,town,,town,,,,,,node
+node/26692216,Montreuil,48.8623357,2.4412184,city,,city,,,,,,node
+node/26692309,Romainville,48.8852958,2.4358326,town,,town,,,,,,node
+node/26692429,Vanves,48.8212037,2.289259,town,,town,,,,,,node
+node/26692567,Levallois-Perret,48.892956,2.2881683,town,,town,,,,,,node
+node/26692611,Sèvres,48.8247407,2.2127083,town,,town,,,,,,node
+node/148950780,15e Arrondissement,48.8411228,2.2927657,suburb,,suburb,,,,,,node
+node/161608370,6e Arrondissement,48.8504333,2.3329507,suburb,,suburb,,,,,,node
+node/175517170,14e Arrondissement,48.8328514,2.3267231,9,,suburb,,,,,,node
+node/237417884,5e Arrondissement,48.8459728,2.3443504,suburb,,suburb,,,,,,node
+node/237422047,13e Arrondissement,48.8290105,2.3636124,suburb,,suburb,,,,,,node
+node/241092821,17e Arrondissement,48.8869265,2.3065472,suburb,,suburb,,,,,,node
+node/241099674,8e Arrondissement,48.8737284,2.3103932,suburb,,suburb,,,,,,node
+node/248177663,7e Arrondissement,48.8564911,2.3128,suburb,,suburb,,,,,,node
+node/252815182,Butte-aux-Cailles,48.8277114,2.3496759,neighbourhood,,neighbourhood,,,,,,node
+node/253081032,Croix de Chavaux,48.8578981,2.4363625,quarter,,quarter,,,,,,node
+node/253456008,1er Arrondissement,48.8646144,2.334396,suburb,,suburb,,,,,,node
+node/317476952,18e Arrondissement,48.8900117,2.3464668,suburb,,suburb,,,,,,node
+node/415971847,Cité des Auteurs,48.8840565,2.4126486,neighbourhood,,neighbourhood,,,,,,node
+node/415972911,Les Sept Chemins,48.8682595,2.4485893,quarter,,quarter,,,,,,node
+node/517969463,16e Arrondissement,48.8636341,2.276485,suburb,,suburb,,,,,,node
+node/938320028,2e Arrondissement,48.868743,2.341688,suburb,,suburb,,,,,,node
+node/938321858,3e Arrondissement,48.864212,2.360936,suburb,,suburb,,,,,,node
+node/938323516,4e Arrondissement,48.8562021,2.3556193,suburb,,suburb,,,,,,node
+node/938334959,9e Arrondissement,48.876019,2.339962,suburb,,suburb,,,,,,node
+node/938336881,10e Arrondissement,48.876225,2.3595209,suburb,,suburb,,,,,,node
+node/938338196,11e Arrondissement,48.858416,2.379703,suburb,,suburb,,,,,,node
+node/938387959,12e Arrondissement,48.8396154,2.3957517,suburb,,suburb,,,,,,node
+node/938394241,19e Arrondissement,48.889343,2.38436,suburb,,suburb,,,,,,node
+node/938396405,20e Arrondissement,48.865042,2.398929,suburb,,suburb,,,,,,node
+node/1363278030,Puteaux,48.8841522,2.2368863,town,,town,,,,,,node
+node/1391681447,Vincennes,48.8474508,2.4396714,town,,town,,,,,,node
+node/1393686792,Pantin,48.8965023,2.4019804,town,,town,,,,,,node
+node/1863573689,Le Marais,48.8603823,2.360742,suburb,,suburb,,,,,,node
+node/1863664714,Montmartre,48.8867054,2.3415715,suburb,,suburb,,,,,,node
+node/1863664715,Montparnasse,48.8434755,2.3282995,suburb,,suburb,,,,,,node
+node/1863666222,Pigalle,48.8821842,2.3370861,suburb,,suburb,,,,,,node
+node/1980084566,Le Village Saint-Paul,48.8533959,2.3610703,neighbourhood,,neighbourhood,,,,,,node
+node/2038017580,Quartier latin,48.8486028,2.3425156,suburb,,suburb,,,,,,node
+node/2137503425,Saint-Germain-des-Prés,48.8544286,2.3337071,quarter,,quarter,,,,,,node
+node/2140578004,Belleville,48.8717265,2.385085,quarter,,quarter,,,,,,node
+node/2140595430,Sentier,48.8681704,2.3486199,suburb,,suburb,,,,,,node
+node/2140597251,Les Halles,48.8623728,2.3453129,quarter,,quarter,,,,,,node
+node/2141212990,Bastille,48.8535713,2.3699734,suburb,,suburb,,,,,,node
+node/2141218571,Champs-Elysées,48.8708299,2.3034859,quarter,,quarter,,,,,,node
+node/2141387602,Batignolles,48.8863552,2.321457,suburb,,suburb,,,,,,node
+node/2142316639,Opéra,48.8707492,2.3324542,suburb,,suburb,,,,,,node
+node/2142322000,République,48.868001,2.3635154,suburb,,suburb,,,,,,node
+node/2142377353,Bercy,48.8367988,2.380847,quarter,,quarter,,,,,,node
+node/2142387526,Les Gobelins,48.8336415,2.3539386,neighbourhood,,neighbourhood,,,,,,node
+node/2142394338,Auteuil,48.8477221,2.2667376,suburb,,suburb,,,,,,node
+node/2142401571,Passy,48.8575047,2.2809828,suburb,,suburb,,,,,,node
+node/2142414234,La Goutte d'Or,48.8868305,2.3531436,suburb,,suburb,,,,,,node
+node/2142739937,Beaubourg,48.8605948,2.3516451,neighbourhood,,neighbourhood,,,,,,node
+node/2142769871,Vaugirard,48.8405799,2.3003828,suburb,,suburb,,,,,,node
+node/2143873485,Grenelle,48.8465079,2.290703,quarter,,quarter,,,,,,node
+node/2143877660,Charonne,48.8551451,2.3976375,suburb,,suburb,,,,,,node
+node/2143885542,La Villette,48.8904889,2.3800721,suburb,,suburb,,,,,,node
+node/2143927022,Invalides,48.8583684,2.3128852,quarter,,quarter,,,,,,node
+node/2143992989,Alésia,48.8279122,2.3268316,suburb,,suburb,,,,,,node
+node/2144014466,Plaine de Monceau,48.8837088,2.3029849,suburb,,suburb,,,,,,node
+node/2146848454,Cité Florale,48.822703,2.3448195,neighbourhood,,neighbourhood,,,,,,node
+node/2147641769,Ménilmontant,48.8686092,2.3898241,suburb,,suburb,,,,,,node
+node/2155711675,Barbès,48.8839388,2.3493707,neighbourhood,,neighbourhood,,,,,,node
+node/2311259836,La Chapelle,48.8904375,2.3619391,suburb,,suburb,,,,,,node
+node/2789976684,Clignancourt,48.8940584,2.345678,suburb,,suburb,,,,,,node
+node/2789983153,Montsouris,48.8227828,2.3348768,suburb,,suburb,,,,,,node
+node/2789987755,Saint-Blaise,48.8585673,2.4063236,neighbourhood,,neighbourhood,,,,,,node
+node/3234185968,Campagne à Paris,48.8658208,2.4076218,neighbourhood,,neighbourhood,,,,,,node
+node/3387854326,Cité-Jardin Henri Sellier,48.8835717,2.4090506,neighbourhood,,neighbourhood,,,,,,node
+node/3387854329,Villa du Pré,48.8832014,2.404802,neighbourhood,,neighbourhood,,,,,,node
+node/3612667443,Villa des Suisses,48.8861369,2.2028464,neighbourhood,,neighbourhood,,,,,,node
+node/3873458219,La Verrerie,48.8206683,2.2351548,neighbourhood,,neighbourhood,,,,,,node
+node/3873492492,La Côte de la Verrerie,48.8219353,2.2273293,neighbourhood,,neighbourhood,,,,,,node
+node/3928856070,Île Monsieur,48.8328281,2.2236583,neighbourhood,,neighbourhood,,,,,,node
+node/3928856071,Brimborion,48.8256307,2.2233257,neighbourhood,,neighbourhood,,,,,,node
+node/3928856072,Les Binelles,48.8227424,2.2238193,neighbourhood,,neighbourhood,,,,,,node
+node/3928880497,Le Clos Anet,48.8273493,2.2048789,neighbourhood,,neighbourhood,,,,,,node
+node/3928880498,Noiretier,48.8264522,2.2057265,neighbourhood,,neighbourhood,,,,,,node
+node/3928880499,Les Fontenelles,48.8285288,2.2038382,neighbourhood,,neighbourhood,,,,,,node
+node/3928880500,Les Closeaux,48.8245808,2.2018104,neighbourhood,,neighbourhood,,,,,,node
+node/3928880502,Les Dames Marie,48.8290373,2.2003299,neighbourhood,,neighbourhood,,,,,,node
+node/3928880503,La Caille,48.8235566,2.2042566,neighbourhood,,neighbourhood,,,,,,node
+node/3928880504,Les Prés Verdy,48.8268125,2.2022611,neighbourhood,,neighbourhood,,,,,,node
+node/4545578227,La Défense,48.891008,2.2412078,suburb,,suburb,FR,,,Nanterre,,node
+node/5434798119,Quartier de l'Odéon,48.8505503,2.3387425,quarter,,quarter,,,,,,node
+node/5434798120,Popincourt,48.8604299,2.3755351,suburb,,suburb,,,,,,node
+node/5434803821,Faubourg Saint-Antoine,48.8507175,2.378531,suburb,,suburb,,,,,,node
+node/5441362236,Faubourg du Temple,48.8705681,2.3728648,suburb,,suburb,,,,,,node
+node/5441362237,Faubourg Saint-Denis,48.8758397,2.3560675,suburb,,suburb,,,,,,node
+node/5441362238,Faubourg Saint-Martin,48.874368,2.3585812,suburb,,suburb,,,,,,node
+node/5445287714,Faubourg Saint-Honoré,48.8729792,2.3080921,quarter,,quarter,,,,,,node
+node/5445762388,Château Rouge,48.8873865,2.3495212,neighbourhood,,neighbourhood,,,,,,node
+node/5445762389,Faubourg Poissonnière,48.875775,2.3482224,suburb,,suburb,,,,,,node
+node/5445762390,Faubourg Montmartre,48.8767743,2.3392691,suburb,,suburb,,,,,,node
+node/5445762391,Quartier Saint-Georges,48.8787985,2.3382801,neighbourhood,,neighbourhood,,,,,,node
+node/5445762392,Quartier de l'Europe,48.8791535,2.3232963,suburb,,suburb,,,,,,node
+node/5451831769,Faubourg Saint-Marcel,48.8368875,2.3518665,quarter,,quarter,,,,,,node
+node/5454287408,Faubourg Saint-Jacques,48.8389905,2.3395936,quarter,,quarter,,,,,,node
+node/5470091861,Petit-Montrouge,48.8301569,2.330965,suburb,,suburb,,,,,,node
+node/5470091863,Quartier de la Glacière,48.8287545,2.3429167,neighbourhood,,neighbourhood,,,,,,node
+node/5470091864,Gros-Caillou,48.8592535,2.3051147,quarter,,quarter,,,,,,node
+node/5470091865,Plaisance,48.8332851,2.3193972,suburb,,suburb,,,,,,node
+node/5522394697,Les Ternes,48.8807219,2.2944263,suburb,,suburb,,,,,,node
+node/5522690122,Reuilly,48.8443144,2.3898419,neighbourhood,,neighbourhood,,,,,,node
+node/5522821334,Les Épinettes,48.8932062,2.3228373,suburb,,suburb,,,,,,node
+node/5523199155,Javel,48.8412483,2.2781575,suburb,,suburb,,,,,,node
+node/5617403614,Hameau Boileau,48.8446715,2.2623042,neighbourhood,,neighbourhood,,,,,,node
+node/8393557816,Faubourg de l'Arche,48.897823,2.2362084,quarter,,quarter,,,,,,node
+node/8827155720,Faubourg Saint-Germain,48.856257,2.32331,quarter,,quarter,,,,,,node
+node/8830167357,Grange aux Belles,48.8778014,2.3678866,neighbourhood,,neighbourhood,,,,,,node
+node/9189560751,Cité des Sentes,48.8810639,2.4253672,neighbourhood,,neighbourhood,,,,,,node
+node/9209977311,Résidence Duclos,48.8765734,2.4472044,neighbourhood,,neighbourhood,,,,,,node
+node/9343287138,Cité Oradour,48.8777251,2.4392545,neighbourhood,,neighbourhood,,,,,,node
+node/9396449341,Cité Parat,48.8913572,2.4365051,neighbourhood,,neighbourhood,,,,,,node
+node/9406914025,Bas-Pays,48.8937952,2.4346152,quarter,,quarter,,,,,,node
+node/9510699312,Cité Maurice Thorez,48.8799871,2.4461754,neighbourhood,,neighbourhood,,,,,,node
+node/9753986281,Quartier Bruneseau,48.8254428,2.3857986,quarter,,quarter,,,,,,node
+node/9850455219,Villa des Ternes,48.8812821,2.2873959,neighbourhood,,neighbourhood,,,,,,node
+node/10213816845,Les Bureaux de la Colline,48.8406338,2.2195737,hamlet,,hamlet,,,,,,node
+node/10213838159,Quartier Boieldieu,48.8885109,2.2387619,neighbourhood,,neighbourhood,,,,,,node
+node/10213861913,Résidence Beausoleil,48.8538483,2.2131377,hamlet,,hamlet,,,,,,node
+node/10213873447,Résidence Parc de Béarn,48.8485242,2.2197881,hamlet,,hamlet,,,,,,node
+node/10214299074,Jardin de la Mairie,48.8357101,2.2411546,hamlet,,hamlet,,,,,,node
+node/10214299526,Résidence Boucles de Seine,48.8414149,2.2048617,hamlet,,hamlet,,,,,,node
+node/10721597023,Valmy,48.827942,2.4018716,neighbourhood,,neighbourhood,,,,,,node
+node/10721597024,Bercy,48.824266,2.3963547,neighbourhood,,neighbourhood,,,,,,node
+node/10721597025,Conflans,48.8223206,2.40701,neighbourhood,,neighbourhood,,,,,,node
+node/11204368978,Croulebarbe,48.8335405,2.347913,quarter,,quarter,,,,,,node
+node/11219433016,Parc de Montretout,48.8413443,2.2140562,neighbourhood,,neighbourhood,,,,,,node
+node/12851237173,Cité des Frères Voisin,48.8288912,2.2737315,neighbourhood,,neighbourhood,,,,,,node
+node/13062148027,Le Village Anglais,48.8689537,2.2285254,neighbourhood,,neighbourhood,,,,,,node
+node/13306769893,Bel-Air,48.8409185,2.4046661,10,administrative,quarter,,,,,,node
+node/13311113603,Picpus,48.8396831,2.3954377,quarter,,quarter,,,,,,node
+node/13311131358,Quinze-Vingts,48.8486547,2.3725462,quarter,,quarter,,,,,,node
+node/13605165126,Parchamp - Albert Kahn,48.8467754,2.2333055,quarter,,quarter,,,,,,node
+node/13605165127,Silly - Gallieni,48.8351814,2.2316629,quarter,,quarter,,,,,,node
+node/13605165128,Billancourt - Rives de Seine,48.8290993,2.2406756,quarter,,quarter,,,,,,node
+node/13605165129,République - Point-du-Jour,48.8315608,2.2510557,quarter,,quarter,,,,,,node
+node/13605165130,Centre-Ville,48.8369717,2.2416516,quarter,,quarter,,,,,,node
+node/13605165131,Les Princes - Marmottan,48.8429023,2.245774,quarter,,quarter,,,,,,node
+node/13607308986,Cité-Jardins,48.8631633,2.2052646,quarter,,quarter,,,,,,node
+node/13607308987,Mont-Valérien,48.8688318,2.2160344,quarter,,quarter,,,,,,node
+node/13607308988,Liberté,48.8769472,2.2214039,quarter,,quarter,,,,,,node
+node/13607308989,Écluse - Belvédère,48.8756785,2.2297791,quarter,,quarter,,,,,,node
+node/13607308990,Centre Ville,48.870135,2.2277376,quarter,,quarter,,,,,,node
+node/13607308991,République,48.8627788,2.2228867,quarter,,quarter,,,,,,node
+node/13607354493,Plateau Mont-Valérien,48.8806106,2.2094695,quarter,,quarter,,,,,,node
+node/13607354494,La Boule - Champs Pierreux,48.8876619,2.2021378,quarter,,quarter,,,,,,node
+node/13607354495,Parc Sud,48.8890451,2.2176114,quarter,,quarter,,,,,,node
+node/13607354496,Parc Nord,48.8966513,2.222765,quarter,,quarter,,,,,,node
+node/13611728935,Mairie - Hoche,48.8933741,2.4032316,quarter,,quarter,,,,,,node
+node/13611728936,Église,48.8902681,2.4142896,quarter,,quarter,,,,,,node
+node/13611728937,Petit Pantin - Les Limites,48.8932584,2.4212699,quarter,,quarter,,,,,,node
+node/13611805072,Arche Nord,48.8938568,2.2403392,quarter,,quarter,,,,,,node
+node/13611805073,Arche Sud,48.889648,2.2359032,quarter,,quarter,,,,,,node
+node/13611805074,Esplanade Sud,48.8877036,2.2450598,quarter,,quarter,,,,,,node
+node/13611805075,Esplanade Nord,48.8903949,2.2474253,quarter,,quarter,,,,,,node
+way/4217102,Rue des Fossés Saint-Jacques,48.8456499,2.3440408,10,administrative,,,,,,,way
+way/4217110,Rue Malebranche,48.8463807,2.34229,10,administrative,,,,,,,way
+way/4217170,Rue Descartes,48.8470273,2.3487436,10,administrative,,,,,,,way
+way/4263051,Rue Cuvier,48.8443054,2.3559583,10,administrative,,,,,,,way
+way/4414190,Rue Cuvier,48.8458328,2.3589624,10,administrative,,,,,,,way
+way/4472351,Rue Théodule Ribot,48.8796043,2.3007904,10,administrative,,,,,,,way
+way/4574481,Rue Poissonnière,48.8703555,2.3478977,10,administrative,,,,,,,way
+way/4574495,Rue des Petits Carreaux,48.8676741,2.347366,10,administrative,,,,,,,way
+way/4574503,Rue des Petits Carreaux,48.8681729,2.3475337,10,administrative,,,,,,,way
+way/14445021,Rue des Plantes,48.8301491,2.3233185,10,administrative,,,,,,,way
+way/22870389,Rue de l'Estrapade,48.8449187,2.3461729,10,administrative,,,,,,,way
+way/22879975,Rue Mouffetard,48.840588,2.3497065,10,administrative,,,,,,,way
+way/22880026,Rue Mouffetard,48.8447546,2.3492103,10,administrative,,,,,,,way
+way/25525919,Rue de Bezons,48.8978278,2.2474666,10,administrative,,,,,,,way
+way/32496111,La Seine,48.8211798,2.3998083,7,administrative,,,,,,,way
+way/35097959,Rue Pascal,48.8380299,2.3494336,10,administrative,,,,,,,way
+way/42127091,Chemin des Lacets,48.8217941,2.229892,8,administrative,,,,,,,way
+way/42127093,Avenue Brimborion,48.8224688,2.22917,8,administrative,,,,,,,way
+way/58836490,Avenue du Maine,48.8376531,2.3228789,10,administrative,,,,,,,way
+way/59851695,Rue Lacépède,48.843899,2.3518457,10,administrative,,,,,,,way
+way/64223006,Les Orgues de Flandre,48.889782,2.3738613,neighbourhood,,neighbourhood,,,,,,way
+way/71122996,Rue Poissonnière,48.8696386,2.347823,10,administrative,,,,,,,way
+way/71122998,Rue Poissonnière,48.8688164,2.3477276,10,administrative,,,,,,,way
+way/72224015,Rue Blainville,48.8444659,2.3486577,10,administrative,,,,,,,way
+way/93470518,Rue Angélique Defrance,48.8480579,2.4485816,10,administrative,,,,,,,way
+way/97602212,Rue de la Montagne Sainte-Geneviève,48.8489408,2.3486486,10,administrative,,,,,,,way
+way/129113714,Rue des Quatre Ruelles,48.8529873,2.4482024,6,administrative,,,,,,,way
+way/129113716,Rue des Trois Territoires,48.8508633,2.4483423,8,administrative,,,,,,,way
+way/129113717,Rue du Passeleu / Rue du Luat,48.8525546,2.4477124,6,administrative,,,,,,,way
+way/129113718,Rue du Passeleu,48.8516524,2.4474563,6,administrative,,,,,,,way
+way/164010795,Rue Lacépède,48.8437377,2.3530079,10,administrative,,,,,,,way
+way/164010796,Rue Le Goff,48.8468763,2.3417826,10,administrative,,,,,,,way
+way/164010797,Rue Mouffetard,48.8422972,2.3496874,10,administrative,,,,,,,way
+way/164010800,Rue Pascal,48.8371714,2.3490266,10,administrative,,,,,,,way
+way/164011891,Rue Frédéric Sauton,48.8510832,2.3491631,10,administrative,,,,,,,way
+way/164047642,Rue de Courcelles,48.8769176,2.3072343,10,administrative,,,,,,,way
+way/164299390,Rue Gassendi,48.834593,2.3265769,10,administrative,,,,,,,way
+way/164300506,Rue Daguerre,48.8345502,2.3280029,10,administrative,,,,,,,way
+way/164652472,Place Robert Verdier,48.8867895,2.3391009,10,administrative,,,,,,,way
+way/171873401,Rue Montorgueil,48.8660976,2.3471073,10,administrative,,,,,,,way
+way/174767744,Rue de la Montagne Sainte-Geneviève,48.8480268,2.3485267,10,administrative,,,,,,,way
+way/181676068,Rue Montorgueil,48.8653056,2.3469259,10,administrative,,,,,,,way
+way/221126364,Rue des Plantes,48.826149,2.3195678,10,administrative,,,,,,,way
+way/221126365,Rue des Plantes,48.8277345,2.321121,10,administrative,,,,,,,way
+way/233418601,Îlot Saint-Séverin,48.8522648,2.345033,neighbourhood,,neighbourhood,,,,,,way
+way/270122641,Avenue Marceau,48.9009995,2.2443485,10,administrative,,,,,,,way
+way/277831416,Val des Bruyères - Allard,48.8168048,2.2184549,neighbourhood,,neighbourhood,,,,,,way
+way/277836742,Ernest Renan,48.819058,2.2127536,neighbourhood,,neighbourhood,,,,,,way
+way/307467073,Rue de Bezons,48.8955814,2.2494383,10,administrative,,,,,,,way
+way/307467074,Rue de Bezons,48.8977446,2.2475396,10,administrative,,,,,,,way
+way/307467088,Rue de l'Abreuvoir,48.8911758,2.2548832,10,administrative,,,,,,,way
+way/385801588,Cité Michelet,48.8949985,2.375654,neighbourhood,,neighbourhood,,,,,,way
+way/410505651,Rue de Bezons,48.8968313,2.2482613,10,administrative,,,,,,,way
+way/461350527,Le Cottage,48.8525524,2.2000685,hamlet,,hamlet,,,,,,way
+way/506445447,Rue Descartes,48.8455273,2.3491311,10,administrative,,,,,,,way
+way/535031815,Rue Gassendi,48.8330965,2.3254606,10,administrative,,,,,,,way
+way/535031817,Rue Gassendi,48.8338919,2.3260533,10,administrative,,,,,,,way
+way/577507093,Rue Angélique Defrance,48.8479251,2.4461755,10,administrative,,,,,,,way
+way/588977469,Quartier Liberté,48.8772953,2.2232868,neighbourhood,,neighbourhood,,,,,,way
+way/752048109,Rue des Quatre Ruelles,48.8536684,2.4494217,6,administrative,,,,,,,way
+way/757098211,Rue de Courcelles,48.8757579,2.3084844,10,administrative,,,,,,,way
+way/836315844,Avenue du Maine,48.8375867,2.3229074,10,administrative,,,,,,,way
+way/903570094,Cité Python-Duvernois,48.8627855,2.4112128,neighbourhood,,neighbourhood,,,,,,way
+way/994086357,Rue Gassendi,48.83254,2.3250561,10,administrative,,,,,,,way
+way/996267683,Rue Lacépède,48.8436672,2.3542708,10,administrative,,,,,,,way
+way/1015506864,Rue Mouffetard,48.8399251,2.349785,10,administrative,,,,,,,way
+way/1015556769,Rue Mouffetard,48.8412721,2.3496347,10,administrative,,,,,,,way
+way/1015556772,Rue Mouffetard,48.8440783,2.3493398,10,administrative,,,,,,,way
+way/1015556775,Rue de l'Estrapade,48.8445338,2.3476481,10,administrative,,,,,,,way
+way/1015556777,Rue Descartes,48.8463862,2.3490373,10,administrative,,,,,,,way
+way/1018732344,Rue Mouffetard,48.844456,2.3492624,10,administrative,,,,,,,way
+way/1018732345,Rue Mouffetard,48.8434515,2.3495051,10,administrative,,,,,,,way
+way/1094217626,Rue Lacépède,48.8436523,2.3549276,10,administrative,,,,,,,way
+way/1101539491,Rue de la Montagne Sainte-Geneviève,48.8494905,2.3488833,10,administrative,,,,,,,way
+way/1136776305,Rue des Plantes,48.8322457,2.3248595,10,administrative,,,,,,,way
+way/1156065926,Rue Angélique Defrance,48.8479119,2.446017,10,administrative,,,,,,,way
+way/1184856363,Place Gérard Oury,48.8764032,2.3078575,10,administrative,,,,,,,way
+way/1202603166,Rue Descartes,48.8461207,2.3490895,10,administrative,,,,,,,way
+way/1202603167,Rue Descartes,48.8461452,2.3490928,10,administrative,,,,,,,way
+way/1202603168,Rue Descartes,48.8460647,2.3490933,10,administrative,,,,,,,way
+way/1202603169,Rue Descartes,48.8460948,2.3490905,10,administrative,,,,,,,way
+way/1285482948,Rue Montorgueil,48.8645944,2.3467325,10,administrative,,,,,,,way
+way/1302279845,Rue Poissonnière,48.8706462,2.3479158,10,administrative,,,,,,,way
+way/1302847057,Rue Lacépède,48.8443112,2.3500127,10,administrative,,,,,,,way
+way/1302847058,Rue Lacépède,48.8441078,2.3509168,10,administrative,,,,,,,way
+way/1307555443,Rue des Plantes,48.8316592,2.3244488,10,administrative,,,,,,,way
+way/1307555444,Rue des Plantes,48.8311424,2.3240849,10,administrative,,,,,,,way
+way/1343896534,Le Quartier Dupleix,48.8518427,2.293811,neighbourhood,,neighbourhood,,,,,,way
+way/1343896535,Le Quartier Dupleix,48.8537672,2.2851071,neighbourhood,,neighbourhood,,,,,,way
+way/1457487547,Rue de la Montagne Sainte-Geneviève,48.849835,2.3490486,10,administrative,,,,,,,way
+way/1493392827,Le Bourg du Pont,48.8189736,2.4174627,neighbourhood,,neighbourhood,,,,,,way
+way/1536904360,Avenue Marceau,48.8987678,2.2465509,10,administrative,,,,,,,way
+way/1537936984,Rue du Passeleu,48.8522518,2.4478273,6,administrative,,,,,,,way
+relation/7389,Seine-Saint-Denis,48.9097913,2.4457892,6,administrative,,,,,,,relation
+relation/7444,Paris,48.8588657,2.3469411,8,administrative,,,,,,,relation
+relation/7449,Hauts-de-Seine,48.8401915,2.2413354,6,administrative,,,,,,,relation
+relation/7458,Val-de-Marne,48.774515,2.4622127,6,administrative,,,,,,,relation
+relation/8649,Île-de-France,48.6807883,2.5027327,4,administrative,,,,,,,relation
+relation/9517,Paris 16e Arrondissement,48.8570898,2.2628565,9,administrative,,,,,,,relation
+relation/9519,Paris 17e Arrondissement,48.8874037,2.3049918,9,administrative,,,,,,,relation
+relation/9520,Paris 15e Arrondissement,48.8416773,2.2938248,9,administrative,,,,,,,relation
+relation/9521,Paris 7e Arrondissement,48.8548564,2.3115559,9,administrative,,,,,,,relation
+relation/9522,Paris 14e Arrondissement,48.8296851,2.3229722,9,administrative,,,,,,,relation
+relation/9525,Paris 12e Arrondissement,48.8351567,2.4170948,9,administrative,,,,,,,relation
+relation/9527,Paris 6e Arrondissement,48.8495035,2.3305961,9,administrative,,,,,,,relation
+relation/9528,Paris 10e Arrondissement,48.8759655,2.3624265,9,administrative,,,,,,,relation
+relation/9529,Paris 20e Arrondissement,48.8625201,2.396704,9,administrative,,,,,,,relation
+relation/9530,Paris 13e Arrondissement,48.8302527,2.365698,9,administrative,suburb,,,,,,relation
+relation/9531,Paris 18e Arrondissement,48.8919423,2.3486902,9,administrative,,,,,,,relation
+relation/9533,Paris 11e Arrondissement,48.8600881,2.3815431,9,administrative,,,,,,,relation
+relation/9537,Paris 9e Arrondissement,48.8770636,2.3378648,9,administrative,,,,,,,relation
+relation/9542,Paris 2e Arrondissement,48.8677024,2.3411267,9,administrative,,,,,,,relation
+relation/9552,Paris 19e Arrondissement,48.8871172,2.3877833,9,administrative,,,,,,,relation
+relation/9597,Paris 4e Arrondissement,48.8540655,2.3568783,9,administrative,,,,,,,relation
+relation/20727,Paris 1er Arrondissement,48.8619843,2.3359249,9,administrative,,,,,,,relation
+relation/20742,Paris 3e Arrondissement,48.8625447,2.3593171,9,administrative,,,,,,,relation
+relation/20872,Paris 8e Arrondissement,48.8732684,2.3111124,9,administrative,,,,,,,relation
+relation/20873,Paris 5e Arrondissement,48.8454098,2.3513761,9,administrative,,,,,,,relation
+relation/31338,Ville-d'Avray,48.8214642,2.1758,8,administrative,,,,,,,relation
+relation/31340,Sèvres,48.8222574,2.2056625,8,administrative,,,,,,,relation
+relation/31341,Meudon,48.8027791,2.2288327,8,administrative,,,,,,,relation
+relation/37026,Montrouge,48.8159069,2.3161943,8,administrative,,,,,,,relation
+relation/37027,Malakoff,48.8170237,2.2942679,8,administrative,,,,,,,relation
+relation/59321,Vanves,48.8213712,2.2869575,8,administrative,,,,,,,relation
+relation/67685,Pantin,48.9005577,2.4085287,8,administrative,,,,,,,relation
+relation/67826,Le Pré-Saint-Gervais,48.8840359,2.4055499,8,administrative,,,,,,,relation
+relation/71525,Paris,48.8588657,2.3469411,6,administrative,,,,,,,relation
+relation/72019,Garches,48.846929,2.1861041,8,administrative,,,,,,,relation
+relation/72020,Boulogne-Billancourt,48.8374695,2.2427874,8,administrative,,,,,,,relation
+relation/72148,Saint-Cloud,48.8440053,2.2032312,8,administrative,,,,,,,relation
+relation/72258,Suresnes,48.8710773,2.2182794,8,administrative,,,,,,,relation
+relation/72261,Rueil-Malmaison,48.8717509,2.1806119,8,administrative,,,,,,,relation
+relation/85527,Issy-les-Moulineaux,48.8239453,2.2625502,8,administrative,,,,,,,relation
+relation/85799,Nanterre,48.8974141,2.201767,8,administrative,,,,,,,relation
+relation/85802,Neuilly-sur-Seine,48.8862251,2.265046,8,administrative,,,,,,,relation
+relation/86985,Levallois-Perret,48.8946334,2.2874108,8,administrative,,,,,,,relation
+relation/86999,Clichy,48.9040928,2.3041386,8,administrative,,,,,,,relation
+relation/91768,Courbevoie,48.8975936,2.2574244,8,administrative,,,,,,,relation
+relation/91776,Puteaux,48.8825864,2.2384092,8,administrative,,,,,,,relation
+relation/104868,Charenton-le-Pont,48.8229297,2.4051017,8,administrative,,,,,,,relation
+relation/105748,Ivry-sur-Seine,48.8125403,2.3872454,8,administrative,,,,,,,relation
+relation/108318,Saint-Mandé,48.8414815,2.4197749,8,administrative,,,,,,,relation
+relation/108346,Vincennes,48.8471282,2.4382294,8,administrative,,,,,,,relation
+relation/109366,Fontenay-sous-Bois,48.8502534,2.4735544,8,administrative,,,,,,,relation
+relation/109407,Saint-Maurice,48.8184902,2.4423624,8,administrative,,,,,,,relation
+relation/129423,Montreuil,48.8637454,2.4490469,8,administrative,,,,,,,relation
+relation/129550,Bagnolet,48.8670939,2.4252532,8,administrative,,,,,,,relation
+relation/130544,Les Lilas,48.8820726,2.4207627,8,administrative,,,,,,,relation
+relation/130632,Romainville,48.8848721,2.4391416,8,administrative,,,,,,,relation
+relation/131216,Noisy-le-Sec,48.8917356,2.457796,8,administrative,,,,,,,relation
+relation/131240,Bobigny,48.9073338,2.443134,8,administrative,,,,,,,relation
+relation/1403916,France métropolitaine,46.2833438,2.1882246,3,administrative,,,,,,,relation
+relation/1457524,Antony,48.7772138,2.2779765,7,administrative,,,,,,,relation
+relation/1457525,Nanterre,48.8862292,2.2413354,7,administrative,,,,,,,relation
+relation/1457526,Boulogne-Billancourt,48.8175095,2.2259774,7,administrative,,,,,,,relation
+relation/1635875,L'Haÿ-les-Roses,48.7700708,2.3966519,7,administrative,,,,,,,relation
+relation/1636477,Nogent-sur-Marne,48.8227165,2.4813582,7,administrative,,,,,,,relation
+relation/1637468,Bobigny,48.8844945,2.4447551,7,administrative,,,,,,,relation
+relation/1641193,Paris,48.8588657,2.3469411,7,administrative,,,,,,,relation
+relation/1845285,Bois - Clos d'Orléans,48.8432308,2.4620676,10,administrative,,,,,,,relation
+relation/1845292,Parapluies - Pasteur - Rigollots,48.8507855,2.4585276,unknown,administrative,,,,,,,relation
+relation/2171716,Quartier du Bel-Air,48.8376365,2.4343661,10,administrative,,,,,,,relation
+relation/2171718,Quartier de Bercy,48.8352897,2.3869542,10,administrative,,,,,,,relation
+relation/2171720,Quartier de Picpus,48.8335645,2.4247799,10,administrative,,,,,,,relation
+relation/2172736,Quartier de l'Arsenal,48.8515637,2.3648016,10,administrative,,,,,,,relation
+relation/2172737,Quartier Les Halles,48.8621309,2.3450357,10,administrative,,,,,,,relation
+relation/2172738,Quartier Les Îles,48.8515936,2.3549645,10,administrative,,,,,,,relation
+relation/2172739,Quartier du Palais Royal,48.8644972,2.3362595,10,administrative,quarter,,,,,,relation
+relation/2172740,Saint-Germain-l'Auxerrois,48.8602212,2.3345586,10,administrative,quarter,,,,,,relation
+relation/2172741,Quartier Saint-Gervais,48.8555686,2.3585132,10,administrative,,,,,,,relation
+relation/2172742,Quartier Saint-Merri,48.8584544,2.3519547,10,administrative,,,,,,,relation
+relation/2172743,Quartier Vendôme,48.8669609,2.3285721,10,administrative,quarter,,,,,,relation
+relation/2188148,Quartier du Jardin des Plantes,48.8422006,2.3575078,10,administrative,,,,,,,relation
+relation/2188149,Quartier du Val-de-Grâce,48.8422099,2.3433361,10,administrative,,,,,,,relation
+relation/2188161,Quartier Saint-Victor,48.8478546,2.3555013,10,administrative,,,,,,,relation
+relation/2188166,Quartier de la Sorbonne,48.8492336,2.3453633,10,administrative,,,,,,,relation
+relation/2188183,Quartier Notre-Dame-des-Champs,48.8460608,2.3266814,10,administrative,,,,,,,relation
+relation/2188184,Quartier de l'Odéon,48.8469137,2.3370946,10,administrative,,,,,,,relation
+relation/2188545,Quartier de la Monnaie,48.8545257,2.3403509,10,administrative,,,,,,,relation
+relation/2188547,Quartier de Saint-Germain-des-Prés,48.8556092,2.3328141,10,administrative,,,,,,,relation
+relation/2188567,Quartier Saint-Thomas-d'Aquin,48.8549463,2.3261516,10,administrative,,,,,,,relation
+relation/2188569,Quartier du Gros-Caillou,48.8573999,2.3001213,10,administrative,,,,,,,relation
+relation/2188593,Quartier des Invalides,48.8577325,2.3178249,10,administrative,,,,,,,relation
+relation/2188594,Quartier de l'École Militaire,48.8501309,2.3107359,10,administrative,,,,,,,relation
+relation/2188686,Quartier des Champs-Élysées,48.8684181,2.3091824,10,administrative,,,,,,,relation
+relation/2188770,Quartier du Faubourg-du-Roule,48.8740606,2.3039719,10,administrative,,,,,,,relation
+relation/2188825,Quartier de l'Europe,48.8782793,2.3151499,10,administrative,,,,,,,relation
+relation/2188826,Quartier de la Madeleine,48.8708793,2.3189084,10,administrative,,,,,,,relation
+relation/2189366,Gaillon,48.8692249,2.3325081,10,administrative,quarter,,,,,,relation
+relation/2189371,Vivienne,48.8688741,2.3394721,10,administrative,quarter,,,,,,relation
+relation/2189380,Quartier du Mail,48.8679553,2.3444711,10,administrative,quarter,,,,,,relation
+relation/2189386,Bonne-Nouvelle,48.8670411,2.3504688,10,administrative,quarter,,,,,,relation
+relation/2189589,Quartier Saint-Georges,48.8800636,2.3336314,10,administrative,,,,,,,relation
+relation/2189594,Quartier de Rochechouart,48.8801184,2.3445436,10,administrative,,,,,,,relation
+relation/2189601,Quartier de la Chaussée-d'Antin,48.873246,2.3326059,10,administrative,,,,,,,relation
+relation/2189604,Quartier du Faubourg-Montmartre,48.8736995,2.3428953,10,administrative,,,,,,,relation
+relation/2189634,Quartier de la Porte-Saint-Denis,48.8733687,2.3529825,10,administrative,,,,,,,relation
+relation/2189676,Quartier Saint-Vincent-de-Paul,48.8801232,2.3589184,10,administrative,,,,,,,relation
+relation/2189677,Quartier de l'Hôpital Saint-Louis,48.8766974,2.3680934,10,administrative,,,,,,,relation
+relation/2189687,Quartier de la Porte-Saint-Martin,48.871832,2.3617978,10,administrative,,,,,,,relation
+relation/2189722,Quartier des Arts-et-Métiers,48.8663401,2.357667,10,administrative,,,,,,,relation
+relation/2189723,Quartier des Enfants-Rouges,48.8642452,2.3627577,10,administrative,,,,,,,relation
+relation/2189724,Quartier Sainte-Avoye,48.8627393,2.3541877,10,administrative,,,,,,,relation
+relation/2189886,Quartier des Archives,48.8595754,2.3618265,10,administrative,,,,,,,relation
+relation/2191005,Chaillot,48.8687026,2.2924705,10,administrative,suburb,,,,,,relation
+relation/2191079,Quartier de la Porte-Dauphine,48.8715819,2.2710523,10,administrative,,,,,,,relation
+relation/2191088,Quartier de la Muette,48.863361,2.2607558,10,administrative,,,,,,,relation
+relation/2191090,Quartier d'Auteuil,48.8503731,2.2520418,10,administrative,,,,,,,relation
+relation/2191321,Quartier des Ternes,48.8801055,2.2907861,10,administrative,,,,,,,relation
+relation/2191324,Quartier de la Plaine-de-Monceau,48.8857653,2.3009788,10,administrative,,,,,,,relation
+relation/2191337,Quartier des Batignolles,48.8890123,2.314027,10,administrative,,,,,,,relation
+relation/2191338,Quartier des Épinettes,48.8939994,2.3198633,10,administrative,,,,,,,relation
+relation/2191370,Quartier de la Folie-Méricourt,48.8672707,2.3734808,10,administrative,,,,,,,relation
+relation/2191371,Quartier Saint-Ambroise,48.8620089,2.3771628,10,administrative,,,,,,,relation
+relation/2191397,Quartier Sainte-Marguerite,48.8523273,2.3865299,10,administrative,,,,,,,relation
+relation/2191398,Quartier de la Roquette,48.8573875,2.3813432,10,administrative,,,,,,,relation
+relation/2191497,Quartier de Croulebarbe,48.8339591,2.3483584,10,administrative,quarter,,,,,,relation
+relation/2191498,Quartier de la Gare,48.8276554,2.3732013,10,administrative,quarter,,,,,,relation
+relation/2191499,Maison-Blanche,48.8236825,2.3540659,10,administrative,quarter,,,,,,relation
+relation/2191500,Quartier de la Salpêtrière,48.8379483,2.3633258,10,administrative,quarter,,,,,,relation
+relation/2191530,Quartier du Montparnasse,48.8376967,2.3317811,10,administrative,,,,,,,relation
+relation/2191542,Quartier de Plaisance,48.8313919,2.3140905,10,administrative,,,,,,,relation
+relation/2191569,Quartier du Parc-de-Montsouris,48.8244727,2.336947,10,administrative,,,,,,,relation
+relation/2191571,Quartier du Petit-Montrouge,48.8269345,2.3251058,10,administrative,,,,,,,relation
+relation/2191804,Quartier Necker,48.8420555,2.3102209,10,administrative,,,,,,,relation
+relation/2191839,Quartier Saint-Lambert,48.8344199,2.2967772,10,administrative,,,,,,,relation
+relation/2191840,Quartier de Grenelle,48.8505531,2.2918661,10,administrative,,,,,,,relation
+relation/2191841,Quartier de Javel,48.8391039,2.2790009,10,administrative,,,,,,,relation
+relation/2192616,Quartier des Quinze-Vingts,48.8467364,2.3744296,10,administrative,,,,,,,relation
+relation/2193876,Quartier de Charonne,48.8558929,2.4054534,10,administrative,,,,,,,relation
+relation/2195026,Quartier de la Villette,48.8862593,2.3747773,10,administrative,,,,,,,relation
+relation/2195038,Quartier du Combat,48.8789723,2.3798911,10,administrative,,,,,,,relation
+relation/2195086,Quartier d'Amérique,48.8824551,2.3965769,10,administrative,,,,,,,relation
+relation/2195087,Quartier du Pont-de-Flandre,48.8943922,2.3844809,10,administrative,,,,,,,relation
+relation/2195111,Quartier Saint-Fargeau,48.8703877,2.4046795,10,administrative,,,,,,,relation
+relation/2195117,Quartier de Belleville,48.8712765,2.386559,10,administrative,,,,,,,relation
+relation/2195118,Quartier du Père-Lachaise,48.8636714,2.3947369,10,administrative,,,,,,,relation
+relation/2195144,Quartier de la Chapelle,48.893114,2.3653203,10,administrative,,,,,,,relation
+relation/2195145,Quartier de la Goutte-d'Or,48.8926738,2.3546976,10,administrative,,,,,,,relation
+relation/2195154,Quartier de Clignancourt,48.8917584,2.3452459,10,administrative,,,,,,,relation
+relation/2195155,Quartier des Grandes-Carrières,48.8918191,2.3348972,10,administrative,,,,,,,relation
+relation/2202162,France,0.5434276,-0.0005052,2,administrative,,,,,,,relation
+relation/2974998,Vignerons,48.8432179,2.4327631,10,administrative,,,,,,,relation
+relation/2975187,République,48.8480551,2.4305345,10,administrative,,,,,,,relation
+relation/2975188,Saint-Louis,48.847464,2.4237253,10,administrative,,,,,,,relation
+relation/2975189,Sorano,48.850594,2.4402215,10,administrative,,,,,,,relation
+relation/2975222,Centre Ville,48.8473992,2.4407599,10,administrative,,,,,,,relation
+relation/2975223,Diderot,48.8498579,2.450197,10,administrative,,,,,,,relation
+relation/2975224,Domaine du Bois,48.8472019,2.4518507,10,administrative,,,,,,,relation
+relation/5830885,Quartier de Bécon,48.9021201,2.2700325,10,administrative,,,,,,,relation
+relation/5830886,Quartier Cœur de Ville,48.8974897,2.2541061,10,administrative,,,,,,,relation
+relation/5830887,Quartier du Faubourg de l'Arche,48.8986856,2.2390023,10,administrative,,,,,,,relation
+relation/5830888,Quartier Gambetta,48.8923974,2.2486871,10,administrative,,,,,,,relation
+relation/6158515,Louis Bertrand - Mirabeau - Sémard,48.8185721,2.3815014,10,administrative,,,,,,,relation
+relation/6159872,Ivry Port,48.8148778,2.3971029,10,administrative,,,,,,,relation
+relation/6375490,Quartier de La Boule - Champs Pierreux,48.890388,2.2087018,10,administrative,,,,,,,relation
+relation/6375491,Quartier de l'Université,48.9004924,2.2138783,10,administrative,,,,,,,relation
+relation/6375492,Quartier de la République,48.9030974,2.2052538,10,administrative,,,,,,,relation
+relation/6375493,Quartier du Centre,48.8930212,2.1991891,10,administrative,,,,,,,relation
+relation/6375494,Quartier du Chemin de l'Île,48.8993936,2.1862853,10,administrative,,,,,,,relation
+relation/6375495,Quartier du Parc Nord,48.8947092,2.2239615,10,administrative,,,,,,,relation
+relation/6375496,Quartier du Parc Sud,48.8884985,2.2224906,10,administrative,,,,,,,relation
+relation/6375498,Quartier du Plateau - Mont-Valérien,48.880645,2.2083349,10,administrative,,,,,,,relation
+relation/6375499,Quartier du Vieux-Pont - Sainte-Geneviève,48.8882062,2.1889103,10,administrative,,,,,,,relation
+relation/7981217,Nouvelle Athènes,48.8783808,2.3353142,neighbourhood,,neighbourhood,,,,,,relation
+relation/8330156,Village Buzenval,48.8608971,2.1933917,10,administrative,,,,,,,relation
+relation/8330160,Village Coteaux,48.8782028,2.192653,10,administrative,,,,,,,relation
+relation/8330161,Village Mont-Valérien,48.8718476,2.2043872,10,administrative,,,,,,,relation
+relation/8330162,Village des Mazurières,48.8651864,2.1939869,10,administrative,,,,,,,relation
+relation/8330164,Village du Plateau,48.8714864,2.1916633,10,administrative,,,,,,,relation
+relation/8332095,Quartier Écluse-Belvédère,48.8752869,2.2305107,10,administrative,,,,,,,relation
+relation/8332096,Quartier Cité-Jardins,48.8632372,2.2063289,10,administrative,,,,,,,relation
+relation/8332097,Quartier République,48.863927,2.2229447,10,administrative,,,,,,,relation
+relation/8332098,Quartier Centre-Ville,48.8706057,2.2265509,10,administrative,,,,,,,relation
+relation/8332099,Quartier Mont-Valérien,48.8683377,2.214233,10,administrative,,,,,,,relation
+relation/8332100,Quartier Liberté,48.8773376,2.2232788,10,administrative,,,,,,,relation
+relation/8332320,Quartier Centre-Ville / Corentin Celton / Les Varennes,48.8260702,2.2751093,10,administrative,,,,,,,relation
+relation/8332321,Quartier La Ferme / Les Îles / Les Chartreux,48.8237858,2.2481511,10,administrative,,,,,,,relation
+relation/8332322,Quartier Bords et Val de Seine / Les Arches,48.8268844,2.2632448,10,administrative,,,,,,,relation
+relation/8332323,Quartier Les Hauts d'Issy / Les Epinettes / Le Fort,48.8183868,2.2676388,10,administrative,,,,,,,relation
+relation/8822962,Quartier Portes de Montrouge,48.8197281,2.3153324,10,administrative,,,,,,,relation
+relation/8822967,Quartier Vieux Montrouge,48.8169995,2.3217688,10,administrative,,,,,,,relation
+relation/10367384,Signac - Murs-à-Pêches,48.8678369,2.4555117,10,administrative,,,,,,,relation
+relation/10367385,Villiers - Barbusse,48.8693179,2.4385514,10,administrative,,,,,,,relation
+relation/10367739,Ramenas - Léo-Lagrange,48.8747422,2.4522398,10,administrative,,,,,,,relation
+relation/10367797,Jean-Moulin - Beaumonts,48.8588132,2.4500546,10,administrative,,,,,,,relation
+relation/10367925,Centre-ville,48.8620458,2.4428976,10,administrative,,,,,,,relation
+relation/10368075,La Noue - Clos-Français,48.8652301,2.4297332,10,administrative,,,,,,,relation
+relation/10368076,Solidarité - Carnot,48.8548618,2.4427788,10,administrative,,,,,,,relation
+relation/10368110,Étienne-Marcel - Chanzy,48.8588096,2.4295865,10,administrative,,,,,,,relation
+relation/10368113,Bobillot,48.8534416,2.4316756,10,administrative,,,,,,,relation
+relation/10368114,Bas-Montreuil - République,48.8530054,2.4208961,10,administrative,,,,,,,relation
+relation/10406108,Silly-Galliéni,48.8349182,2.2315009,10,administrative,,,,,,,relation
+relation/10406109,Parchamp - Albert Kahn,48.8465661,2.2328518,10,administrative,,,,,,,relation
+relation/10406110,Point du Jour,48.8306457,2.2531844,10,administrative,,,,,,,relation
+relation/10406111,Rives de Seine,48.8275728,2.2379647,10,administrative,,,,,,,relation
+relation/10406112,Centre Ville,48.8363397,2.242623,10,administrative,,,,,,,relation
+relation/10406113,Les Princes-Marmottan,48.8417563,2.245277,10,administrative,,,,,,,relation
+relation/10406292,Dhuys,48.8728779,2.4183299,10,administrative,,,,,,,relation
+relation/10406293,La Noue,48.8657825,2.4271135,10,administrative,,,,,,,relation
+relation/10406294,Centre Sud,48.8639378,2.4200194,10,administrative,,,,,,,relation
+relation/10406295,Plateau,48.8750391,2.4297947,10,administrative,,,,,,,relation
+relation/10406296,Malassis,48.8707593,2.4269133,10,administrative,,,,,,,relation
+relation/10406297,Centre,48.8709926,2.4196886,10,administrative,,,,,,,relation
+relation/10406298,Coutures,48.8594263,2.4186673,10,administrative,,,,,,,relation
+relation/12593923,Léo Lagrange,48.8961386,2.4489096,10,administrative,,,,,,,relation
+relation/12593924,Haut-Goulet - Jules Auffret,48.8877512,2.4481284,10,administrative,,,,,,,relation
+relation/12593925,Centre-Ville - Mairie,48.8902217,2.454032,10,administrative,,,,,,,relation
+relation/12593929,Quartier de Noisy-le-Sec I,48.884876,2.4580481,10,administrative,,,,,,,relation
+relation/12593931,Boissière,48.8810606,2.4590815,10,administrative,,,,,,,relation
+relation/12595740,Église,48.8908354,2.4125132,10,administrative,,,,,,,relation
+relation/12595741,Petit Pantin - Les Limites,48.8918032,2.4216326,10,administrative,,,,,,,relation
+relation/12595742,Mairie - Hoche,48.8933978,2.4017142,10,administrative,,,,,,,relation
+relation/12595743,Quatre Chemins,48.9045942,2.406336,10,administrative,,,,,,,relation
+relation/14443176,Parapluies,48.8527751,2.452445,10,administrative,,,,,,,relation
+relation/15537328,Le Marais,48.8591928,2.3598823,suburb,,suburb,,,,,,relation
+relation/20817290,Quartier des Groues,48.9008475,2.2267105,10,administrative,,,,,,,relation

@@ -1,0 +1,1352 @@
+[
+  {
+    "subregion_id": "node/666",
+    "name": "Hell's Kitchen",
+    "latitude": 40.7644228,
+    "longitude": -73.9923918,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158797645",
+    "name": "Sunnyside",
+    "latitude": 40.7398242,
+    "longitude": -73.9354153,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158801311",
+    "name": "Alphabet City",
+    "latitude": 40.7251022,
+    "longitude": -73.9795833,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158801321",
+    "name": "Tribeca",
+    "latitude": 40.7153802,
+    "longitude": -74.0093063,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158801775",
+    "name": "East Elmhurst",
+    "latitude": 40.7612123,
+    "longitude": -73.8651358,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158802019",
+    "name": "Clinton Hill",
+    "latitude": 40.6897222,
+    "longitude": -73.9652778,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158805148",
+    "name": "Clinton",
+    "latitude": 40.7652778,
+    "longitude": -73.993889,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158809984",
+    "name": "SoHo",
+    "latitude": 40.72288,
+    "longitude": -73.9987505,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158810168",
+    "name": "Corona",
+    "latitude": 40.7469593,
+    "longitude": -73.8601456,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158810928",
+    "name": "Fresh Pond Junction",
+    "latitude": 40.7040104,
+    "longitude": -73.8915251,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158811979",
+    "name": "Maspeth",
+    "latitude": 40.723158,
+    "longitude": -73.912637,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158813419",
+    "name": "Greenpoint",
+    "latitude": 40.7237134,
+    "longitude": -73.9509714,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158816547",
+    "name": "Kips Bay",
+    "latitude": 40.7395463,
+    "longitude": -73.9770832,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158821893",
+    "name": "Blissville",
+    "latitude": 40.7347214,
+    "longitude": -73.9377798,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158823417",
+    "name": "Rose Hill",
+    "latitude": 40.743338,
+    "longitude": -73.9841594,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158842637",
+    "name": "Cobble Hill",
+    "latitude": 40.687547,
+    "longitude": -73.9973352,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158842996",
+    "name": "East Village",
+    "latitude": 40.7292688,
+    "longitude": -73.9873613,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158843504",
+    "name": "Manhattanville",
+    "latitude": 40.8157775,
+    "longitude": -73.951554,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158843949",
+    "name": "Glendale",
+    "latitude": 40.7014917,
+    "longitude": -73.8868028,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158844608",
+    "name": "Fresh Pond",
+    "latitude": 40.7070471,
+    "longitude": -73.90347,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158844866",
+    "name": "Washington Square Village",
+    "latitude": 40.7280556,
+    "longitude": -73.9977778,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158853595",
+    "name": "Lower East Side",
+    "latitude": 40.7159357,
+    "longitude": -73.9868057,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158855791",
+    "name": "Morningside Heights",
+    "latitude": 40.81,
+    "longitude": -73.9625,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158855831",
+    "name": "Sunnyside Gardens",
+    "latitude": 40.7477778,
+    "longitude": -73.9183333,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158856492",
+    "name": "Chinatown",
+    "latitude": 40.7164913,
+    "longitude": -73.9962504,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158856995",
+    "name": "Jackson Heights",
+    "latitude": 40.7556561,
+    "longitude": -73.8857755,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158858271",
+    "name": "Mott Haven",
+    "latitude": 40.8089897,
+    "longitude": -73.9229147,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158860074",
+    "name": "Murray Hill",
+    "latitude": 40.7481574,
+    "longitude": -73.97875,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158861717",
+    "name": "Greenwich Village",
+    "latitude": 40.7319802,
+    "longitude": -73.9965658,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158862484",
+    "name": "Tudor City",
+    "latitude": 40.7486231,
+    "longitude": -73.9713889,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158862559",
+    "name": "Astoria",
+    "latitude": 40.7720145,
+    "longitude": -73.9302673,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158863822",
+    "name": "Ridgewood",
+    "latitude": 40.7080556,
+    "longitude": -73.9141667,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158867123",
+    "name": "Port Morris",
+    "latitude": 40.8015147,
+    "longitude": -73.9095811,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158868324",
+    "name": "Hunts Point",
+    "latitude": 40.8126008,
+    "longitude": -73.8840247,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158868994",
+    "name": "University Village",
+    "latitude": 40.7269444,
+    "longitude": -73.9988889,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158869539",
+    "name": "Chelsea",
+    "latitude": 40.7464906,
+    "longitude": -74.0015283,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158871955",
+    "name": "East Harlem",
+    "latitude": 40.7947222,
+    "longitude": -73.9425,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158874315",
+    "name": "Battery Park City",
+    "latitude": 40.7110166,
+    "longitude": -74.0169369,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158876393",
+    "name": "Bedford-Stuyvesant",
+    "latitude": 40.6834364,
+    "longitude": -73.9412488,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158910289",
+    "name": "Little Italy",
+    "latitude": 40.7192728,
+    "longitude": -73.9982152,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158913422",
+    "name": "Linden Hill",
+    "latitude": 40.7156581,
+    "longitude": -73.9234706,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/158919369",
+    "name": "Steinway",
+    "latitude": 40.7745459,
+    "longitude": -73.9037477,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/380047831",
+    "name": "Brooklyn Navy Yard",
+    "latitude": 40.6993266,
+    "longitude": -73.9755562,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2019020144",
+    "name": "Dumbo",
+    "latitude": 40.7029052,
+    "longitude": -73.990118,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2510992904",
+    "name": "Columbia Street Waterfront District",
+    "latitude": 40.6872869,
+    "longitude": -74.0019197,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2511053877",
+    "name": "Koreatown",
+    "latitude": 40.7476419,
+    "longitude": -73.9865157,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2517056822",
+    "name": "Flatiron District",
+    "latitude": 40.7410722,
+    "longitude": -73.9896534,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2517057358",
+    "name": "NoHo",
+    "latitude": 40.7258746,
+    "longitude": -73.9939566,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2651270418",
+    "name": "Colgate Center",
+    "latitude": 40.713566,
+    "longitude": -74.0348267,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/2836081095",
+    "name": "Lincoln Harbor",
+    "latitude": 40.760688,
+    "longitude": -74.0227285,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/4080383997",
+    "name": "Nolan Park",
+    "latitude": 40.6898707,
+    "longitude": -74.0140597,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568321",
+    "name": "Manhattan Valley",
+    "latitude": 40.7997764,
+    "longitude": -73.9677716,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568325",
+    "name": "Carnegie Hill",
+    "latitude": 40.7841972,
+    "longitude": -73.954339,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568326",
+    "name": "Yorkville",
+    "latitude": 40.7780067,
+    "longitude": -73.9482022,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568327",
+    "name": "Lenox Hill",
+    "latitude": 40.7664366,
+    "longitude": -73.9590168,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568328",
+    "name": "Lincoln Square",
+    "latitude": 40.7723194,
+    "longitude": -73.9844012,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568329",
+    "name": "Columbus Circle",
+    "latitude": 40.7680943,
+    "longitude": -73.9818907,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568330",
+    "name": "Turtle Bay",
+    "latitude": 40.7534666,
+    "longitude": -73.9688659,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568331",
+    "name": "Midtown East",
+    "latitude": 40.7598219,
+    "longitude": -73.9724708,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568332",
+    "name": "Theater District",
+    "latitude": 40.7579801,
+    "longitude": -73.9855452,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568334",
+    "name": "Hudson Yards",
+    "latitude": 40.7559064,
+    "longitude": -74.0005322,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568335",
+    "name": "Garment District",
+    "latitude": 40.7536941,
+    "longitude": -73.9905167,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568337",
+    "name": "Gramercy",
+    "latitude": 40.7355189,
+    "longitude": -73.9840794,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568338",
+    "name": "Union Square",
+    "latitude": 40.7360717,
+    "longitude": -73.9901888,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568339",
+    "name": "NoMad",
+    "latitude": 40.7446884,
+    "longitude": -73.9882851,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568340",
+    "name": "Midtown South",
+    "latitude": 40.7498417,
+    "longitude": -73.984251,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568342",
+    "name": "Meatpacking District",
+    "latitude": 40.7408029,
+    "longitude": -74.0080691,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568343",
+    "name": "West Village",
+    "latitude": 40.7341857,
+    "longitude": -74.00558,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568344",
+    "name": "Hudson Square",
+    "latitude": 40.7268035,
+    "longitude": -74.0079833,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568345",
+    "name": "Two Bridges",
+    "latitude": 40.7112884,
+    "longitude": -73.9922333,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568346",
+    "name": "Civic Center",
+    "latitude": 40.7136793,
+    "longitude": -74.0024042,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5706568347",
+    "name": "Financial District",
+    "latitude": 40.7076681,
+    "longitude": -74.009271,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5759670105",
+    "name": "Fort Greene",
+    "latitude": 40.6907711,
+    "longitude": -73.9766245,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5967645372",
+    "name": "Newport",
+    "latitude": 40.7254782,
+    "longitude": -74.0360143,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/5967645373",
+    "name": "Downtown Jersey City",
+    "latitude": 40.7149793,
+    "longitude": -74.0358754,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/7385560930",
+    "name": "The Shades",
+    "latitude": 40.7594656,
+    "longitude": -74.0301161,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/8680776068",
+    "name": "Court Square",
+    "latitude": 40.7470782,
+    "longitude": -73.943181,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/8680776069",
+    "name": "Hunters Point",
+    "latitude": 40.7425425,
+    "longitude": -73.956635,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/8680776070",
+    "name": "Ravenswood",
+    "latitude": 40.7610409,
+    "longitude": -73.9379883,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/8680776071",
+    "name": "Queensbridge",
+    "latitude": 40.7554496,
+    "longitude": -73.9433957,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/9423354112",
+    "name": "Roosevelt Island",
+    "latitude": 40.7586767,
+    "longitude": -73.9526842,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/10316226097",
+    "name": "Whitehall",
+    "latitude": 40.7056227,
+    "longitude": -74.0133391,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11676529765",
+    "name": "Sutton",
+    "latitude": 40.7566109,
+    "longitude": -73.9618757,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11676529766",
+    "name": "Beekman",
+    "latitude": 40.7537176,
+    "longitude": -73.9650085,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11872487606",
+    "name": "The Heights",
+    "latitude": 40.7457649,
+    "longitude": -74.0494736,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11872487607",
+    "name": "Hamilton Park",
+    "latitude": 40.7262558,
+    "longitude": -74.0453249,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11872487608",
+    "name": "Downtown",
+    "latitude": 40.7372436,
+    "longitude": -74.0313804,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/11872487609",
+    "name": "Uptown",
+    "latitude": 40.7499672,
+    "longitude": -74.0274781,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "node/13971119553",
+    "name": "Seaport",
+    "latitude": 40.7072394,
+    "longitude": -74.0027434,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/244581129",
+    "name": "Brooklyn Heights",
+    "latitude": 40.6955775,
+    "longitude": -73.9952814,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/244585094",
+    "name": "Cobble Hill Historic District",
+    "latitude": 40.6873697,
+    "longitude": -73.9965045,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/244645482",
+    "name": "Carroll Gardens Historic District",
+    "latitude": 40.6800528,
+    "longitude": -73.9934464,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/244646119",
+    "name": "Boerum Hill Historic District",
+    "latitude": 40.6855404,
+    "longitude": -73.9859521,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/271286173",
+    "name": "Bushwick",
+    "latitude": 40.6964385,
+    "longitude": -73.9192219,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/325838827",
+    "name": "Middle Village",
+    "latitude": 40.7183976,
+    "longitude": -73.8822833,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/325838828",
+    "name": "Rego Park",
+    "latitude": 40.723409,
+    "longitude": -73.8627982,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/325933623",
+    "name": "Ridgewood",
+    "latitude": 40.7028453,
+    "longitude": -73.9070643,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/338075742",
+    "name": "LeFrak City",
+    "latitude": 40.7363212,
+    "longitude": -73.8623147,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/351304122",
+    "name": "Park Slope",
+    "latitude": 40.6707289,
+    "longitude": -73.9813338,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/399256097",
+    "name": "Chelsea District",
+    "latitude": 40.7471381,
+    "longitude": -73.9980827,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/435231484",
+    "name": "Fort Greene",
+    "latitude": 40.6901112,
+    "longitude": -73.9747704,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/501004935",
+    "name": "Boerum Hill",
+    "latitude": 40.6857934,
+    "longitude": -73.9852945,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/501082581",
+    "name": "Downtown Brooklyn",
+    "latitude": 40.6914533,
+    "longitude": -73.9855931,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/702492597",
+    "name": "Diamond District",
+    "latitude": 40.7573718,
+    "longitude": -73.9801578,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/736935895",
+    "name": "Flower District",
+    "latitude": 40.7465957,
+    "longitude": -73.9920009,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/753583267",
+    "name": "Greenpoint Landing",
+    "latitude": 40.7355201,
+    "longitude": -73.9604997,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/889308674",
+    "name": "Bergenline Avenue",
+    "latitude": 40.7821841,
+    "longitude": -74.0214138,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/965426139",
+    "name": "Bergenline Avenue",
+    "latitude": 40.7823037,
+    "longitude": -74.0213133,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "way/1280967989",
+    "name": "Greenpoint",
+    "latitude": 40.7289732,
+    "longitude": -73.9460045,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170591",
+    "name": "Carlstadt",
+    "latitude": 40.8280889,
+    "longitude": -74.0665952,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170592",
+    "name": "Cliffside Park",
+    "latitude": 40.820493,
+    "longitude": -73.987564,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170593",
+    "name": "Edgewater",
+    "latitude": 40.822881,
+    "longitude": -73.9743625,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170616",
+    "name": "Fairview",
+    "latitude": 40.817711,
+    "longitude": -74.002284,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170636",
+    "name": "Ridgefield",
+    "latitude": 40.8297698,
+    "longitude": -74.012157,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170706",
+    "name": "West New York",
+    "latitude": 40.7855636,
+    "longitude": -74.008306,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170707",
+    "name": "Guttenberg",
+    "latitude": 40.792429,
+    "longitude": -74.0036745,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170708",
+    "name": "Hoboken",
+    "latitude": 40.7447448,
+    "longitude": -74.0291169,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170709",
+    "name": "Union City",
+    "latitude": 40.7667435,
+    "longitude": -74.030329,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170711",
+    "name": "Secaucus",
+    "latitude": 40.7783773,
+    "longitude": -74.0639904,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/170953",
+    "name": "Jersey City",
+    "latitude": 40.7152798,
+    "longitude": -74.0686625,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/957237",
+    "name": "North Bergen",
+    "latitude": 40.7904695,
+    "longitude": -74.0208103,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/957238",
+    "name": "Weehawken",
+    "latitude": 40.7686882,
+    "longitude": -74.0171598,
+    "admin_level": "8",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7339672",
+    "name": "Manhattan Community Board 9",
+    "latitude": 40.8194467,
+    "longitude": -73.9584765,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7339673",
+    "name": "Manhattan Community Board 10",
+    "latitude": 40.8163155,
+    "longitude": -73.9461572,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7339674",
+    "name": "Manhattan Community Board 11",
+    "latitude": 40.7976862,
+    "longitude": -73.9328022,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340018",
+    "name": "Manhattan Community Board 8",
+    "latitude": 40.768753,
+    "longitude": -73.9539616,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340021",
+    "name": "Manhattan Community Board 7",
+    "latitude": 40.7880625,
+    "longitude": -73.97939,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340058",
+    "name": "Manhattan Community Board 6",
+    "latitude": 40.7424943,
+    "longitude": -73.9698449,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340060",
+    "name": "Manhattan Community Board 5",
+    "latitude": 40.7508678,
+    "longitude": -73.9826364,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340066",
+    "name": "Manhattan Community Board 4",
+    "latitude": 40.7567577,
+    "longitude": -73.9994146,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340074",
+    "name": "Manhattan Community Board 3",
+    "latitude": 40.7193497,
+    "longitude": -73.982109,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340075",
+    "name": "Manhattan Community Board 2",
+    "latitude": 40.7298442,
+    "longitude": -74.0055852,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/7340078",
+    "name": "Manhattan Community Board 1",
+    "latitude": 40.7035805,
+    "longitude": -74.0208924,
+    "admin_level": "10",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/8398098",
+    "name": "Herald Square",
+    "latitude": 40.7495406,
+    "longitude": -73.9879779,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  },
+  {
+    "subregion_id": "relation/8398104",
+    "name": "Stuy Town",
+    "latitude": 40.7317364,
+    "longitude": -73.976883,
+    "admin_level": "neighbourhood",
+    "country": "",
+    "state": "",
+    "city": ""
+  }
+]

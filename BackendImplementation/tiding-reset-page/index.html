@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reset your Tiding password</title>
+    <style>
+      :root {
+        --bg: #f3f6ff;
+        --panel: #ffffff;
+        --panel-border: #dfe7ff;
+        --text: #111827;
+        --muted: #5f6d8a;
+        --primary: #2f5ef7;
+        --primary-dark: #1c43d8;
+        --success: #1b8a5d;
+        --danger: #c2364a;
+        --shadow: rgba(20, 38, 89, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #f9fbff 0%, var(--bg) 42%, #edf2ff 100%);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 480px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 22px;
+        box-shadow: 0 18px 56px var(--shadow);
+        padding: 28px 24px 24px;
+      }
+
+      .logo-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .logo {
+        width: 74px;
+        height: 74px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #dfe7ff 0%, #c7d6ff 100%);
+        color: var(--primary-dark);
+        font-size: 26px;
+        font-weight: 800;
+        box-shadow: inset 0 0 0 1px rgba(47, 94, 247, 0.12);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.9rem, 2vw, 2.4rem);
+        text-align: center;
+        letter-spacing: -0.04em;
+      }
+
+      .subtitle {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 0.96rem;
+        line-height: 1.5;
+        text-align: center;
+      }
+
+      .rule {
+        height: 1px;
+        background: linear-gradient(to right, transparent, #dfe7ff, transparent);
+        margin: 18px 0 22px;
+      }
+
+      .field {
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid #d7dff9;
+        background: #f9faff;
+        border-radius: 12px;
+        padding: 14px 14px;
+        font-size: 1rem;
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      input:invalid {
+        border-color: var(--danger);
+      }
+
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(47, 94, 247, 0.12);
+      }
+
+      .password-guidelines {
+        margin: 4px 0 18px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #f4f7ff;
+        border: 1px solid #dfe7ff;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.5;
+      }
+
+      .button {
+        width: 100%;
+        border: 0;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        padding: 15px 18px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      .button:hover { transform: translateY(-1px); }
+      .button:active { transform: translateY(0); }
+
+      .button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .status {
+        min-height: 22px;
+        margin-top: 16px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+
+      .status.error { color: var(--danger); }
+      .status.success { color: var(--success); }
+
+      .status.inline {
+        display: none;
+      }
+
+      .footer {
+        margin-top: 20px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .link {
+        color: var(--primary-dark);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      @media (max-width: 520px) {
+        .card {
+          padding: 22px 18px 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" aria-live="polite">
+      <div class="logo-wrap">
+        <div class="logo" aria-label="Tiding logo">T</div>
+      </div>
+
+      <h1>Reset your password</h1>
+      <p class="subtitle">Create a new Tiding password and sign back in securely.</p>
+
+      <div class="rule"></div>
+
+      <div id="loading-state" class="status">Loading reset details…</div>
+
+      <form id="reset-form" style="display:none;">
+        <div class="field">
+          <label for="email">Account email</label>
+          <input id="email" name="email" type="email" readonly />
+        </div>
+
+        <div class="field">
+          <label for="newPassword">New password</label>
+          <input id="newPassword" name="newPassword" type="password" placeholder="Enter a new password" autocomplete="new-password" minlength="8" pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,}" required />
+        </div>
+
+        <div class="field">
+          <label for="confirmPassword">Confirm new password</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm your new password" autocomplete="new-password" minlength="8" pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,}" required />
+        </div>
+
+        <div class="password-guidelines">
+          Password requirements: at least 8 characters, including uppercase, lowercase, and a number.
+        </div>
+
+        <button type="submit" class="button" id="submitButton">Reset password</button>
+      </form>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <div class="footer">
+        Need help? <a class="link" href="mailto:support@tiding.app">Contact Tiding support</a>
+      </div>
+    </main>
+
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js';
+      import { getAuth, verifyPasswordResetCode, confirmPasswordReset } from 'https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: 'YOUR_API_KEY',
+        authDomain: 'YOUR_PROJECT.firebaseapp.com',
+        projectId: 'YOUR_PROJECT_ID',
+        appId: 'YOUR_APP_ID'
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      const statusEl = document.getElementById('status');
+      const loadingState = document.getElementById('loading-state');
+      const resetForm = document.getElementById('reset-form');
+      const emailInput = document.getElementById('email');
+      const newPasswordInput = document.getElementById('newPassword');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      const submitButton = document.getElementById('submitButton');
+
+      function setStatus(message, type = '') {
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`.trim();
+      }
+
+      function isStrongPassword(password) {
+        if (password.length < 8) return false;
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        return hasUppercase && hasLowercase && hasNumber;
+      }
+
+      function validatePasswordField(input) {
+        if (!input.value) {
+          input.setCustomValidity('Password is required.');
+          return;
+        }
+
+        if (!isStrongPassword(input.value)) {
+          input.setCustomValidity('Use 8+ characters with upper and lowercase letters and at least one number.');
+          return;
+        }
+
+        input.setCustomValidity('');
+      }
+
+      newPasswordInput.addEventListener('input', () => validatePasswordField(newPasswordInput));
+      confirmPasswordInput.addEventListener('input', () => validatePasswordField(confirmPasswordInput));
+
+      const params = new URLSearchParams(window.location.search);
+      const oobCode = params.get('oobCode');
+
+      if (!oobCode) {
+        loadingState.style.display = 'none';
+        setStatus('This reset link is invalid or expired. Please request another password reset email.', 'error');
+        return;
+      }
+
+      verifyPasswordResetCode(auth, oobCode)
+        .then((email) => {
+          emailInput.value = email;
+          loadingState.style.display = 'none';
+          resetForm.style.display = 'block';
+        })
+        .catch(() => {
+          loadingState.style.display = 'none';
+          setStatus('This password reset link is invalid or has expired. Please request a new one.', 'error');
+        });
+
+      resetForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const newPassword = newPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        if (!newPassword || !confirmPassword) {
+          setStatus('Please enter and confirm your new password.', 'error');
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          setStatus('The passwords do not match. Please try again.', 'error');
+          return;
+        }
+
+        if (!isStrongPassword(newPassword)) {
+          setStatus('Password must be 8 or more characters with uppercase, lowercase, and a number.', 'error');
+          return;
+        }
+
+        if (!isStrongPassword(confirmPassword)) {
+          setStatus('Password must be 8 or more characters with uppercase, lowercase, and a number.', 'error');
+          return;
+        }
+
+        submitButton.disabled = true;
+        setStatus('Updating your password…', '');
+
+        try {
+          await confirmPasswordReset(auth, oobCode, newPassword);
+          setStatus('Your Tiding password has been reset successfully. You can now sign in with your new password.', 'success');
+          resetForm.style.display = 'none';
+          submitButton.disabled = false;
+        } catch (error) {
+          setStatus(error.message || 'Something went wrong while resetting your password.', 'error');
+          submitButton.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

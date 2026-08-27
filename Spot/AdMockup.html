@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spot App Preview</title>
+    <style>
+      :root {
+        --spot-blue: #4a7df8;
+        --spot-purple: #7b5ef8;
+        --spot-beige: #f4ecdf;
+        --spot-ink: #111827;
+        --spot-muted: #667085;
+        --spot-stroke: rgba(17, 24, 39, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 12% 16%, rgba(255,255,255,0.9), transparent 20%),
+          radial-gradient(circle at 85% 14%, rgba(122, 139, 255, 0.12), transparent 18%),
+          linear-gradient(135deg, #eef3ff 0%, #e7ebff 32%, #f8f0ea 100%);
+        color: var(--spot-ink);
+      }
+
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+      }
+
+      .browser-shell {
+        width: min(94vw, 1180px);
+        min-height: 780px;
+        padding: 18px 20px 20px;
+        border-radius: 30px;
+        background: rgba(255,255,255,0.58);
+        border: 1px solid rgba(148,163,184,0.18);
+        box-shadow: 0 34px 80px rgba(51, 65, 85, 0.14);
+        backdrop-filter: blur(12px);
+      }
+
+      .browser-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 2px 8px 18px;
+      }
+
+      .window-controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .window-controls span {
+        display: block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .window-controls span:nth-child(1) { background: #ff6a5f; }
+      .window-controls span:nth-child(2) { background: #ffbd43; }
+      .window-controls span:nth-child(3) { background: #2acb46; }
+
+      .address-bar {
+        flex: 1;
+        margin-left: 10px;
+        height: 34px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.74);
+        border: 1px solid rgba(148,163,184,0.16);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(55,65,81,0.82);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 700px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 30px;
+        overflow: hidden;
+        padding: 12px 20px 0;
+      }
+
+      .spot-bg-word {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        pointer-events: none;
+        opacity: 0.8;
+      }
+
+      .spot-bg-word span {
+        font-size: clamp(110px, 20vw, 280px);
+        letter-spacing: -0.12em;
+        text-transform: lowercase;
+        font-weight: 900;
+        background: linear-gradient(135deg, rgba(74,125,248,0.14), rgba(123,94,248,0.18));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        transform: rotate(-18deg) translateY(12px);
+      }
+
+      .story-panel {
+        position: relative;
+        z-index: 2;
+        width: min(42vw, 430px);
+        margin-left: 16px;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(17,24,39,0.72);
+        color: white;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .story-panel h1 {
+        margin: 16px 0 14px;
+        font-size: clamp(42px, 4vw, 64px);
+        line-height: 0.92;
+        letter-spacing: -0.08em;
+      }
+
+      .story-panel p {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.55;
+        max-width: 340px;
+        color: rgba(17,24,39,0.72);
+      }
+
+      .waterfall {
+        position: relative;
+        margin-top: 28px;
+        padding: 18px 0 8px;
+        height: 260px;
+        overflow: hidden;
+        border-left: 1px solid rgba(17,24,39,0.08);
+        padding-left: 16px;
+      }
+
+      .waterfall::before {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(180deg, rgba(74,125,248,0), rgba(74,125,248,0.5), rgba(123,94,248,0));
+        box-shadow: 0 0 22px rgba(95,140,255,0.26);
+      }
+
+      .waterfall-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 10px 0;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: rgba(17,24,39,0.36);
+        animation: flowIn 1.8s ease-out forwards;
+        opacity: 0;
+        transform: translateX(18px);
+      }
+
+      .waterfall-row:nth-child(1) { animation-delay: 0.2s; }
+      .waterfall-row:nth-child(2) { animation-delay: 0.5s; }
+      .waterfall-row:nth-child(3) { animation-delay: 0.8s; }
+      .waterfall-row:nth-child(4) { animation-delay: 1.1s; }
+      .waterfall-row:nth-child(5) { animation-delay: 1.4s; }
+
+      .waterfall-row .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--spot-blue), var(--spot-purple));
+        box-shadow: 0 0 14px rgba(74,125,248,0.55);
+      }
+
+      .waterfall-row strong {
+        color: rgba(17,24,39,0.9);
+      }
+
+      .app-store-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .store-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.75);
+        border: 1px solid rgba(17,24,39,0.06);
+        box-shadow: 0 12px 22px rgba(17,24,39,0.07);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .store-pill .mini-mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #000, #1f2937);
+        position: relative;
+      }
+
+      .store-pill .mini-mark::before {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #fff, rgba(255,255,255,0.5));
+      }
+
+      .phone-wrap {
+        position: relative;
+        z-index: 2;
+        width: 430px;
+        height: 760px;
+        flex-shrink: 0;
+        transform: perspective(1200px) rotateX(7deg) rotateY(-9deg) scale(0.96);
+        animation: dramaticZoom 9s ease-in-out infinite;
+        filter: drop-shadow(0 24px 50px rgba(17, 24, 39, 0.18));
+      }
+
+      .phone {
+        width: 100%;
+        height: 100%;
+        background: #0c1325;
+        border-radius: 42px;
+        padding: 14px;
+        box-shadow:
+          0 42px 90px rgba(17,24,39,0.2),
+          inset 0 0 0 2px rgba(255,255,255,0.12),
+          inset 0 0 0 6px rgba(0,0,0,0.12);
+      }
+
+      .screen {
+        width: 100%;
+        height: 100%;
+        border-radius: 30px;
+        background: linear-gradient(180deg, rgba(248,250,255,1), rgba(242,245,250,1));
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(148,163,184,0.24);
+      }
+
+      .status-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--spot-ink);
+      }
+
+      .signal {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .signal .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--spot-ink);
+      }
+
+      .signal .dot:nth-child(2) {
+        width: 18px;
+        height: 10px;
+        border-radius: 999px;
+        position: relative;
+      }
+
+      .signal .dot:nth-child(2)::after {
+        content: "";
+        position: absolute;
+        inset: 2px 3px;
+        background: #f3f5fb;
+        border-radius: inherit;
+      }
+
+      .screen-content {
+        padding: 0 14px 18px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 4px 2px 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+      }
+
+      .brand-mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, var(--spot-blue), var(--spot-purple));
+        position: relative;
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18);
+      }
+
+      .brand-mark::before {
+        content: "";
+        position: absolute;
+        inset: 7px;
+        border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.92);
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .mini-action {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(17,24,39,0.04);
+        box-shadow: 0 10px 22px rgba(17,24,39,0.03);
+      }
+
+      .filter-row {
+        display: flex;
+        gap: 8px;
+        padding-bottom: 12px;
+      }
+
+      .filter-pill {
+        flex: 1;
+        padding: 9px 10px;
+        border-radius: 999px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        background: rgba(97,120,255,0.08);
+        color: var(--spot-muted);
+      }
+
+      .filter-pill.active {
+        background: linear-gradient(135deg, var(--spot-blue), var(--spot-purple));
+        color: white;
+        box-shadow: 0 12px 24px rgba(89,104,255,0.22);
+      }
+
+      .post-card {
+        background: rgba(255,255,255,0.83);
+        border: 1px solid var(--spot-stroke);
+        border-radius: 24px;
+        padding: 12px;
+        box-shadow: 0 18px 32px rgba(17,24,39,0.04);
+      }
+
+      .post-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+      }
+
+      .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #dfe7ff, #cabef8);
+        position: relative;
+      }
+
+      .avatar::before {
+        content: "MC";
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-size: 9px;
+        font-weight: 800;
+        color: rgba(17,24,39,0.7);
+      }
+
+      .post-meta {
+        flex: 1;
+      }
+
+      .post-meta strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .post-meta span {
+        display: block;
+        font-size: 11px;
+        color: var(--spot-muted);
+      }
+
+      .location-badge {
+        background: rgba(74,125,248,0.12);
+        color: #2f5de9;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 7px 10px;
+      }
+
+      .photo {
+        position: relative;
+        height: 270px;
+        border-radius: 22px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(99,120,255,0.15), rgba(17,24,39,0.25)),
+          linear-gradient(135deg, #dfe7ff 0%, #7aa2ff 35%, #7b5ef8 100%);
+      }
+
+      .photo::before {
+        content: "";
+        position: absolute;
+        right: 18px;
+        top: 18px;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.14);
+        box-shadow: 0 0 0 26px rgba(255,255,255,0.05), 0 0 0 42px rgba(255,255,255,0.03);
+      }
+
+      .photo::after {
+        content: "";
+        position: absolute;
+        left: -24px;
+        bottom: -34px;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+      }
+
+      .photo-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 16px;
+      }
+
+      .photo-caption {
+        color: white;
+        font-size: 15px;
+        font-weight: 800;
+        text-shadow: 0 2px 18px rgba(17,24,39,0.2);
+        max-width: 180px;
+      }
+
+      .photo-tag {
+        background: rgba(17,24,39,0.18);
+        color: white;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        backdrop-filter: blur(8px);
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 12px;
+        color: var(--spot-muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .stats {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .mini-block {
+        width: 13px;
+        height: 13px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, rgba(74,125,248,0.18), rgba(123,94,248,0.22));
+      }
+
+      .mini-block.trend {
+        border-radius: 999px;
+        position: relative;
+      }
+
+      .mini-block.trend::before {
+        content: "";
+        position: absolute;
+        left: 2px;
+        right: 2px;
+        bottom: 3px;
+        height: 6px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(74,125,248,0.2), rgba(123,94,248,0.7));
+        clip-path: polygon(0 68%, 15% 52%, 34% 64%, 50% 38%, 66% 58%, 78% 32%, 100% 18%, 100% 100%, 0% 100%);
+      }
+
+      .location-card {
+        padding: 14px 12px 16px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #4a7df8, #7b5ef8);
+        color: white;
+        box-shadow: 0 24px 36px rgba(74,125,248,0.22);
+      }
+
+      .location-card .eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.82;
+      }
+
+      .location-card h3 {
+        margin: 10px 0 6px;
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -0.06em;
+      }
+
+      .location-card p {
+        margin: 0;
+        font-size: 12px;
+        opacity: 0.86;
+      }
+
+      .location-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .location-tile {
+        padding: 13px 10px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(17,24,39,0.05);
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--spot-ink);
+      }
+
+      .location-tile.active {
+        background: linear-gradient(135deg, #4a7df8, #7b5ef8);
+        color: white;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.8);
+        border: 1px solid rgba(148,163,184,0.16);
+        box-shadow: 0 16px 32px rgba(15,23,42,0.08);
+        padding: 10px 10px 12px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+      }
+
+      .nav-item {
+        height: 42px;
+        border-radius: 12px;
+        position: relative;
+      }
+
+      .nav-item.active {
+        background: linear-gradient(135deg, rgba(74,125,248,0.12), rgba(123,94,248,0.15));
+      }
+
+      .nav-item::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: linear-gradient(135deg, rgba(74,125,248,0.3), rgba(123,94,248,0.26));
+      }
+
+      .home-indicator {
+        position: absolute;
+        left: 50%;
+        bottom: 8px;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(17,24,39,0.62);
+      }
+
+      .cta-banner {
+        position: absolute;
+        left: 26px;
+        right: 26px;
+        bottom: 78px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .cta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(17,24,39,0.82);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        box-shadow: 0 18px 26px rgba(17,24,39,0.18);
+        animation: buttonPulse 9s ease-in-out infinite;
+      }
+
+      .cta-pill .mark {
+        width: 16px;
+        height: 16px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #fff, rgba(255,255,255,0.42));
+        position: relative;
+      }
+
+      .cta-pill .mark::before {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, var(--spot-blue), var(--spot-purple));
+      }
+
+      @keyframes dramaticZoom {
+        0%, 18% {
+          transform: perspective(1200px) rotateX(7deg) rotateY(-9deg) scale(0.96) translateX(-12px) translateY(0);
+        }
+        30%, 48% {
+          transform: perspective(1200px) rotateX(6deg) rotateY(-7deg) scale(1.08) translateX(12px) translateY(-10px);
+        }
+        60%, 76% {
+          transform: perspective(1200px) rotateX(4deg) rotateY(-5deg) scale(1.18) translateX(24px) translateY(-14px);
+        }
+        100% {
+          transform: perspective(1200px) rotateX(8deg) rotateY(-6deg) scale(1.06) translateX(10px) translateY(-6px);
+        }
+      }
+
+      @keyframes flowIn {
+        0% { opacity: 0; transform: translateX(18px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+
+      @keyframes buttonPulse {
+        0%, 18%, 100% { transform: scale(1); box-shadow: 0 18px 26px rgba(17,24,39,0.18); }
+        32%, 42% { transform: scale(1.08); box-shadow: 0 26px 34px rgba(74,125,248,0.3); }
+        52% { transform: scale(1.12); box-shadow: 0 28px 38px rgba(123,94,248,0.36); }
+      }
+
+      @media (max-width: 980px) {
+        .stage {
+          flex-direction: column-reverse;
+          justify-content: center;
+          padding-top: 20px;
+        }
+
+        .story-panel {
+          width: min(80vw, 520px);
+          margin-left: 0;
+          text-align: center;
+        }
+
+        .story-panel p {
+          max-width: 420px;
+          margin: 0 auto;
+        }
+
+        .waterfall {
+          margin: 18px auto 0;
+          max-width: 360px;
+          text-align: left;
+        }
+
+        .app-store-row {
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-shell">
+      <div class="browser-bar">
+        <div class="window-controls"><span></span><span></span><span></span></div>
+        <div class="address-bar">spot.app</div>
+      </div>
+
+      <div class="stage">
+        <div class="spot-bg-word"><span>spot</span></div>
+
+        <div class="story-panel">
+          <div class="eyebrow">The city moves with you</div>
+          <h1>Tap a place.<br>Watch the city change.</h1>
+          <p>Spot uses your location to refresh the feed, surface new nearby moments, and build a more real version of the world around you.</p>
+
+          <div class="waterfall">
+            <div class="waterfall-row"><span class="dot"></span><span>Change <strong>location</strong></span></div>
+            <div class="waterfall-row"><span class="dot"></span><span>AI refreshes the <strong>feed</strong></span></div>
+            <div class="waterfall-row"><span class="dot"></span><span>Nearby creators <strong>shift</strong></span></div>
+            <div class="waterfall-row"><span class="dot"></span><span>Fresh stories <strong>appear</strong></span></div>
+            <div class="waterfall-row"><span class="dot"></span><span>Save the moments <strong>worth keeping</strong></span></div>
+          </div>
+
+          <div class="app-store-row">
+            <div class="store-pill"><span class="mini-mark"></span> App Store</div>
+            <div class="store-pill"><span class="mini-mark"></span> Play</div>
+          </div>
+        </div>
+
+        <div class="phone-wrap">
+          <div class="phone">
+            <div class="screen">
+              <div class="status-bar">
+                <span>9:41</span>
+                <div class="signal"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+              </div>
+
+              <div class="screen-content">
+                <div class="header-row">
+                  <div class="brand">
+                    <div class="brand-mark"></div>
+                    <span>SPOT</span>
+                  </div>
+                  <div class="header-actions">
+                    <div class="mini-action"></div>
+                    <div class="mini-action"></div>
+                  </div>
+                </div>
+
+                <div class="filter-row">
+                  <div class="filter-pill active">Nearby</div>
+                  <div class="filter-pill">Following</div>
+                  <div class="filter-pill">Video</div>
+                </div>
+
+                <div class="post-card">
+                  <div class="post-head">
+                    <div class="avatar"></div>
+                    <div class="post-meta">
+                      <strong>Maya Chen</strong>
+                      <span>@maya</span>
+                    </div>
+                    <div class="location-badge">Tokyo</div>
+                  </div>
+
+                  <div class="photo">
+                    <div class="photo-overlay">
+                      <div class="photo-caption">Sunrise run over the rooftops</div>
+                      <div class="photo-tag">Photo</div>
+                    </div>
+                  </div>
+
+                  <div class="stat-row">
+                    <div class="stats">
+                      <div class="stat-item"><span class="mini-block"></span> 182</div>
+                      <div class="stat-item"><span class="mini-block trend"></span> 2.1k</div>
+                      <div class="stat-item"><span class="mini-block"></span> 48</div>
+                    </div>
+                    <div>Saved</div>
+                  </div>
+                </div>
+
+                <div style="margin-top: 14px;">
+                  <div class="location-card">
+                    <div class="eyebrow">My area</div>
+                    <h3>Temple Square</h3>
+                    <p>Nearest location updates the feed instantly.</p>
+                  </div>
+                  <div class="location-grid">
+                    <div class="location-tile">City Creek</div>
+                    <div class="location-tile active">Temple</div>
+                    <div class="location-tile">Liberty</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cta-banner">
+                <div class="cta-pill"><span class="mark"></span> DOWNLOAD</div>
+              </div>
+
+              <div class="bottom-nav">
+                <div class="nav-item active"></div>
+                <div class="nav-item"></div>
+                <div class="nav-item"></div>
+                <div class="nav-item"></div>
+                <div class="nav-item"></div>
+              </div>
+              <div class="home-indicator"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,190 @@
+region_id,name,latitude,longitude,admin_level,boundary,place,country,state,county,city,parent_name,source_type
+node/28094136,Schöneberg,52.482157,13.3551901,suburb,,suburb,,,,,,node
+node/28891708,Wilmersdorf,52.4871152,13.3203298,suburb,,suburb,,,,,,node
+node/29336704,Charlottenburg,52.515747,13.3096834,suburb,,suburb,,,,,,node
+node/31901452,Friedenau,52.472075,13.3296424,suburb,,suburb,,,,,,node
+node/129875262,Neukölln,52.4811497,13.4353501,suburb,,suburb,,,,,,node
+node/159769182,Wedding,52.548949,13.3481653,suburb,,suburb,,,,,,node
+node/160330614,Tiergarten,52.5097776,13.3572597,suburb,,suburb,,,,,,node
+node/160332579,Hansaviertel,52.5191234,13.3418725,suburb,,suburb,,,,,,node
+node/162012321,Mitte,52.5178855,13.4040601,suburb,,suburb,,,,,,node
+node/163852973,Prenzlauer Berg,52.5398466,13.4285652,suburb,,suburb,,,,,,node
+node/240109189,Berlin,52.5173885,13.3951309,2,,city,,,,,,node
+node/261713255,Alt-Treptow,52.4925634,13.4598743,suburb,,suburb,,,,,,node
+node/261713413,Plänterwald,52.4795439,13.4788076,suburb,,suburb,,,,,,node
+node/262328057,Friedrichshain,52.5122154,13.4502904,suburb,,suburb,,,,,,node
+node/262328235,Kreuzberg,52.4976443,13.411914,suburb,,suburb,,,,,,node
+node/288784639,Rummelsburg,52.5013696,13.4835143,suburb,,suburb,,,,,,node
+node/331139102,Lichtenberg,52.5196723,13.4950457,suburb,,suburb,,,,,,node
+node/539359809,Friedrichswerder,52.5144976,13.3981483,neighbourhood,,neighbourhood,,,,,"Mitte,Berlin,Bundesrepublik Deutschland,Europe",node
+node/539360863,Dorotheenstadt,52.5186609,13.3884475,quarter,,quarter,,,,,"Mitte,Berlin,Bundesrepublik Deutschland,Europe",node
+node/539362369,Friedrichstadt,52.5097492,13.3899039,quarter,,quarter,,,,,,node
+node/539362678,Luisenstadt,52.5071836,13.4158801,quarter,,quarter,,,,,,node
+node/539368274,Spandauer Vorstadt,52.5257512,13.3995437,quarter,,quarter,,,,,,node
+node/539369165,Scheunenviertel,52.5258075,13.4078674,neighbourhood,,neighbourhood,,,,,,node
+node/560483807,Fennpfuhl,52.5287849,13.4734687,suburb,,suburb,,,,,,node
+node/599873093,Rixdorf,52.4740949,13.4456092,neighbourhood,,neighbourhood,,,,,,node
+node/1676562755,Moabit,52.5301017,13.3425422,suburb,,suburb,,,,,,node
+node/1804865341,Donaukiez,52.4835032,13.4338689,quarter,,quarter,,,,,,node
+node/1804865347,Flughafenkiez,52.4816604,13.4299452,quarter,,quarter,,,,,,node
+node/1804865359,Kungerkiez,52.4901999,13.4473739,quarter,,quarter,,,,,,node
+node/1804865368,Reuterkiez,52.4894373,13.4296256,quarter,,quarter,,,,,,node
+node/1804865381,Rollbergsiedlung,52.4768683,13.4330137,neighbourhood,,neighbourhood,,,,,,node
+node/1922499184,Komponistenviertel,52.5483207,13.4576533,quarter,,quarter,,,,,,node
+node/2752426709,Sprengelkiez,52.542215,13.3569798,quarter,,quarter,Germany,,,Berlin,Germany,node
+node/3101857107,Stadtquartier Friesenstraße,52.4854071,13.3927488,neighbourhood,,neighbourhood,,,,,,node
+node/3123699877,Kollwitzkiez,52.5345764,13.4189248,quarter,,quarter,,,,,,node
+node/3652643276,Brüsseler Kiez,52.5463445,13.3519756,quarter,,quarter,Germany,,,Berlin,Germany,node
+node/4387465357,Richardkiez,52.4737043,13.4454067,neighbourhood,,neighbourhood,,,,,,node
+node/4794919616,Schillerkiez,52.4764958,13.4222776,quarter,,quarter,,,,,,node
+node/4954405525,Fischerinsel,52.5134456,13.4073396,neighbourhood,,neighbourhood,,,,,,node
+node/5403335362,Weiße Siedlung,52.4740602,13.4656548,quarter,,quarter,,,,,,node
+node/5517068913,Böhmisches Dorf,52.475977,13.4446226,neighbourhood,,neighbourhood,,,,,,node
+node/6033605691,Gartenstadt Neu-Tempelhof,52.476357,13.3813229,quarter,,quarter,,,,,,node
+node/6313592834,Stralau,52.4950522,13.4711809,quarter,,quarter,,,,,,node
+node/6783018598,Botschaftsviertel,52.5079104,13.3547881,neighbourhood,,neighbourhood,,,,,,node
+node/7342844217,Grüne Stadt,52.535497,13.4391909,quarter,,quarter,,,,,,node
+node/7342844218,Winsviertel,52.5344232,13.4257148,quarter,,quarter,,,,,,node
+node/7342844219,Blumenviertel,52.534166,13.4581585,neighbourhood,,neighbourhood,,,,,,node
+node/7342877854,Bötzowkiez,52.5319119,13.4343307,quarter,,quarter,,,,,,node
+node/7342896739,Barnimkiez,52.5256199,13.4250661,neighbourhood,,neighbourhood,,,,,,node
+node/7342896740,Hausburgviertel,52.5235608,13.4528422,quarter,,quarter,,,,,,node
+node/7342896741,Samariterviertel,52.5172826,13.4655019,quarter,,quarter,,,,,,node
+node/7728505225,Gleimviertel,52.5472703,13.4076092,quarter,,quarter,,,,,,node
+node/7775729029,Rote Insel,52.4830737,13.3617755,quarter,,quarter,,,,,,node
+node/9735752813,Helmholtzkiez,52.5430391,13.4190319,quarter,,quarter,,,,,,node
+node/11033146684,Europacity,52.5288986,13.3691898,quarter,,quarter,,,,,,node
+node/11139487334,Mühlenviertel,52.5422576,13.447215,quarter,,quarter,,,,,,node
+node/11271428129,Bremer Höhe,52.5446141,13.4143726,neighbourhood,,neighbourhood,,,,,,node
+node/11331294668,Maxgärten,52.549632,13.3665641,neighbourhood,,neighbourhood,,,,,,node
+node/12066355907,Rudolfkiez,52.5007995,13.4578935,quarter,,quarter,,,,,,node
+node/12095976198,Weitlingkiez,52.5054591,13.4999573,quarter,,quarter,,,,,,node
+node/12496255352,Harzer Kiez,52.4806656,13.4517349,neighbourhood,,neighbourhood,,,,,,node
+node/13051031079,Wohnstadt Carl Legien,52.546565,13.4327982,neighbourhood,,neighbourhood,,,,,,node
+node/13082774937,Spring-Siedlung,52.5009525,13.3995407,neighbourhood,,neighbourhood,,,,,,node
+node/13087913821,Friedrich-Wilhelm-Stadt,52.5227061,13.3794347,quarter,,quarter,,,,,,node
+node/13087984392,Göhrener Ei,52.5409692,13.4213227,neighbourhood,,neighbourhood,,,,,,node
+node/13087992952,Nikolaiviertel,52.5167871,13.4067728,neighbourhood,,neighbourhood,,,,,,node
+node/13088029998,City West,52.5042441,13.3353152,neighbourhood,,neighbourhood,,,,,,node
+node/13089257686,Rosenthaler Vorstadt,52.5312541,13.4024541,quarter,,quarter,,,,,,node
+node/13089313371,Stralauer Vorstadt,52.5182175,13.4239788,neighbourhood,,neighbourhood,,,,,,node
+node/13089313413,Neu-Cölln am Wasser,52.5128099,13.4114021,neighbourhood,,neighbourhood,,,,,,node
+node/13089315989,Königsstadt,52.5254098,13.4202287,neighbourhood,,neighbourhood,,,,,,node
+node/13089332817,Oranienburger Vorstadt,52.5320896,13.3884823,quarter,,quarter,,,,,,node
+node/13089349308,Boxhagener Kiez,52.5105879,13.4604008,quarter,,quarter,,,,,,node
+node/13089364932,Rummelsburger Ufer,52.4985244,13.4797821,neighbourhood,,neighbourhood,,,,,,node
+node/13089408452,Hohenschönhausen II,52.5491473,13.4973138,neighbourhood,,neighbourhood,,,,,,node
+node/13089415576,Flusspferdhofsiedlung,52.5383267,13.490245,neighbourhood,,neighbourhood,,,,,,node
+node/13089431081,Villenviertel am Orankesee,52.5482834,13.4851152,neighbourhood,,neighbourhood,,,,,,node
+node/13089447773,Märkisches Viertel,52.5398785,13.4922888,quarter,,quarter,,,,,,node
+node/13089468803,Wilhelmsberg,52.5354851,13.4751867,neighbourhood,,neighbourhood,,,,,,node
+node/13093250593,Graefekiez,52.4910072,13.4160489,quarter,,quarter,,,,,,node
+node/13093276664,Zeitungsviertel,52.5029618,13.3910599,quarter,,quarter,,,,,,node
+node/13093292192,Bergmannkiez,52.489989,13.3922299,quarter,,quarter,,,,,,node
+node/13093298413,Wrangelkiez,52.4986659,13.4435948,quarter,,quarter,,,,,,node
+node/13094581146,Frankfurter Allee Süd,52.5107628,13.4808074,neighbourhood,,neighbourhood,,,,,,node
+node/13094643897,Victoriastadt,52.504859,13.4766102,quarter,,quarter,,,,,,node
+node/13094644685,Bornitz-Viertel,52.5197665,13.4904415,neighbourhood,,neighbourhood,,,,,,node
+node/13095318904,Körnerkiez,52.4705678,13.4361664,quarter,,quarter,,,,,,node
+node/13102235754,Eldenaer Viertel,52.520967,13.4650011,quarter,,quarter,,,,,,node
+node/13102715375,Akazienkiez,52.4873874,13.3500605,quarter,,quarter,,,,,,node
+node/13102718788,Bayerisches Viertel,52.4899521,13.339562,quarter,,quarter,,,,,,node
+node/13102724025,Ceciliengärten,52.4740517,13.3417722,neighbourhood,,neighbourhood,,,,,,node
+node/13102726250,Kielgan-Viertel,52.5019368,13.3543221,neighbourhood,,neighbourhood,,,,,,node
+node/13102732793,Winterfeldtkiez,52.4958613,13.3544784,neighbourhood,,neighbourhood,,,,,,node
+node/13102733839,Nollendorfkiez,52.497797,13.3517244,quarter,,quarter,,,,,,node
+node/13102741709,Friedenauer Höhe,52.4774981,13.3383751,neighbourhood,,neighbourhood,,,,,,node
+node/13104628397,Westfälisches Viertel,52.5235316,13.3379977,quarter,,quarter,,,,,,node
+node/13104629500,Beusselkiez,52.5293987,13.3280819,quarter,,quarter,,,,,,node
+node/13104633993,Manfred-von-Richthofen-Kiez,52.4841327,13.3834186,neighbourhood,,neighbourhood,,,,,,node
+node/13104642121,Lützowviertel,52.5040752,13.3577013,neighbourhood,,neighbourhood,,,,,,node
+node/13104652169,Alt-Moabit,52.5260718,13.3389825,neighbourhood,,neighbourhood,,,,,,node
+node/13104663781,Stephankiez,52.5329647,13.3465997,quarter,,quarter,,,,,,node
+node/13104677763,Huttenkiez,52.5284606,13.3180735,quarter,,quarter,,,,,,node
+node/13111103411,Rheingauviertel,52.473055,13.3158271,quarter,,quarter,,,,,,node
+node/13111157566,BerlinCampus,52.4947245,13.485594,neighbourhood,,neighbourhood,,,,,,node
+node/13111170073,Crellekiez,52.4900422,13.3610566,quarter,,quarter,,,,,,node
+node/13111194007,Andreasviertel,52.5151063,13.4325539,quarter,,quarter,,,,,,node
+node/13111200812,Richard-Sorge-Viertel,52.521266,13.4475445,quarter,,quarter,,,,,,node
+node/13111205394,Charitéviertel,52.5280599,13.3785049,quarter,,quarter,,,,,,node
+node/13111229253,Tempelhofer Vorstadt,52.4951294,13.3906572,quarter,,quarter,,,,,,node
+node/13111235715,Chamissokiez,52.4879987,13.3910976,neighbourhood,,neighbourhood,,,,,,node
+node/13111239016,Heine-Viertel,52.5084063,13.4130244,neighbourhood,,neighbourhood,,,,,,node
+node/13111275664,Mediaspree,52.5040801,13.4449801,quarter,,quarter,,,,,,node
+node/13140901190,Arkonakiez,52.5374964,13.4017754,quarter,,quarter,,,,,,node
+node/13164767592,Güntzelkiez,52.4899719,13.3247822,quarter,,quarter,,,,,,node
+node/13164799547,Alt-Lietzow,52.5180943,13.3121275,quarter,,quarter,,,,,,node
+node/13164825620,Fasanenkiez,52.4976812,13.3212689,quarter,,quarter,,,,,,node
+node/13164834908,Wilhelmsaue,52.4852694,13.3257615,neighbourhood,,neighbourhood,,,,,,node
+node/13168470742,Wagnerviertel,52.475699,13.3306083,neighbourhood,,neighbourhood,,,,,,node
+node/13168472416,Spreestadt Charlottenburg,52.5184751,13.3261075,quarter,,quarter,,,,,,node
+node/13172123797,Ernst-Reuter-Siedlung,52.5367004,13.3869856,neighbourhood,,neighbourhood,,,,,,node
+node/13172163584,Brunnenviertel,52.5425095,13.3905121,quarter,,quarter,,,,,,node
+node/13315447171,Schöneberger Dreieck,52.4798198,13.3485423,neighbourhood,,neighbourhood,,,,,,node
+node/13539068085,Jesselkiez,52.4898348,13.3188007,neighbourhood,,neighbourhood,,,,,,node
+node/13539094457,Reichenberger kiez,52.4958271,13.4298976,quarter,,quarter,,,,,,node
+node/13539105263,Lehrter Kiez,52.5267147,13.3611027,neighbourhood,,neighbourhood,,,,,,node
+node/13539128005,Travekiez,52.5113733,13.4708722,quarter,,quarter,,,,,,node
+node/13539131763,Laskerkiez,52.4999047,13.4629443,neighbourhood,,neighbourhood,,,,,,node
+node/13539138428,Weserkiez,52.4833467,13.4431701,quarter,,quarter,,,,,,node
+node/13539143042,Gierkekiez,52.5149784,13.3009722,neighbourhood,,neighbourhood,,,,,,node
+node/13539144110,Möckernkiez,52.4962981,13.3830264,neighbourhood,,neighbourhood,,,,,,node
+node/13539159937,Ritterkiez,52.5030764,13.4045973,neighbourhood,,neighbourhood,,,,,,node
+node/13539165836,Antonkiez,52.5467652,13.365501,quarter,,quarter,,,,,,node
+node/13539171598,Humann-Kiez,52.5499236,13.422128,quarter,,quarter,,,,,,node
+node/13539181372,Arminiuskiez,52.5288427,13.3354628,quarter,,quarter,,,,,,node
+node/13582998301,Monumentenkiez,52.4882401,13.369103,neighbourhood,,neighbourhood,,,,,,node
+node/13883710971,Pandion Midtown,52.5225618,13.4381129,neighbourhood,,neighbourhood,,,,,,node
+node/14103066279,Klosterviertel,52.5174318,13.4122942,neighbourhood,,neighbourhood,,,,,,node
+way/148822171,Viktoria-Quartier,52.4865554,13.3817687,neighbourhood,,neighbourhood,,,,,,way
+way/197860250,Sewanviertel,52.4983089,13.5091793,neighbourhood,,neighbourhood,,,,,,way
+way/266834988,Möckernkiez,52.4927623,13.3777594,neighbourhood,,neighbourhood,,,,,,way
+way/310847591,Riehmers Hofgarten,52.4924786,13.3842007,neighbourhood,,neighbourhood,,,,,,way
+way/437672226,Komponistenviertel,52.5481648,13.4579595,neighbourhood,,neighbourhood,,,,,,way
+way/572868369,Heinrich-Zille-Siedlung,52.5253809,13.3598632,neighbourhood,,neighbourhood,,,,,,way
+way/759067198,Westfälisches Viertel,52.522734,13.338712,neighbourhood,,neighbourhood,,,,,,way
+way/1185496624,Brunnenviertel,52.541026,13.3906295,neighbourhood,,neighbourhood,,,,,,way
+way/1510459881,Moabiter Werder,52.5201195,13.3598172,quarter,,quarter,,,,,,way
+way/1534816638,Helmholtzkiez,52.5434885,13.4198087,quarter,,quarter,,,,,,way
+relation/16334,Reinickendorf,52.6047741,13.2954497,9,administrative,,,,,,,relation
+relation/16346,Charlottenburg-Nord,52.5395127,13.2995562,10,administrative,,,,,,,relation
+relation/16347,Mitte,52.5331946,13.3654696,9,administrative,,,,,,,relation
+relation/16566,Mitte,52.5222192,13.3976503,10,administrative,,,,,,,relation
+relation/16567,Hansaviertel,52.5182272,13.3422696,10,administrative,,,,,,,relation
+relation/28267,Wedding,52.5500611,13.338231,10,administrative,,,,,,,relation
+relation/28339,Moabit,52.529049,13.3426424,10,administrative,,,,,,,relation
+relation/28426,Gesundbrunnen,52.5504239,13.3847119,10,administrative,,,,,,,relation
+relation/51477,Deutschland,51.1846362,10.4541231,2,administrative,,,,,,,relation
+relation/55740,Wilmersdorf,52.4841408,13.3185211,10,administrative,,,,,,,relation
+relation/55741,Halensee,52.4956809,13.2916581,10,administrative,,,,,,,relation
+relation/55747,Tegel,52.5874681,13.2710602,10,administrative,,,,,,,relation
+relation/55750,Tiergarten,52.510763,13.3538468,10,administrative,,,,,,,relation
+relation/55751,Schöneberg,52.4797864,13.3564263,10,administrative,,,,,,,relation
+relation/55752,Friedenau,52.4714622,13.331931,10,administrative,,,,,,,relation
+relation/55754,Treptow-Köpenick,52.4179758,13.6004089,9,administrative,,,,,,,relation
+relation/55760,Baumschulenweg,52.4578635,13.4787671,10,administrative,,,,,,,relation
+relation/55761,Plänterwald,52.480486,13.4765516,10,administrative,,,,,,,relation
+relation/55762,Alt-Treptow,52.48962,13.4613053,10,administrative,,,,,,,relation
+relation/55763,Friedrichshain,52.5085378,13.4555983,10,administrative,,,,,,,relation
+relation/55764,Friedrichshain-Kreuzberg,52.5069089,13.4298363,9,administrative,,,,,,,relation
+relation/55765,Kreuzberg,52.496087,13.4105793,10,administrative,,,,,,,relation
+relation/62422,Berlin,52.5068768,13.424753,4,administrative,,,,,,,relation
+relation/110126,Charlottenburg,52.5156969,13.3110262,10,administrative,,,,,,,relation
+relation/158437,Tempelhof-Schöneberg,52.4405366,13.3737261,9,administrative,,,,,,,relation
+relation/162894,Tempelhof,52.4649833,13.3911463,10,administrative,,,,,,,relation
+relation/162902,Neukölln,52.4459052,13.461813,9,administrative,,,,,,,relation
+relation/164723,Pankow,52.5977181,13.4352896,9,administrative,,,,,,,relation
+relation/164785,Schmargendorf,52.4809946,13.2919526,10,administrative,,,,,,,relation
+relation/404538,Charlottenburg-Wilmersdorf,52.5079693,13.264012,9,administrative,,,,,,,relation
+relation/404554,Lichtenberg,52.5321492,13.5119504,9,administrative,,,,,,,relation
+relation/407713,Prenzlauer Berg,52.5392566,13.4344767,10,administrative,,,,,,,relation
+relation/407715,Fennpfuhl,52.5316337,13.470804,10,administrative,,,,,,,relation
+relation/408308,Weißensee,52.5530347,13.4623691,10,administrative,,,,,,,relation
+relation/409203,Alt-Hohenschönhausen,52.548636,13.4996412,10,administrative,,,,,,,relation
+relation/409204,Rummelsburg,52.4984552,13.492097,10,administrative,,,,,,,relation
+relation/409206,Lichtenberg,52.5206553,13.4945203,10,administrative,,,,,,,relation
+relation/409213,Neukölln,52.4773141,13.4423145,10,administrative,,,,,,,relation
+relation/412167,Friedrichsfelde,52.5027902,13.5172631,10,administrative,,,,,,,relation
+relation/413421,Oberschöneweide,52.4680008,13.5303954,10,administrative,,,,,,,relation
+relation/7378121,Fischerinsel,52.5131407,13.407061,neighbourhood,historic,neighbourhood,,,,,,relation
+relation/7670015,Scheunenviertel,52.5261586,13.4084676,neighbourhood,neighborhood,neighbourhood,,,,,,relation
