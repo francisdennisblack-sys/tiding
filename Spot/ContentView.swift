@@ -8044,42 +8044,18 @@ struct ContentView: View {
             }
 
             let payload = firebasePayload(for: posted, authorID: userID, mediaURLs: resolvedMediaURLs)
-            let moderatedPostResult: FirebaseModeratedPostResult
+            let persistedPostID = String(posted.id)
 
             do {
-                moderatedPostResult = try await FirebaseSpotService.shared.submitPostWithModeration(payload)
+                try await FirebaseSpotService.shared.createPost(payload)
             } catch {
-                let technicalReason = (error as NSError).localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-                let resolvedReason = technicalReason.isEmpty ? "Unknown error." : technicalReason
                 await MainActor.run {
-                    accountAuthMessage = "Post failed before save. \(resolvedReason)"
-                    lastSentMessage = "Post failed before save. \(resolvedReason)"
+                    accountAuthMessage = "Post failed to sync. Check connection and try again."
+                    lastSentMessage = "Post failed to sync."
                 }
-                print("Spot moderated submit error: \(error)")
+                print("Spot post save error: \(error)")
                 return
             }
-
-            guard moderatedPostResult.isApproved else {
-                await MainActor.run {
-                    let blockedMessage = moderatedPostResult.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "This post is not allowed by moderation policy."
-                        : moderatedPostResult.message
-                    accountAuthMessage = blockedMessage
-                    lastSentMessage = blockedMessage
-                }
-                return
-            }
-
-            guard moderatedPostResult.posted else {
-                await MainActor.run {
-                    accountAuthMessage = "Post was approved but not saved. Please try again."
-                    lastSentMessage = "Post was approved but not saved."
-                }
-                return
-            }
-
-            let persistedPostIDRaw = (moderatedPostResult.postID ?? String(posted.id)).trimmingCharacters(in: .whitespacesAndNewlines)
-            let persistedPostID = persistedPostIDRaw.isEmpty ? String(posted.id) : persistedPostIDRaw
 
             do {
                 try await FirebaseSpotService.shared.saveUserPostReference(
