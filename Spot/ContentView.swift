@@ -6751,16 +6751,22 @@ struct ContentView: View {
                     selectedPostType = type
                     resetDraftFor(type)
                     do {
+                        print("Spot: Image picker - attempting to load image data from PhotosPickerItem")
                         if let data = try await newItem.loadTransferable(type: Data.self),
                            let image = UIImage(data: data) {
+                            print("Spot: Image picker - successfully loaded image, size=\(image.size)")
                             await MainActor.run {
                                 draftPhotoImage = image
                                 draftPhotoCropScale = 1.0
                                 draftPhotoCropOffset = .zero
                                 currentScreen = .composer
+                                print("Spot: draftPhotoImage has been set")
                             }
+                        } else {
+                            print("Spot: Image picker - failed to load data or create UIImage")
                         }
                     } catch {
+                        print("Spot: Image picker - exception: \(error)")
                         await MainActor.run {
                             draftPhotoImage = nil
                             currentScreen = .composer
@@ -8023,7 +8029,9 @@ struct ContentView: View {
 
             let mediaURLs: [String]
             do {
+                print("Spot submitDraftPost: Starting media upload for postID=\(posted.id)")
                 mediaURLs = await uploadDraftMedia(postID: posted.id)
+                print("Spot submitDraftPost: Media upload complete, got \(mediaURLs.count) URLs: \(mediaURLs)")
             } catch {
                 await MainActor.run {
                     accountAuthMessage = "Media upload failed: \((error as NSError).localizedDescription)"
@@ -8034,12 +8042,15 @@ struct ContentView: View {
             }
             
             let resolvedMediaURLs = mediaURLs.isEmpty ? fallbackDraftMediaURLs(for: posted) : mediaURLs
+            print("Spot submitDraftPost: resolvedMediaURLs count=\(resolvedMediaURLs.count), isFallback=\(resolvedMediaURLs.first?.lowercased().hasPrefix("local-") ?? false)")
+            
             let requiresUploadedMedia = posted.type == "Audio" || posted.type == "Song" || posted.type == "Video" || posted.type == "Photo" || posted.type == "Photo/Video"
             if requiresUploadedMedia && resolvedMediaURLs.isEmpty {
                 await MainActor.run {
                     accountAuthMessage = "Media failed to upload. Please stay signed in and try again."
                     lastSentMessage = "Media upload failed. Post not sent."
                 }
+                print("Spot submitDraftPost: BLOCKED - requiresUploadedMedia but resolvedMediaURLs.isEmpty")
                 return
             }
 
@@ -8050,6 +8061,7 @@ struct ContentView: View {
                     accountAuthMessage = "Media upload verification failed. Please try again."
                     lastSentMessage = "Media upload failed. Post not sent."
                 }
+                print("Spot submitDraftPost: BLOCKED - isFallbackURL=true for media post. URL=\(resolvedMediaURLs.first ?? "nil")")
                 return
             }
 
@@ -8065,6 +8077,8 @@ struct ContentView: View {
             }
 
             let payload = firebasePayload(for: posted, authorID: userID, mediaURLs: resolvedMediaURLs)
+
+            print("Spot submitDraftPost: Created Firebase payload with contentType=\(payload.contentType), mediaURLs.count=\(payload.mediaURLs.count)")
 
             let moderatedPostResult: FirebaseModeratedPostResult
 
@@ -10362,12 +10376,20 @@ struct ContentView: View {
     private func uploadDraftMedia(postID: Int) async -> [String] {
         var uploadedURLs: [String] = []
 
+        print("Spot uploadDraftMedia: Starting. draftPhotoImage=\(draftPhotoImage != nil), draftVideoURL=\(draftVideoURL != nil), draftRecordedAudioURL=\(draftRecordedAudioURL != nil)")
+
         if let photo = draftPhotoImage,
            let imageData = photo.jpegData(compressionQuality: 0.8) {
+            print("Spot uploadDraftMedia: Found photo, size=\(imageData.count) bytes")
             let fileName = "photo_\(UUID().uuidString).jpg"
             if let url = try? await FirebaseSpotService.shared.uploadMedia(data: imageData, folder: "posts/\(postID)/photos", fileName: fileName) {
+                print("Spot uploadDraftMedia: Photo uploaded successfully: \(url)")
                 uploadedURLs.append(url)
+            } else {
+                print("Spot uploadDraftMedia: Photo upload returned nil")
             }
+        } else {
+            print("Spot uploadDraftMedia: No photo or photo.jpegData failed")
         }
 
         if let recordedURL = draftRecordedAudioURL,
