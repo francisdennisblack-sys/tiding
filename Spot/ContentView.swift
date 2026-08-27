@@ -8043,6 +8043,16 @@ struct ContentView: View {
                 return
             }
 
+            // If media upload failed and we have media-type post, don't use fake fallback URLs
+            let isFallbackURL = resolvedMediaURLs.first?.lowercased().hasPrefix("local-") == true || resolvedMediaURLs.first?.lowercased().hasPrefix("file://") == true
+            if requiresUploadedMedia && isFallbackURL {
+                await MainActor.run {
+                    accountAuthMessage = "Media upload verification failed. Please try again."
+                    lastSentMessage = "Media upload failed. Post not sent."
+                }
+                return
+            }
+
             if posted.type == "Video" {
                 let hasRemoteVideoURL = resolvedMediaURLs.contains { Self.isRemoteURLString($0) }
                 if !hasRemoteVideoURL {

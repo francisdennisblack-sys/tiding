@@ -295,9 +295,26 @@ async function applyImageModeration(mediaURLs, moderationResult) {
     .filter((value) => typeof value === "string" && value.trim())
     .slice(0, MAX_MEDIA_SCAN_URLS);
 
+  console.log("applyImageModeration: received mediaURLs", {
+    count: Array.isArray(mediaURLs) ? mediaURLs.length : "not_array",
+    urls: mediaURLs,
+    candidates: imageCandidates
+  });
+
   if (imageCandidates.length === 0) {
     moderationResult.reasonCodes.push("image_scan_missing_media");
     return;
+  }
+
+  // Check for fake/local URLs that backend cannot process
+  for (const url of imageCandidates) {
+    if (url.toLowerCase().startsWith("local-") || url.toLowerCase().startsWith("file://")) {
+      console.log("applyImageModeration: Rejecting fake local URL", {url});
+      moderationResult.status = highestStatus(moderationResult.status, "rejected");
+      moderationResult.reasonCodes.push("image_fake_local_url");
+      moderationResult.scores.image = 0.95;
+      return;
+    }
   }
 
   let anyScanned = false;
@@ -370,6 +387,15 @@ async function applyVideoModeration(mediaURLs, moderationResult) {
     return;
   }
 
+  // Check for fake/local URLs that backend cannot process
+  if (rawURL.toLowerCase().startsWith("local-") || rawURL.toLowerCase().startsWith("file://")) {
+    console.log("applyVideoModeration: Rejecting fake local URL", {url: rawURL});
+    moderationResult.status = highestStatus(moderationResult.status, "rejected");
+    moderationResult.reasonCodes.push("video_fake_local_url");
+    moderationResult.scores.video = 0.95;
+    return;
+  }
+
   const gcsURI = toGcsURI(rawURL);
   if (!gcsURI) {
     moderationResult.reasonCodes.push("video_scan_uri_unsupported");
@@ -437,6 +463,15 @@ async function applyAudioModeration(mediaURLs, moderationResult) {
     return;
   }
 
+  // Check for fake/local URLs that backend cannot process
+  if (rawURL.toLowerCase().startsWith("local-") || rawURL.toLowerCase().startsWith("file://")) {
+    console.log("applyAudioModeration: Rejecting fake local URL", {url: rawURL});
+    moderationResult.status = highestStatus(moderationResult.status, "rejected");
+    moderationResult.reasonCodes.push("audio_fake_local_url");
+    moderationResult.scores.audio = 0.95;
+    return;
+  }
+
   const gcsURI = toGcsURI(rawURL);
   if (!gcsURI) {
     moderationResult.reasonCodes.push("audio_scan_uri_unsupported");
@@ -487,6 +522,8 @@ async function applyWebRiskModeration(candidateURLs, moderationResult) {
     return;
   }
 
+  console.log("applyWebRiskModeration: received URLs", {count: urls.length, urls});
+
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
@@ -495,6 +532,20 @@ async function applyWebRiskModeration(candidateURLs, moderationResult) {
     }
 
     for (const rawURL of urls) {
+      // Check for fake/local URLs
+      if (rawURL.toLowerCase().startsWith("local-")) {
+        console.log("applyWebRiskModeration: Skipping fake local URL", {url: rawURL});
+        continue;
+      }
+
+      // Validate URL format
+      try {
+        new URL(rawURL);
+      } catch (e) {
+        console.log("applyWebRiskModeration: Invalid URL format", {url: rawURL, error: String(e)});
+        continue;
+      }
+
       const endpoint = `https://webrisk.googleapis.com/v1/uris:search?uri=${encodeURIComponent(rawURL)}&threatTypes=MALWARE&threatTypes=SOCIAL_ENGINEERING&threatTypes=UNWANTED_SOFTWARE`;
       const response = await withTimeout(fetch(endpoint, {
         method: "GET",
@@ -504,6 +555,7 @@ async function applyWebRiskModeration(candidateURLs, moderationResult) {
       }));
 
       if (!response.ok) {
+        console.log("applyWebRiskModeration: API request failed", {url: rawURL, status: response.status});
         moderationResult.reasonCodes.push("webrisk_request_failed");
         continue;
       }
@@ -516,6 +568,7 @@ async function applyWebRiskModeration(candidateURLs, moderationResult) {
       }
     }
   } catch (error) {
+    console.log("applyWebRiskModeration: Exception", {error: String(error)});
     moderationResult.reasonCodes.push("webrisk_api_unavailable");
   }
 }
@@ -727,6 +780,14 @@ exports.moderateDraftPost = functions.https.onCall(async (data) => {
 
 exports.submitPostWithModeration = functions.https.onCall(async (data, context) => {
   const candidatePost = extractCallablePostPayload(data);
+
+  console.log("submitPostWithModeration: received payload structure", {
+    hasPost: !!data.post,
+    postKeys: Object.keys(candidatePost || {}),
+    contentType: candidatePost && candidatePost.contentType,
+    mediaURLs: candidatePost && candidatePost.mediaURLs,
+  });
+
   const moderation = await evaluateModeration(candidatePost || {});
   const status = moderation.status;
   const bodyPreview = String(candidatePost && candidatePost.body ? candidatePost.body : "")
