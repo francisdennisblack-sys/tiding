@@ -750,7 +750,7 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
   }
 
   if (status !== "approved") {
-    return {
+    const rejectPayload = {
       approved: false,
       posted: false,
       status,
@@ -758,6 +758,8 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
       reasonCodes: moderation.reasonCodes,
       scores: moderation.scores,
     };
+    console.log("submitPostWithModeration rejecting:", JSON.stringify(rejectPayload));
+    return rejectPayload;
   }
 
   const db = admin.firestore();
@@ -794,7 +796,7 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
     status,
   });
 
-  return {
+  const responsePayload = {
     approved: true,
     posted: true,
     status: "approved",
@@ -803,6 +805,9 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
     scores: moderation.scores,
     postID,
   };
+
+  console.log("submitPostWithModeration returning:", JSON.stringify(responsePayload));
+  return responsePayload;
 });
 
 exports.moderatePostOnCreate = onDocumentCreated("posts/{postID}", async (event) => {

@@ -699,8 +699,13 @@ public final class FirebaseSpotService {
         ])
 
         guard let data = result.data as? [String: Any] else {
+            print("Spot submitPostWithModeration: Invalid payload - result.data is not a dictionary")
+            print("Spot submitPostWithModeration: result.data type = \(type(of: result.data))")
+            print("Spot submitPostWithModeration: result.data = \(result.data)")
             throw FirebaseSpotError.invalidPayload
         }
+
+        print("Spot submitPostWithModeration: Raw response data = \(data)")
 
         let status = (data["status"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "review_required"
         let message = (data["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -722,7 +727,7 @@ public final class FirebaseSpotService {
             }
         }
 
-        return FirebaseModeratedPostResult(
+        let result_obj = FirebaseModeratedPostResult(
             approved: approved,
             posted: posted,
             status: status,
@@ -731,6 +736,10 @@ public final class FirebaseSpotService {
             scores: scores,
             postID: postID?.isEmpty == true ? nil : postID
         )
+        
+        print("Spot submitPostWithModeration: Parsed result = approved:\(result_obj.approved) posted:\(result_obj.posted) status:\(result_obj.status) postID:\(result_obj.postID ?? "nil")")
+        
+        return result_obj
     }
 
     private func postPayloadDictionary(_ post: FirebasePostPayload) -> [String: Any] {

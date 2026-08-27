@@ -8021,7 +8021,18 @@ struct ContentView: View {
                 Self.persistImage(image, forKey: Self.postPhotoCacheKey(forPostID: posted.id))
             }
 
-            let mediaURLs = await uploadDraftMedia(postID: posted.id)
+            let mediaURLs: [String]
+            do {
+                mediaURLs = await uploadDraftMedia(postID: posted.id)
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Media upload failed: \((error as NSError).localizedDescription)"
+                    lastSentMessage = "Media upload failed."
+                }
+                print("Spot uploadDraftMedia error: \(error)")
+                return
+            }
+            
             let resolvedMediaURLs = mediaURLs.isEmpty ? fallbackDraftMediaURLs(for: posted) : mediaURLs
             let requiresUploadedMedia = posted.type == "Audio" || posted.type == "Song" || posted.type == "Video" || posted.type == "Photo" || posted.type == "Photo/Video"
             if requiresUploadedMedia && resolvedMediaURLs.isEmpty {
@@ -8044,18 +8055,48 @@ struct ContentView: View {
             }
 
             let payload = firebasePayload(for: posted, authorID: userID, mediaURLs: resolvedMediaURLs)
-            let persistedPostID = String(posted.id)
+
+            let moderatedPostResult: FirebaseModeratedPostResult
 
             do {
-                try await FirebaseSpotService.shared.createPost(payload)
+                moderatedPostResult = try await FirebaseSpotService.shared.submitPostWithModeration(payload)
             } catch {
+                let technicalReason = (error as NSError).localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                let resolvedReason = technicalReason.isEmpty ? "Unknown error." : technicalReason
                 await MainActor.run {
-                    accountAuthMessage = "Post failed to sync. Check connection and try again."
-                    lastSentMessage = "Post failed to sync."
+                    accountAuthMessage = "Post failed before save. \(resolvedReason)"
+                    lastSentMessage = "Post failed before save. \(resolvedReason)"
                 }
-                print("Spot post save error: \(error)")
+                print("Spot moderated submit error: \(error)")
                 return
             }
+
+            print("Spot submitDraftPost: Got moderation result - approved=\(moderatedPostResult.approved) posted=\(moderatedPostResult.posted)")
+
+            guard moderatedPostResult.isApproved else {
+                await MainActor.run {
+                    let blockedMessage = moderatedPostResult.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? "This post is not allowed by moderation policy."
+                        : moderatedPostResult.message
+                    accountAuthMessage = blockedMessage
+                    lastSentMessage = blockedMessage
+                }
+                return
+            }
+
+            guard moderatedPostResult.posted else {
+                await MainActor.run {
+                    accountAuthMessage = "Post was approved but not saved. Please try again."
+                    lastSentMessage = "Post was approved but not saved."
+                }
+                print("Spot submitDraftPost: BLOCKED - posted=false. Status: \(moderatedPostResult.status)")
+                return
+            }
+
+            print("Spot submitDraftPost: SUCCESS - post was approved and saved with ID: \(moderatedPostResult.postID ?? "nil")")
+
+            let persistedPostIDRaw = (moderatedPostResult.postID ?? String(posted.id)).trimmingCharacters(in: .whitespacesAndNewlines)
+            let persistedPostID = persistedPostIDRaw.isEmpty ? String(posted.id) : persistedPostIDRaw
 
             do {
                 try await FirebaseSpotService.shared.saveUserPostReference(
@@ -8079,7 +8120,10 @@ struct ContentView: View {
                 await loadCurrentUserPosts()
             }
 
+            print("Spot submitDraftPost: About to update local feed and UI")
+
             await MainActor.run {
+                print("Spot submitDraftPost: Inside MainActor.run block")
                 var localPosted = posted
                 localPosted.mediaURLs = resolvedMediaURLs
                 localPosted.sourceURL = payload.sourceURL
@@ -8104,6 +8148,8 @@ struct ContentView: View {
                 sendTo = ""
                 recipientSearchText = ""
                 selectedSendRecipient = nil
+                
+                print("Spot submitDraftPost: UI updated successfully, isSubmittingPost will be set to false in defer")
             }
         }
     }
