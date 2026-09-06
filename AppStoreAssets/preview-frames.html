@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Store Preview Frames</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #121214;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 60px 40px;
+            overflow-x: auto;
+        }
+
+        .preview-container {
+            display: flex;
+            flex-direction: row;
+            gap: 100px; /* Generous even spacing between frames for clear individual screenshots */
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 1290x2796 Aspect Ratio standard for 6.7" / 6.9" iPhone App Store Display */
+        .iphone-frame {
+            width: 390px;
+            height: 844px;
+            background-color: #000000;
+            border-radius: 54px;
+            position: relative;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 0 12px #28282b, 0 0 0 14px #1c1c1e;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        /* Dynamic Island / Notch Mock */
+        .dynamic-island {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 32px;
+            background-color: #000000;
+            border-radius: 20px;
+            z-index: 100;
+        }
+
+        /* Screen Canvas Area */
+        .screen-canvas {
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0c;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding-top: 60px;
+            padding-bottom: 24px;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        /* Clean Frame Content Placeholder */
+        .frame-placeholder {
+            width: 100%;
+            height: 100%;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 36px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.4);
+            gap: 12px;
+        }
+
+        .frame-number {
+            font-size: 48px;
+            font-weight: 800;
+            color: #ffffff;
+            opacity: 0.8;
+        }
+
+        .frame-label {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Home Indicator Line */
+        .home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 135px;
+            height: 5px;
+            background-color: #ffffff;
+            border-radius: 3px;
+            opacity: 0.8;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="preview-container">
+        
+        <!-- Frame 1 -->
+        <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <div class="screen-canvas">
+                <div class="frame-placeholder">
+                    <span class="frame-number">1</span>
+                    <span class="frame-label">Screen 1</span>
+                </div>
+            </div>
+            <div class="home-indicator"></div>
+        </div>
+
+        <!-- Frame 2 -->
+        <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <div class="screen-canvas">
+                <div class="frame-placeholder">
+                    <span class="frame-number">2</span>
+                    <span class="frame-label">Screen 2</span>
+                </div>
+            </div>
+            <div class="home-indicator"></div>
+        </div>
+
+        <!-- Frame 3 -->
+        <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <div class="screen-canvas">
+                <div class="frame-placeholder">
+                    <span class="frame-number">3</span>
+                    <span class="frame-label">Screen 3</span>
+                </div>
+            </div>
+            <div class="home-indicator"></div>
+        </div>
+
+        <!-- Frame 4 -->
+        <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <div class="screen-canvas">
+                <div class="frame-placeholder">
+                    <span class="frame-number">4</span>
+                    <span class="frame-label">Screen 4</span>
+                </div>
+            </div>
+            <div class="home-indicator"></div>
+        </div>
+
+    </div>
+
+</body>
+</html>

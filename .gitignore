@@ -16,3 +16,7 @@ xcuserdata/
 # Except configuration files needed by git
 !firebase.json
 !skills-lock.json
+certs/
+data/global_high_value/
+*.csv
+*.db
