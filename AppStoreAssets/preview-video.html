@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spot App Store Video Motion Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #09090b;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            overflow-x: hidden;
+        }
+
+        /* Controls Panel */
+        .video-controls {
+            position: fixed;
+            top: 20px;
+            z-index: 1000;
+            background: rgba(24, 24, 28, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px 24px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #a640fa 0%, #eb59d1 100%);
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(166, 64, 250, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+            color: #a1a1aa;
+        }
+
+        /* Video Stage Frame (Standard 16:9 Landscape YouTube Video Canvas: 1080px × 607px) */
+        .video-stage {
+            width: 1080px;
+            height: 607px;
+            background: linear-gradient(135deg, #18181e 0%, #08080a 100%);
+            border-radius: 28px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.9);
+            margin-top: 60px;
+        }
+
+        /* Slide Container for Landscape YouTube Layout */
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px 100px;
+            opacity: 0;
+            transform: scale(0.95) translateX(40px);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: scale(1) translateX(0);
+            pointer-events: auto;
+        }
+
+        .slide.exit {
+            opacity: 0;
+            transform: scale(1.05) translateX(-40px);
+        }
+
+        /* Centered Full-Width Slide Layout for Typography & Hero Intro */
+        .slide-center {
+            justify-content: center !important;
+            text-align: center;
+            padding: 40px 40px;
+        }
+
+        /* Typography & Text Interstitial Cards */
+        .text-card-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .typer-container {
+            min-height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .typed-word {
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: -1.5px;
+            color: #ffffff;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: inline-block;
+        }
+
+        .typed-word-highlight {
+            background: linear-gradient(135deg, #a640fa 0%, #eb59d1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 5px;
+            height: 56px;
+            background-color: #a640fa;
+            margin-left: 8px;
+            border-radius: 3px;
+            animation: blink 0.8s infinite;
+            vertical-align: middle;
+        }
+
+        .bold-hero-text {
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            line-height: 1.2;
+            color: #ffffff;
+            margin-bottom: 18px;
+        }
+
+        .bold-hero-subtext {
+            font-size: 22px;
+            font-weight: 600;
+            color: #a1a1aa;
+            line-height: 1.4;
+            max-width: 600px;
+        }
+
+        /* Left Side Title & Callout Area for YouTube Side-by-Side Ad Cards */
+        .canvas-header {
+            width: 440px;
+            text-align: left;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .canvas-title {
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: #ffffff;
+            margin-bottom: 14px;
+            line-height: 1.15;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .canvas-subtitle {
+            font-size: 18px;
+            font-weight: 500;
+            color: #a1a1aa;
+            line-height: 1.45;
+        }
+
+        /* iPhone Frame Sizing for 16:9 Landscape Screen Stage */
+        .iphone-frame {
+            width: 220px;
+            height: 476px;
+            background-color: #000000;
+            border-radius: 36px;
+            position: relative;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 0 7px #28282b, 0 0 0 9px #1c1c1e;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            margin-right: 40px;
+        }
+
+        .iphone-frame-large {
+            width: 250px;
+            height: 540px;
+            border-radius: 40px;
+            margin-top: 0;
+            margin-right: 0;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.95), 0 0 0 8px #28282b, 0 0 0 10px #1c1c1e;
+        }
+
+        .dynamic-island {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 22px;
+            background-color: #000000;
+            border-radius: 12px;
+            z-index: 100;
+        }
+
+        .screen-canvas {
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0c;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Animated Real App Overlays for YouTube 16:9 Stage */
+        .chevron-overlay {
+            position: absolute;
+            bottom: 30px;
+            right: 320px;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 20px 45px rgba(0, 0, 0, 0.95));
+            animation: floatChevron 4s ease-in-out infinite alternate;
+        }
+
+        .chevron-overlay svg {
+            width: 260px;
+            height: 177px;
+        }
+
+        .chevron-path-border {
+            fill: none;
+            stroke: #000000;
+            stroke-width: 32px;
+            stroke-linecap: square;
+            stroke-linejoin: miter;
+            stroke-miterlimit: 8;
+        }
+
+        .chevron-path-main {
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 20px;
+            stroke-linecap: square;
+            stroke-linejoin: miter;
+            stroke-miterlimit: 8;
+        }
+
+        /* POI Purple Gradient Button */
+        .poi-button-overlay {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            z-index: 60;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a640fa 0%, #eb59d1 100%);
+            border: 4px solid rgba(255, 255, 255, 0.45);
+            box-shadow: 0 20px 50px rgba(166, 64, 250, 0.65), 0 8px 24px rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(15deg);
+            animation: pulsePoi 3s ease-in-out infinite alternate;
+        }
+
+        .poi-button-overlay svg {
+            width: 52px;
+            height: 52px;
+            fill: #ffffff;
+        }
+
+        /* Audio Control Pill */
+        .audio-pill-overlay {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            z-index: 60;
+            background-color: #000000;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-radius: 50px;
+            padding: 18px 32px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+            transform: rotate(-6deg);
+            animation: floatPill 3.5s ease-in-out infinite alternate;
+        }
+
+        .audio-pill-icon {
+            width: 22px;
+            height: 22px;
+            fill: #ffffff;
+        }
+
+        .audio-pill-text {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+        }
+
+        .audio-pill-dots {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .audio-pill-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            animation: waveDot 1.2s infinite ease-in-out;
+        }
+
+        .audio-pill-dot:nth-child(2) { animation-delay: 0.2s; }
+        .audio-pill-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* Map Pin Badge */
+        .mappin-badge-overlay {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            z-index: 60;
+            background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+            border: 2.5px solid rgba(255, 255, 255, 0.35);
+            border-radius: 32px;
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+            transform: rotate(6deg);
+            animation: bouncePin 4s ease-in-out infinite alternate;
+        }
+
+        .mappin-badge-overlay svg {
+            width: 28px;
+            height: 28px;
+            stroke: #a640fa;
+            stroke-width: 2.4;
+            fill: none;
+        }
+
+        .mappin-badge-text {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        /* Animations */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @keyframes floatChevron {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-15px) rotate(-3deg); }
+        }
+
+        @keyframes pulsePoi {
+            0% { transform: rotate(15deg) scale(1); }
+            100% { transform: rotate(18deg) scale(1.06); }
+        }
+
+        @keyframes floatPill {
+            0% { transform: rotate(-10deg) translateY(0); }
+            100% { transform: rotate(-8deg) translateY(-12px); }
+        }
+
+        @keyframes waveDot {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.3); }
+        }
+
+        @keyframes bouncePin {
+            0% { transform: rotate(8deg) translateY(0); }
+            100% { transform: rotate(5deg) translateY(-10px); }
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #a640fa 0%, #eb59d1 100%);
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Motion Video Controls -->
+    <div class="video-controls">
+        <button class="btn" id="playBtn" onclick="togglePlay()">
+            <span id="playIcon">▶</span> <span id="playText">Play Motion</span>
+        </button>
+        <button class="btn btn-secondary" onclick="restartVideo()">↺ Restart</button>
+        <div class="time-display" id="timeDisplay">00:00 / 00:20</div>
+    </div>
+
+    <!-- Video Stage Canvas -->
+    <div class="video-stage">
+
+        <!-- Interstitial 1: Fast Typing Intro ("All locations" -> "Your post" -> "In any location") -->
+        <div class="slide slide-center active" id="slide1">
+            <div class="text-card-content">
+                <div class="typer-container">
+                    <span class="typed-word" id="introTypedText"></span><span class="cursor"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ad 1: Hero Large Frame with Chevron Overlay -->
+        <div class="slide slide-center" id="slide2">
+            <div class="iphone-frame iphone-frame-large">
+                <div class="dynamic-island"></div>
+                <div class="screen-canvas">
+                    <img src="IMG_0747.PNG" alt="Screen 1" class="screen-image">
+                </div>
+            </div>
+            <div class="chevron-overlay">
+                <svg viewBox="0 0 100 68">
+                    <path class="chevron-path-border" d="M 18,19 L 50,49 L 82,19" />
+                    <path class="chevron-path-main" d="M 18,19 L 50,49 L 82,19" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Interstitial 2: Bold Advertising Type 1 -->
+        <div class="slide slide-center" id="slide3">
+            <div class="text-card-content">
+                <h1 class="bold-hero-text">REAL TIME.<br><span class="typed-word-highlight">REAL LOCAL.</span></h1>
+                <p class="bold-hero-subtext">See what's happening at every point of interest around you right now.</p>
+            </div>
+        </div>
+
+        <!-- Ad 2: Explore Spots Near You -->
+        <div class="slide" id="slide4">
+            <div class="canvas-header">
+                <h2 class="canvas-title">Explore Spots Near You</h2>
+                <p class="canvas-subtitle">Discover real-time updates & local posts around your location</p>
+            </div>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-canvas">
+                    <img src="IMG_0748.PNG" alt="Screen 2" class="screen-image">
+                </div>
+            </div>
+            <div class="poi-button-overlay">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Ad 3: Share Voice & Audio -->
+        <div class="slide" id="slide5">
+            <div class="canvas-header">
+                <h2 class="canvas-title">Share Voice & Audio</h2>
+                <p class="canvas-subtitle">Post audio notes, music, and local vibes instantly</p>
+            </div>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-canvas">
+                    <img src="IMG_0749.PNG" alt="Screen 3" class="screen-image">
+                </div>
+            </div>
+            <div class="audio-pill-overlay">
+                <svg class="audio-pill-icon" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span class="audio-pill-text">Play audio</span>
+                <div class="audio-pill-dots">
+                    <span class="audio-pill-dot"></span>
+                    <span class="audio-pill-dot"></span>
+                    <span class="audio-pill-dot"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interstitial 3: Bold Advertising Type 2 -->
+        <div class="slide slide-center" id="slide6">
+            <div class="text-card-content">
+                <h1 class="bold-hero-text">EVERY LANDMARK.<br><span class="typed-word-highlight">HAS A VOICE.</span></h1>
+                <p class="bold-hero-subtext">Connect with authentic voices, music, and photos pinned directly to the map.</p>
+            </div>
+        </div>
+
+        <!-- Ad 4: Pin to the Map -->
+        <div class="slide" id="slide7">
+            <div class="canvas-header">
+                <h2 class="canvas-title">Pin to the Map</h2>
+                <p class="canvas-subtitle">Drop posts at exact points of interest and landmarks</p>
+            </div>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-canvas">
+                    <img src="IMG_0750.PNG" alt="Screen 4" class="screen-image">
+                </div>
+            </div>
+            <div class="mappin-badge-overlay">
+                <svg viewBox="0 0 24 24">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span class="mappin-badge-text">Nearest Spot</span>
+            </div>
+        </div>
+
+        <!-- Timeline Progress Bar -->
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const slideTimeline = [
+            { id: 'slide1', duration: 2700, isTypingIntro: true },
+            { id: 'slide2', duration: 3000 },
+            { id: 'slide3', duration: 2500 },
+            { id: 'slide4', duration: 3000 },
+            { id: 'slide5', duration: 3000 },
+            { id: 'slide6', duration: 2500 },
+            { id: 'slide7', duration: 3300 }
+        ];
+
+        const totalDuration = slideTimeline.reduce((acc, item) => acc + item.duration, 0);
+        let isPlaying = false;
+        let startTime = null;
+        let animationFrameId = null;
+
+        const introWords = ["All locations", "Your post", "In any location"];
+        let currentTypedIndex = -1;
+
+        function updateTypingIntro(elapsedInSlide, slideDuration) {
+            const el = document.getElementById('introTypedText');
+            const wordSegment = slideDuration / introWords.length;
+            const wordIdx = Math.min(Math.floor(elapsedInSlide / wordSegment), introWords.length - 1);
+            
+            if (wordIdx !== currentTypedIndex) {
+                currentTypedIndex = wordIdx;
+                el.innerText = introWords[wordIdx];
+                if (wordIdx === 1) {
+                    el.classList.add('typed-word-highlight');
+                } else {
+                    el.classList.remove('typed-word-highlight');
+                }
+            }
+        }
+
+        function updateSequence(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const progressRatio = Math.min(elapsed / totalDuration, 1);
+            
+            document.getElementById('progressFill').style.width = (progressRatio * 100) + '%';
+            
+            const currentSeconds = Math.floor(elapsed / 1000);
+            const totalSeconds = Math.floor(totalDuration / 1000);
+            document.getElementById('timeDisplay').innerText = 
+                `00:${currentSeconds.toString().padStart(2, '0')} / 00:${totalSeconds.toString().padStart(2, '0')}`;
+
+            // Calculate active slide based on custom durations
+            let accum = 0;
+            let activeIndex = 0;
+            let elapsedInSlide = 0;
+
+            for (let i = 0; i < slideTimeline.length; i++) {
+                if (elapsed >= accum && elapsed < accum + slideTimeline[i].duration) {
+                    activeIndex = i;
+                    elapsedInSlide = elapsed - accum;
+                    break;
+                }
+                accum += slideTimeline[i].duration;
+                if (i === slideTimeline.length - 1) {
+                    activeIndex = slideTimeline.length - 1;
+                    elapsedInSlide = elapsed - (accum - slideTimeline[i].duration);
+                }
+            }
+
+            if (slideTimeline[activeIndex].isTypingIntro) {
+                updateTypingIntro(elapsedInSlide, slideTimeline[activeIndex].duration);
+            }
+
+            slideTimeline.forEach((item, idx) => {
+                const slideEl = document.getElementById(item.id);
+                slideEl.classList.remove('active', 'exit');
+                if (idx === activeIndex) {
+                    slideEl.classList.add('active');
+                } else if (idx < activeIndex) {
+                    slideEl.classList.add('exit');
+                }
+            });
+
+            if (elapsed < totalDuration) {
+                if (isPlaying) {
+                    animationFrameId = requestAnimationFrame(updateSequence);
+                }
+            } else {
+                // Loop video automatically
+                startTime = timestamp;
+                currentTypedIndex = -1;
+                animationFrameId = requestAnimationFrame(updateSequence);
+            }
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const playIcon = document.getElementById('playIcon');
+            const playText = document.getElementById('playText');
+
+            if (isPlaying) {
+                playIcon.innerText = '❚❚';
+                playText.innerText = 'Pause Motion';
+                animationFrameId = requestAnimationFrame(updateSequence);
+            } else {
+                playIcon.innerText = '▶';
+                playText.innerText = 'Play Motion';
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        function restartVideo() {
+            cancelAnimationFrame(animationFrameId);
+            startTime = null;
+            currentTypedIndex = -1;
+            document.getElementById('progressFill').style.width = '0%';
+            slideTimeline.forEach((item, idx) => {
+                const slideEl = document.getElementById(item.id);
+                slideEl.classList.remove('active', 'exit');
+                if (idx === 0) slideEl.classList.add('active');
+            });
+            document.getElementById('timeDisplay').innerText = '00:00 / 00:20';
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(requestTimestamp => {
+                    startTime = requestTimestamp;
+                    updateSequence(requestTimestamp);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
