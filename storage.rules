@@ -1,0 +1,56 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerUID) {
+      return isSignedIn() && request.auth.uid == ownerUID;
+    }
+
+    function isImage() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size < 15 * 1024 * 1024;
+    }
+
+    function isAudio() {
+      return request.resource != null
+        && request.resource.contentType.matches('audio/.*')
+        && request.resource.size < 30 * 1024 * 1024;
+    }
+
+    function isVideo() {
+      return request.resource != null
+        && request.resource.contentType.matches('video/.*')
+        && request.resource.size < 200 * 1024 * 1024;
+    }
+
+    function validMediaUpload(mediaType) {
+      return (mediaType == 'photos' && isImage())
+        || (mediaType == 'audio' && isAudio())
+        || (mediaType == 'videos' && isVideo())
+        || (mediaType == 'songs' && (isAudio() || isVideo()));
+    }
+
+    // App upload path shape: posts/{postID}/{mediaType}/{ownerUID}/{fileName}
+    match /posts/{postID}/{mediaType}/{ownerUID}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(ownerUID)
+        && (request.resource == null || validMediaUpload(mediaType));
+    }
+
+    // Profile photos path shape: profilePhotos/{ownerUID}/{fileName}
+    match /profilePhotos/{ownerUID}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(ownerUID)
+        && (request.resource == null || isImage());
+    }
+
+    // Default deny for any path not explicitly allowed.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

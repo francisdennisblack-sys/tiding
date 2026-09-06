@@ -12,8 +12,10 @@
 		1B05BF5330378D9300336974 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5230378D9300336974 /* FirebaseDatabase */; };
 		1B05BF5530378D9300336974 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5430378D9300336974 /* FirebaseFirestore */; };
 		1B05BF5730378D9300336974 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5A30378D9300336974 /* FirebaseFunctions */; };
-		1B05BF5830378D9300336974 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5B30378D9300336974 /* FirebaseStorage */; };
-		1B05BF5930379A5400336974 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1B05BF5830379A5400336974 /* GoogleService-Info.plist */; };
+		1B05BF5830378D9300336974 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5C30378D9300336974 /* FirebaseAppCheck */; };
+		1B05BF5930378D9300336974 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1B05BF5B30378D9300336974 /* FirebaseStorage */; };
+		1B7374693047F2F0006A39D5 /* Notifcations.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1B7374623047F2F0006A39D5 /* Notifcations.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1BE6421130465B4800AC5722 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1B05BF5830379A5400336974 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,18 +33,60 @@
 			remoteGlobalIDString = 1B05BF023034D70C00336974;
 			remoteInfo = Spot;
 		};
+		1B7374673047F2F0006A39D5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1B05BEFB3034D70C00336974 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1B7374613047F2F0006A39D5;
+			remoteInfo = Notifcations;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1B73746E3047F2F0006A39D5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1B7374693047F2F0006A39D5 /* Notifcations.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		1B05BF033034D70C00336974 /* Spot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B05BF113034D70D00336974 /* SpotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B05BF1B3034D70D00336974 /* SpotUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpotUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B05BF5830379A5400336974 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		1B7374623047F2F0006A39D5 /* Notifcations.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Notifcations.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1B73746D3047F2F0006A39D5 /* Exceptions for "Notifcations" folder in "Notifcations" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1B7374613047F2F0006A39D5 /* Notifcations */;
+		};
+		1BFDB14730400BB800397E08 /* Exceptions for "Spot" folder in "Spot" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1B05BF023034D70C00336974 /* Spot */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1B05BF053034D70C00336974 /* Spot */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1BFDB14730400BB800397E08 /* Exceptions for "Spot" folder in "Spot" target */,
+			);
 			path = Spot;
 			sourceTree = "<group>";
 		};
@@ -56,6 +100,14 @@
 			path = SpotUITests;
 			sourceTree = "<group>";
 		};
+		1B7374633047F2F0006A39D5 /* Notifcations */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1B73746D3047F2F0006A39D5 /* Exceptions for "Notifcations" folder in "Notifcations" target */,
+			);
+			path = Notifcations;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,7 +119,8 @@
 				1B05BF5530378D9300336974 /* FirebaseFirestore in Frameworks */,
 				1B05BF5730378D9300336974 /* FirebaseFunctions in Frameworks */,
 				1B05BF5130378D9300336974 /* FirebaseCore in Frameworks */,
-				1B05BF5830378D9300336974 /* FirebaseStorage in Frameworks */,
+				1B05BF5830378D9300336974 /* FirebaseAppCheck in Frameworks */,
+				1B05BF5930378D9300336974 /* FirebaseStorage in Frameworks */,
 				1B05BF4F30378D9300336974 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -86,6 +139,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1B73745F3047F2F0006A39D5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -95,6 +155,7 @@
 				1B05BF053034D70C00336974 /* Spot */,
 				1B05BF143034D70D00336974 /* SpotTests */,
 				1B05BF1E3034D70D00336974 /* SpotUITests */,
+				1B7374633047F2F0006A39D5 /* Notifcations */,
 				1B05BF043034D70C00336974 /* Products */,
 				1B05BF5830379A5400336974 /* GoogleService-Info.plist */,
 			);
@@ -106,6 +167,7 @@
 				1B05BF033034D70C00336974 /* Spot.app */,
 				1B05BF113034D70D00336974 /* SpotTests.xctest */,
 				1B05BF1B3034D70D00336974 /* SpotUITests.xctest */,
+				1B7374623047F2F0006A39D5 /* Notifcations.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -120,10 +182,12 @@
 				1B05BEFF3034D70C00336974 /* Sources */,
 				1B05BF003034D70C00336974 /* Frameworks */,
 				1B05BF013034D70C00336974 /* Resources */,
+				1B73746E3047F2F0006A39D5 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1B7374683047F2F0006A39D5 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				1B05BF053034D70C00336974 /* Spot */,
@@ -136,6 +200,7 @@
 				1B05BF5430378D9300336974 /* FirebaseFirestore */,
 				1B05BF5A30378D9300336974 /* FirebaseFunctions */,
 				1B05BF5B30378D9300336974 /* FirebaseStorage */,
+				1B05BF5C30378D9300336974 /* FirebaseAppCheck */,
 			);
 			productName = Spot;
 			productReference = 1B05BF033034D70C00336974 /* Spot.app */;
@@ -187,6 +252,28 @@
 			productReference = 1B05BF1B3034D70D00336974 /* SpotUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		1B7374613047F2F0006A39D5 /* Notifcations */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1B73746A3047F2F0006A39D5 /* Build configuration list for PBXNativeTarget "Notifcations" */;
+			buildPhases = (
+				1B73745E3047F2F0006A39D5 /* Sources */,
+				1B73745F3047F2F0006A39D5 /* Frameworks */,
+				1B7374603047F2F0006A39D5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1B7374633047F2F0006A39D5 /* Notifcations */,
+			);
+			name = Notifcations;
+			packageProductDependencies = (
+			);
+			productName = Notifcations;
+			productReference = 1B7374623047F2F0006A39D5 /* Notifcations.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -207,6 +294,9 @@
 					1B05BF1A3034D70D00336974 = {
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 1B05BF023034D70C00336974;
+					};
+					1B7374613047F2F0006A39D5 = {
+						CreatedOnToolsVersion = 16.4;
 					};
 				};
 			};
@@ -230,6 +320,7 @@
 				1B05BF023034D70C00336974 /* Spot */,
 				1B05BF103034D70D00336974 /* SpotTests */,
 				1B05BF1A3034D70D00336974 /* SpotUITests */,
+				1B7374613047F2F0006A39D5 /* Notifcations */,
 			);
 		};
 /* End PBXProject section */
@@ -239,7 +330,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B05BF5930379A5400336974 /* GoogleService-Info.plist in Resources */,
+				1BE6421130465B4800AC5722 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +342,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1B05BF193034D70D00336974 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1B7374603047F2F0006A39D5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -281,6 +379,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1B73745E3047F2F0006A39D5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -293,6 +398,11 @@
 			isa = PBXTargetDependency;
 			target = 1B05BF023034D70C00336974 /* Spot */;
 			targetProxy = 1B05BF1C3034D70D00336974 /* PBXContainerItemProxy */;
+		};
+		1B7374683047F2F0006A39D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1B7374613047F2F0006A39D5 /* Notifcations */;
+			targetProxy = 1B7374673047F2F0006A39D5 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -425,8 +535,11 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Spot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tiding;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spot needs camera access to take photos and videos for your posts.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock password settings and show your saved password securely.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Spot uses your location to find nearby places and local content.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Spot needs microphone access to record short audio posts.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Spot needs access to choose photos and videos for your posts.";
@@ -449,7 +562,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -470,8 +583,11 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Spot/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tiding;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spot needs camera access to take photos and videos for your posts.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID is used to unlock password settings and show your saved password securely.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Spot uses your location to find nearby places and local content.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Spot needs microphone access to record short audio posts.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Spot needs access to choose photos and videos for your posts.";
@@ -494,7 +610,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -593,6 +709,61 @@
 			};
 			name = Release;
 		};
+		1B73746B3047F2F0006A39D5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M4NBK32VQ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Notifcations/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Notifcations;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Lane-Apps.Spot.Notifcations";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1B73746C3047F2F0006A39D5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M4NBK32VQ4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Notifcations/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Notifcations;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Lane-Apps.Spot.Notifcations";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -628,6 +799,15 @@
 			buildConfigurations = (
 				1B05BF2C3034D70D00336974 /* Debug */,
 				1B05BF2D3034D70D00336974 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1B73746A3047F2F0006A39D5 /* Build configuration list for PBXNativeTarget "Notifcations" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1B73746B3047F2F0006A39D5 /* Debug */,
+				1B73746C3047F2F0006A39D5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -675,6 +855,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1B05BF4D30378D9300336974 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		1B05BF5C30378D9300336974 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1B05BF4D30378D9300336974 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

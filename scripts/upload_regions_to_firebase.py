@@ -9,6 +9,8 @@ from pathlib import Path
 
 import re
 
+EXPECTED_FIREBASE_PROJECT_ID = "tiding-506722"
+
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as handle:
@@ -28,7 +30,12 @@ def main():
     parser.add_argument("--input", type=str, required=True, help="Path to the Firestore-ready JSON export.")
     parser.add_argument("--collection", type=str, default="regions")
     parser.add_argument("--credentials", type=str, default=None, help="Optional path to service account JSON.")
+    parser.add_argument("--project-id", type=str, default=EXPECTED_FIREBASE_PROJECT_ID)
     args = parser.parse_args()
+
+    if args.project_id != EXPECTED_FIREBASE_PROJECT_ID:
+        print(f"Project mismatch: expected '{EXPECTED_FIREBASE_PROJECT_ID}', got '{args.project_id}'.")
+        sys.exit(1)
 
     if args.credentials:
         credential_path = args.credentials
@@ -39,6 +46,20 @@ def main():
         print("Firebase credentials were not found.")
         print("Provide --credentials or set GOOGLE_APPLICATION_CREDENTIALS to a valid service account JSON file.")
         print("Example: GOOGLE_APPLICATION_CREDENTIALS=service-account.json python3 scripts/upload_regions_to_firebase.py --input data/regions_firestore.json")
+        sys.exit(1)
+
+    try:
+        credential_json = load_json(credential_path)
+    except Exception as exc:
+        print(f"Failed to read credentials JSON: {exc}")
+        sys.exit(1)
+
+    credential_project_id = (credential_json.get("project_id") or "").strip()
+    if credential_project_id != EXPECTED_FIREBASE_PROJECT_ID:
+        print(
+            "Credentials project mismatch. "
+            f"Expected '{EXPECTED_FIREBASE_PROJECT_ID}', got '{credential_project_id or 'unknown'}'."
+        )
         sys.exit(1)
 
     try:

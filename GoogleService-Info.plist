@@ -26,5 +26,9 @@
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:355683133606:ios:1915a115162c39f1f72c67</string>
+	<key>CLIENT_ID</key>
+	<string>355683133606-8cg0tt1gi4ik37o4viukqh9jddfl85is.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.355683133606-8cg0tt1gi4ik37o4viukqh9jddfl85is</string>
 </dict>
 </plist>

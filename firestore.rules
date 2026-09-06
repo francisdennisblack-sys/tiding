@@ -1,41 +1,279 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny all
-    match /{document=**} {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userID) {
+      return isSignedIn() && request.auth.uid == userID;
+    }
+
+    function nonNegativeInt(value) {
+      return value is int && value >= 0;
+    }
+
+    function validPostCreate() {
+      return request.resource.data.authorID is string
+        && request.resource.data.authorID == request.auth.uid
+        && request.resource.data.id is string
+        && request.resource.data.contentType is string
+        && request.resource.data.locationName is string
+        && request.resource.data.createdAt is number
+        && request.resource.data.updatedAt is number
+        && request.resource.data.likesCount is int
+        && request.resource.data.commentsCount is int
+        && request.resource.data.viewCount is int
+        && request.resource.data.totalViewDurationSeconds is int
+        && request.resource.data.savedCount is int
+        && request.resource.data.shareCount is int
+        && request.resource.data.likesCount >= 0
+        && request.resource.data.commentsCount >= 0
+        && request.resource.data.viewCount >= 0
+        && request.resource.data.totalViewDurationSeconds >= 0
+        && request.resource.data.savedCount >= 0
+        && request.resource.data.shareCount >= 0;
+    }
+
+    function isEngagementOnlyUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'likesCount',
+        'commentsCount',
+        'viewCount',
+        'totalViewDurationSeconds',
+        'savedCount',
+        'shareCount',
+        'score',
+        'engagementScore',
+        'updatedAt'
+      ])
+      && (!('likesCount' in request.resource.data) || nonNegativeInt(request.resource.data.likesCount))
+      && (!('commentsCount' in request.resource.data) || nonNegativeInt(request.resource.data.commentsCount))
+      && (!('viewCount' in request.resource.data) || nonNegativeInt(request.resource.data.viewCount))
+      && (!('totalViewDurationSeconds' in request.resource.data) || nonNegativeInt(request.resource.data.totalViewDurationSeconds))
+      && (!('savedCount' in request.resource.data) || nonNegativeInt(request.resource.data.savedCount))
+      && (!('shareCount' in request.resource.data) || nonNegativeInt(request.resource.data.shareCount));
+    }
+
+    function isPollVoteOnlyUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'pollVotes',
+        'updatedAt'
+      ])
+      && request.resource.data.pollVotes is list
+      && resource.data.pollVotes is list
+      && request.resource.data.pollVotes.size() == resource.data.pollVotes.size();
+    }
+
+    function isAuthorPhotoOnlyUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'authorProfilePhotoURL',
+        'updatedAt'
+      ])
+      && request.resource.data.authorProfilePhotoURL is string
+      && resource.data.authorID is string
+      && request.auth.uid == resource.data.authorID;
+    }
+
+    function isValidUserDocCreate(userID) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'username',
+        'displayName',
+        'bio',
+        'profilePhotoURL',
+        'createdAt',
+        'updatedAt',
+        'savedPostIDs',
+        'flaggedPostIDs',
+        'postedPostIDs',
+        'usernameAliases',
+        'areaHistory',
+        'followerCount',
+        'followingCount',
+        'phoneNumber',
+        'phoneVerifiedAt'
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid == userID
+      && request.resource.data.uid == request.auth.uid
+      && (!('username' in request.resource.data) || request.resource.data.username is string)
+      && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+      && (!('bio' in request.resource.data) || request.resource.data.bio is string)
+      && (!('profilePhotoURL' in request.resource.data) || request.resource.data.profilePhotoURL is string)
+      && (!('savedPostIDs' in request.resource.data) || request.resource.data.savedPostIDs is list)
+      && (!('flaggedPostIDs' in request.resource.data) || request.resource.data.flaggedPostIDs is list)
+      && (!('postedPostIDs' in request.resource.data) || request.resource.data.postedPostIDs is list)
+      && (!('usernameAliases' in request.resource.data) || request.resource.data.usernameAliases is list)
+      && (!('areaHistory' in request.resource.data) || request.resource.data.areaHistory is list)
+      && (!('followerCount' in request.resource.data) || nonNegativeInt(request.resource.data.followerCount))
+      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount));
+    }
+
+    function isValidUserDocUpdateSelf(userID) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'username',
+        'displayName',
+        'bio',
+        'profilePhotoURL',
+        'createdAt',
+        'updatedAt',
+        'savedPostIDs',
+        'flaggedPostIDs',
+        'postedPostIDs',
+        'usernameAliases',
+        'areaHistory',
+        'followerCount',
+        'followingCount',
+        'phoneNumber',
+        'phoneVerifiedAt'
+      ])
+      && request.resource.data.uid is string
+      && request.resource.data.uid == userID
+      && request.resource.data.uid == request.auth.uid
+      && (!('username' in request.resource.data) || request.resource.data.username is string)
+      && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+      && (!('bio' in request.resource.data) || request.resource.data.bio is string)
+      && (!('profilePhotoURL' in request.resource.data) || request.resource.data.profilePhotoURL is string)
+      && (!('savedPostIDs' in request.resource.data) || request.resource.data.savedPostIDs is list)
+      && (!('flaggedPostIDs' in request.resource.data) || request.resource.data.flaggedPostIDs is list)
+      && (!('postedPostIDs' in request.resource.data) || request.resource.data.postedPostIDs is list)
+      && (!('usernameAliases' in request.resource.data) || request.resource.data.usernameAliases is list)
+      && (!('areaHistory' in request.resource.data) || request.resource.data.areaHistory is list)
+      && (!('followerCount' in request.resource.data) || nonNegativeInt(request.resource.data.followerCount))
+      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount));
+    }
+
+    function isFollowCountOnlyUpdate(userID) {
+      return isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uid',
+          'followerCount',
+          'followingCount',
+          'updatedAt'
+        ])
+        && request.resource.data.uid is string
+        && request.resource.data.uid == userID
+        && (!('followerCount' in request.resource.data) || nonNegativeInt(request.resource.data.followerCount))
+        && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount));
+    }
+
+    match /posts/{postID} {
+      allow read: if true;
+
+      allow create: if isSignedIn() && validPostCreate();
+
+      allow update: if isSignedIn() && (
+        (resource.data.authorID is string
+          && resource.data.authorID == request.auth.uid
+          && request.resource.data.authorID == resource.data.authorID)
+        || isEngagementOnlyUpdate()
+        || isPollVoteOnlyUpdate()
+        || isAuthorPhotoOnlyUpdate()
+      );
+
+      allow delete: if isSignedIn()
+        && resource.data.authorID is string
+        && resource.data.authorID == request.auth.uid;
+    }
+
+    match /posts/{postID}/comments/{commentID} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.authorID == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.authorID == request.auth.uid;
+    }
+
+    match /posts/{postID}/likes/{userID} {
+      allow read: if isSignedIn();
+      allow write: if isSelf(userID);
+    }
+
+    match /users/{userID} {
+      allow read: if isSignedIn();
+      allow create: if isSelf(userID) && isValidUserDocCreate(userID);
+      allow update: if (isSelf(userID) && isValidUserDocUpdateSelf(userID)) || isFollowCountOnlyUpdate(userID);
+      allow delete: if false;
+    }
+
+    match /users/{userID}/posts/{postID} {
+      allow read, write: if isSelf(userID);
+    }
+
+    match /users/{userID}/locationHistory/{docID} {
+      allow read, write: if isSelf(userID);
+    }
+
+    match /users/{userID}/postLog/{docID} {
+      allow read, write: if isSelf(userID);
+    }
+
+    match /follows/{relationID} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.followerUserID == request.auth.uid
+          || resource.data.followedUserID == request.auth.uid
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'followerUserID',
+          'followedUserID',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.followerUserID == request.auth.uid
+        && request.resource.data.followedUserID is string
+        && request.resource.data.followedUserID != request.auth.uid
+        && relationID == (request.auth.uid + '_' + request.resource.data.followedUserID);
+
+      allow delete: if isSignedIn() && resource.data.followerUserID == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /usernames/{username} {
+      allow read: if true;
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['userID', 'username', 'updatedAt'])
+        && request.resource.data.userID is string
+        && request.resource.data.userID == request.auth.uid
+        && request.resource.data.username is string;
+
+      allow delete: if isSignedIn()
+        && resource.data.userID is string
+        && resource.data.userID == request.auth.uid;
+    }
+
+    match /chats/{chatID} {
+      allow read, write: if isSignedIn();
+
+      match /messages/{messageID} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /pois/{poiID} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /osm_places/{docID} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /moderationQueue/{docID} {
       allow read, write: if false;
     }
 
-    // Posts collection - allow reads to everyone
-    match /posts/{postID} {
-      allow read: if request.auth != null || request.auth == null;
-      allow write: if false; // Only backend functions can write
+    match /moderationAuditLog/{docID} {
+      allow read, write: if false;
     }
 
-    // User posts - track which posts a user has made
-    match /users/{userID}/posts/{postID} {
-      allow read: if request.auth.uid == userID || resource == null;
-      allow write: if request.auth.uid == userID;
-    }
-
-    // User location history
-    match /users/{userID}/locationHistory/{doc} {
-      allow read: if request.auth.uid == userID;
-      allow write: if request.auth.uid == userID;
-    }
-
-    // Comments on posts
-    match /posts/{postID}/comments/{commentID} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null 
-        && request.resource.data.authorID == request.auth.uid;
-      allow update, delete: if request.auth.uid == resource.data.authorID;
-    }
-
-    // Likes on posts
-    match /posts/{postID}/likes/{userID} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userID;
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -7,6 +7,414 @@ import PhotosUI
 import AVFoundation
 import UniformTypeIdentifiers
 import LinkPresentation
+import UIKit
+import LocalAuthentication
+import UserNotifications
+
+private enum PostTypeStylePalette {
+    static func color(for postType: String) -> Color {
+        switch postType {
+        case "Text":
+            return Color(red: 0.20, green: 0.22, blue: 0.26)
+        case "Photo", "Photo/Video":
+            return Color(red: 0.17, green: 0.38, blue: 0.78)
+        case "Video":
+            return Color(red: 0.54, green: 0.22, blue: 0.82)
+        case "Link":
+            return Color(red: 0.09, green: 0.58, blue: 0.35)
+        case "Audio", "Song":
+            return Color(red: 0.09, green: 0.45, blue: 0.78)
+        case "Poll":
+            return Color(red: 0.63, green: 0.21, blue: 0.70)
+        case "Live Route":
+            return Color(red: 0.10, green: 0.62, blue: 0.53)
+        case "Guide":
+            return Color(red: 0.74, green: 0.54, blue: 0.08)
+        case "Work", "Hiring":
+            return Color(red: 0.14, green: 0.28, blue: 0.62)
+        case "For Sale":
+            return Color(red: 0.79, green: 0.39, blue: 0.15)
+        default:
+            return .black
+        }
+    }
+}
+
+private enum MapFocusMode {
+    case recentBalanced
+    case nearbyRecent
+    case userLocation
+    case newestOnly
+}
+
+struct MapPostMarker: Identifiable {
+    let id: String
+    let postID: Int
+    let type: String
+    let locationName: String
+    let coordinate: CLLocationCoordinate2D
+    let createdAt: Date
+    let hasPreciseCoordinate: Bool
+}
+
+private struct MapPostTypeShellIcon: View {
+    let postType: String
+
+    private var symbolName: String {
+        switch postType {
+        case "Text": return "text.alignleft"
+        case "Photo": return "photo.fill"
+        case "Video": return "play.fill"
+        case "Photo/Video": return "photo.on.rectangle.angled"
+        case "Link": return "link"
+        case "Audio": return "waveform"
+        case "Song": return "music.note"
+        case "Poll": return "chart.pie.fill"
+        case "Live Route": return "point.topleft.down.curvedto.point.bottomright.up"
+        case "Guide": return "list.number"
+        case "Work", "Hiring": return "briefcase.fill"
+        case "For Sale": return "tag.fill"
+        default: return "mappin.and.ellipse"
+        }
+    }
+
+    private var tint: Color {
+        PostTypeStylePalette.color(for: postType)
+    }
+
+    private var borderTint: Color {
+        PostTypeStylePalette.color(for: postType)
+    }
+
+    var body: some View {
+        Image(systemName: symbolName)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(tint)
+    }
+}
+
+private struct MapPostFreshnessHaloIcon: View {
+    let postID: Int
+    let postType: String
+    let createdAt: Date
+    let currentZoom: CGFloat
+    let showsIsolatedPulse: Bool
+    // At the minimum zoom, this starts large and then shrinks over one minute.
+    private let startDiameterAtReferenceZoom: CGFloat = 220.0
+    private let referenceZoom: CGFloat = 13.8
+    private let haloDurationSeconds: TimeInterval = 120.0
+    private let isolatedPulseCycleSeconds: TimeInterval = 1.45
+    private let isolatedPulseMinDiameter: CGFloat = 8.0
+    private let isolatedPulseMaxDiameter: CGFloat = 16.0
+    private static let firstSeenDefaultsKey = "spot_map_marker_first_seen_epoch_by_post_id"
+    private static var firstSeenEpochByPostID: [String: TimeInterval] = {
+        UserDefaults.standard.dictionary(forKey: firstSeenDefaultsKey) as? [String: Double] ?? [:]
+    }()
+
+    @State private var anchoredCreatedAt: Date? = nil
+
+    private static func persistedFirstSeenDate(for postID: Int, createdAt: Date) -> Date {
+        let key = String(postID)
+        let nowEpoch = Date().timeIntervalSince1970
+        let candidateEpoch = min(createdAt.timeIntervalSince1970, nowEpoch)
+
+        if let existingEpoch = firstSeenEpochByPostID[key] {
+            let resolvedEpoch = min(existingEpoch, candidateEpoch)
+            if resolvedEpoch != existingEpoch {
+                firstSeenEpochByPostID[key] = resolvedEpoch
+                UserDefaults.standard.set(firstSeenEpochByPostID, forKey: firstSeenDefaultsKey)
+            }
+            return Date(timeIntervalSince1970: resolvedEpoch)
+        }
+
+        firstSeenEpochByPostID[key] = candidateEpoch
+        UserDefaults.standard.set(firstSeenEpochByPostID, forKey: firstSeenDefaultsKey)
+        return Date(timeIntervalSince1970: candidateEpoch)
+    }
+
+    private func remainingFraction(at date: Date, anchorDate: Date) -> CGFloat {
+        let elapsed = max(0, date.timeIntervalSince(anchorDate))
+        let progress = min(1.0, elapsed / haloDurationSeconds)
+        return max(0, CGFloat(1.0 - progress))
+    }
+
+    private func zoomScale() -> CGFloat {
+        let rawScale = CGFloat(pow(2.0, Double(currentZoom - referenceZoom)))
+        return min(max(rawScale, 0.2), 24.0)
+    }
+
+    private func isolatedPulsePhase(at date: Date) -> CGFloat {
+        let raw = date.timeIntervalSinceReferenceDate / isolatedPulseCycleSeconds
+        let phase = raw - floor(raw)
+        if phase < 0.5 {
+            return CGFloat(phase * 2.0)
+        }
+        return CGFloat((1.0 - phase) * 2.0)
+    }
+
+    var body: some View {
+        let anchor = anchoredCreatedAt ?? createdAt
+        let now = Date()
+        let remaining = remainingFraction(at: now, anchorDate: anchor)
+        let diameter = startDiameterAtReferenceZoom * remaining * zoomScale()
+        let pulsePhase = isolatedPulsePhase(at: now)
+        let pulseDiameter = isolatedPulseMinDiameter + (isolatedPulseMaxDiameter - isolatedPulseMinDiameter) * pulsePhase
+
+        ZStack {
+            MapPostTypeShellIcon(postType: postType)
+                .frame(width: 9, height: 9)
+        }
+        .overlay {
+            if diameter > 0.1 {
+                Circle()
+                    .stroke(Color.black, lineWidth: 1.0)
+                    .frame(width: diameter, height: diameter)
+                    .opacity(Double(remaining))
+                    .allowsHitTesting(false)
+            }
+
+            if showsIsolatedPulse && remaining <= 0.001 {
+                Circle()
+                    .stroke(Color.black.opacity(0.75), lineWidth: 0.85)
+                    .frame(width: pulseDiameter, height: pulseDiameter)
+                    .opacity(Double(0.35 + (0.45 * (1.0 - pulsePhase))))
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(width: 21, height: 21)
+        .onAppear {
+            anchoredCreatedAt = Self.persistedFirstSeenDate(for: postID, createdAt: createdAt)
+        }
+    }
+}
+
+private struct PostsMapView: View {
+    let markers: [MapPostMarker]
+    let focusedPostID: Int?
+    let focusMode: MapFocusMode
+    let focusTrigger: Int
+    let userCoordinate: CLLocationCoordinate2D?
+    let hideAttributionButton: Bool
+    let mapTapEnabled: Bool
+    let mapLongPressEnabled: Bool
+    let onMapTap: (CLLocationCoordinate2D) -> Void
+    let onMapLongPress: (CLLocationCoordinate2D) -> Void
+    let onMarkerTap: (Int) -> Void
+    let onCameraCenterZoomChanged: ((CLLocationCoordinate2D, CGFloat) -> Void)?
+
+    private static let mapIconCollisionRadiusMiles: Double = 0.012
+
+    @State private var region = MKCoordinateRegion(
+        center: NearbyPlaceLoader.defaultCenter,
+        span: MKCoordinateSpan(latitudeDelta: 0.12, longitudeDelta: 0.12)
+    )
+
+    var body: some View {
+        Map(coordinateRegion: $region, annotationItems: nonOverlappingMarkers) { marker in
+            MapAnnotation(coordinate: marker.coordinate) {
+                Button {
+                    onMarkerTap(marker.postID)
+                } label: {
+                    MapPostFreshnessHaloIcon(
+                        postID: marker.postID,
+                        postType: marker.type,
+                        createdAt: marker.createdAt,
+                        currentZoom: currentZoomEstimate,
+                        showsIsolatedPulse: true
+                    )
+                    .frame(width: 21, height: 21)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(marker.type) post in \(marker.locationName)")
+            }
+        }
+        .onTapGesture {
+            guard mapTapEnabled else { return }
+            onMapTap(region.center)
+        }
+        .onLongPressGesture {
+            guard mapLongPressEnabled else { return }
+            onMapLongPress(region.center)
+        }
+        .onAppear {
+            syncRegionToMarkers()
+            onCameraCenterZoomChanged?(region.center, currentZoomEstimate)
+        }
+        .onChange(of: markers.map(\.id)) { _, _ in
+            syncRegionToMarkers()
+            onCameraCenterZoomChanged?(region.center, currentZoomEstimate)
+        }
+        .onChange(of: focusedPostID) { _, _ in
+            syncRegionToMarkers()
+            onCameraCenterZoomChanged?(region.center, currentZoomEstimate)
+        }
+        .onChange(of: focusTrigger) { _, _ in
+            syncRegionToMarkers()
+            onCameraCenterZoomChanged?(region.center, currentZoomEstimate)
+        }
+    }
+
+    private var nonOverlappingMarkers: [MapPostMarker] {
+        let prioritized = markers.sorted { lhs, rhs in
+            if lhs.postID == focusedPostID { return true }
+            if rhs.postID == focusedPostID { return false }
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.postID > rhs.postID
+        }
+
+        // Strict no-overlap rule: keep higher-priority markers and drop any that collide.
+        let collisionRadius = collisionRadiusMilesForCurrentZoom
+        var filtered: [MapPostMarker] = []
+        filtered.reserveCapacity(prioritized.count)
+
+        for candidate in prioritized {
+            let collidesWithVisible = filtered.contains { visible in
+                NearbyPlaceLoader.haversineMiles(from: visible.coordinate, to: candidate.coordinate) < collisionRadius
+            }
+            if collidesWithVisible {
+                continue
+            }
+            filtered.append(candidate)
+        }
+
+        return filtered
+    }
+
+    private var collisionRadiusMilesForCurrentZoom: Double {
+        let zoomOutProgress = min(max((16.0 - Double(currentZoomEstimate)) / 3.2, 0.0), 1.0)
+        let spacingMultiplier = 1.0 + (zoomOutProgress * 1.35)
+        return Self.mapIconCollisionRadiusMiles * spacingMultiplier
+    }
+
+    private var currentZoomEstimate: CGFloat {
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        switch span {
+        case ..<0.02: return 16.0
+        case ..<0.05: return 15.2
+        case ..<0.12: return 14.1
+        case ..<0.30: return 12.9
+        case ..<0.80: return 11.1
+        default: return 10.0
+        }
+    }
+
+    private func syncRegionToMarkers() {
+        if let focusedPostID,
+           let focusedMarker = markers.first(where: { $0.postID == focusedPostID }) {
+            region = MKCoordinateRegion(
+                center: focusedMarker.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.016, longitudeDelta: 0.016)
+            )
+            return
+        }
+
+        if focusMode == .userLocation, let userCoordinate {
+            region = MKCoordinateRegion(
+                center: userCoordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.022, longitudeDelta: 0.022)
+            )
+            return
+        }
+
+        guard let first = markers.first else {
+            let fallbackCenter = userCoordinate ?? NearbyPlaceLoader.defaultCenter
+            region = MKCoordinateRegion(
+                center: fallbackCenter,
+                span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)
+            )
+            return
+        }
+
+        if focusMode == .newestOnly {
+            if let newestMarker = markers.max(by: { $0.createdAt < $1.createdAt }) {
+                region = MKCoordinateRegion(
+                    center: newestMarker.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.020, longitudeDelta: 0.020)
+                )
+                return
+            }
+        }
+
+        if focusMode == .recentBalanced || focusMode == .nearbyRecent {
+            let target = bestMarkerForBalancedMode(mode: focusMode)
+            region = MKCoordinateRegion(
+                center: target.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.018, longitudeDelta: 0.018)
+            )
+            return
+        }
+
+        if markers.count == 1 {
+            region = MKCoordinateRegion(
+                center: first.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.022, longitudeDelta: 0.022)
+            )
+            return
+        }
+
+        let latitudes = markers.map { $0.coordinate.latitude }
+        let longitudes = markers.map { $0.coordinate.longitude }
+        let minLat = latitudes.min() ?? first.coordinate.latitude
+        let maxLat = latitudes.max() ?? first.coordinate.latitude
+        let minLon = longitudes.min() ?? first.coordinate.longitude
+        let maxLon = longitudes.max() ?? first.coordinate.longitude
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        let maxSpan = max(maxLat - minLat, maxLon - minLon)
+        let delta: CLLocationDegrees
+        switch maxSpan {
+        case ..<0.02: delta = 0.028
+        case ..<0.05: delta = 0.06
+        case ..<0.12: delta = 0.15
+        case ..<0.30: delta = 0.32
+        case ..<0.80: delta = 0.82
+        default: delta = 1.55
+        }
+
+        region = MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(latitudeDelta: delta, longitudeDelta: delta)
+        )
+    }
+
+    private func bestMarkerForBalancedMode(mode: MapFocusMode) -> MapPostMarker {
+        guard let userCoordinate else {
+            return markers.max(by: { $0.createdAt < $1.createdAt }) ?? markers[0]
+        }
+
+        let now = Date().timeIntervalSince1970
+        let maxRecencyWindow: TimeInterval = 86_400
+        let maxDistanceMiles: Double = 25
+
+        let weighted = markers.map { marker -> (marker: MapPostMarker, score: Double) in
+            let ageSeconds = max(0, now - marker.createdAt.timeIntervalSince1970)
+            let recencyScore = max(0.0, 1.0 - min(ageSeconds / maxRecencyWindow, 1.0))
+            let distance = NearbyPlaceLoader.haversineMiles(from: userCoordinate, to: marker.coordinate)
+            let distanceScore = max(0.0, 1.0 - min(distance / maxDistanceMiles, 1.0))
+
+            let (recencyWeight, distanceWeight): (Double, Double) = {
+                switch mode {
+                case .recentBalanced:
+                    return (0.72, 0.28)
+                case .nearbyRecent:
+                    return (0.50, 0.50)
+                default:
+                    return (1.0, 0.0)
+                }
+            }()
+
+            return (marker, recencyScore * recencyWeight + distanceScore * distanceWeight)
+        }
+
+        return weighted.max(by: { $0.score < $1.score })?.marker ?? markers[0]
+    }
+}
 
 final class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var authorizationStatus: CLAuthorizationStatus
@@ -29,20 +437,24 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
             manager.requestLocation()
-        default:
+        case .denied, .restricted:
+            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(settingsURL)
+            }
+        @unknown default:
             break
-        }
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
-        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
-            manager.requestLocation()
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         lastKnownLocation = locations.last
+    }
+
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        authorizationStatus = status
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            manager.requestLocation()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -262,12 +674,49 @@ private enum WorkPostCodec {
 }
 
 private struct SaleDraftPersistence: Codable {
+    enum CodingKeys: String, CodingKey {
+        case item, price, phone, email, description, photoData, photoDatas
+    }
+
     let item: String
     let price: String
     let phone: String
     let email: String
     let description: String
     let photoData: Data?
+    let photoDatas: [Data]
+
+    init(item: String, price: String, phone: String, email: String, description: String, photoData: Data?, photoDatas: [Data]) {
+        self.item = item
+        self.price = price
+        self.phone = phone
+        self.email = email
+        self.description = description
+        self.photoData = photoData
+        self.photoDatas = photoDatas
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        item = try container.decodeIfPresent(String.self, forKey: .item) ?? ""
+        price = try container.decodeIfPresent(String.self, forKey: .price) ?? ""
+        phone = try container.decodeIfPresent(String.self, forKey: .phone) ?? ""
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
+        photoData = try container.decodeIfPresent(Data.self, forKey: .photoData)
+        photoDatas = try container.decodeIfPresent([Data].self, forKey: .photoDatas) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(item, forKey: .item)
+        try container.encode(price, forKey: .price)
+        try container.encode(phone, forKey: .phone)
+        try container.encode(email, forKey: .email)
+        try container.encode(description, forKey: .description)
+        try container.encodeIfPresent(photoData, forKey: .photoData)
+        try container.encode(photoDatas, forKey: .photoDatas)
+    }
 }
 
 struct SalePostDetails {
@@ -437,9 +886,140 @@ private struct NearbyPlaceRecord: Decodable {
     let category: String
 }
 
-private enum NearbyPlaceLoader {
+public enum NearbyPlaceLoader {
     static let defaultCenter = CLLocationCoordinate2D(latitude: 40.7608, longitude: -111.8910)
     private static var cachedBundledPlaces: [NearbyPlace]?
+
+    // Pre-indexed prefix dictionary for O(1) instant non-blocking search
+    private static var prefixIndex: [String: [FirebasePOIRecord]] = [:]
+    private static var allIndexedPOIRecords: [FirebasePOIRecord] = []
+    private static var isIndexing = false
+    private static let lock = NSLock()
+
+    static func initializeSearchIndexIfNeeded() {
+        lock.lock()
+        if !allIndexedPOIRecords.isEmpty || isIndexing {
+            lock.unlock()
+            return
+        }
+        isIndexing = true
+        lock.unlock()
+
+        let places = allAvailablePlaces()
+        let cityPOIs = MajorCityRecord.knownWorldCities.map { city in
+            FirebasePOIRecord(
+                id: city.id,
+                name: city.name,
+                category: "City",
+                latitude: city.latitude,
+                longitude: city.longitude,
+                city: city.name,
+                country: city.subtitle,
+                geohash: nil,
+                updatedAt: 0
+            )
+        }
+
+        let placePOIs = places.map { place in
+            FirebasePOIRecord(
+                id: place.id,
+                name: place.name,
+                category: place.category,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                city: nil,
+                country: nil,
+                geohash: nil,
+                updatedAt: 0
+            )
+        }
+
+        let allRecords = cityPOIs + placePOIs
+
+        var newPrefixIndex: [String: [FirebasePOIRecord]] = [:]
+
+        for record in allRecords {
+            let tokens = FirebaseSpotService.normalizeSearchText("\(record.name) \(record.category) \(record.city ?? "")")
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            
+            var addedPrefixes = Set<String>()
+            for token in tokens {
+                let s = String(token)
+                for prefixLen in 1...min(4, s.count) {
+                    let prefix = String(s.prefix(prefixLen))
+                    if addedPrefixes.insert(prefix).inserted {
+                        if newPrefixIndex[prefix] == nil {
+                            newPrefixIndex[prefix] = []
+                        }
+                        newPrefixIndex[prefix]?.append(record)
+                    }
+                }
+            }
+        }
+
+        lock.lock()
+        allIndexedPOIRecords = allRecords
+        prefixIndex = newPrefixIndex
+        isIndexing = false
+        lock.unlock()
+    }
+
+    static func searchLocalIndex(
+        query: String,
+        userCoordinate: CLLocationCoordinate2D? = nil,
+        limit: Int = 80
+    ) -> [FirebasePOIRecord] {
+        initializeSearchIndexIfNeeded()
+
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        let normalizedQuery = FirebaseSpotService.normalizeSearchText(trimmed)
+        guard !normalizedQuery.isEmpty else { return [] }
+
+        // Tokenize search query (e.g. "high school s" -> ["high", "school", "s"])
+        let queryTokens = normalizedQuery
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard !queryTokens.isEmpty else { return [] }
+
+        // Multi-token intersection: use the longest/most specific token prefix to find candidates
+        let primaryToken = queryTokens.max(by: { $0.count < $1.count }) ?? queryTokens[0]
+        let searchPrefix = String(primaryToken.prefix(min(4, primaryToken.count)))
+
+        lock.lock()
+        let candidates = prefixIndex[searchPrefix] ?? allIndexedPOIRecords
+        lock.unlock()
+
+        // Smart multi-token filter: candidate MUST satisfy all entered query tokens
+        let matches = candidates
+            .filter { record in
+                let targetSig = FirebaseSpotService.normalizeSearchText("\(record.name) \(record.category) \(record.city ?? "") \(record.country ?? "")")
+                return queryTokens.allSatisfy { token in
+                    targetSig.contains(token)
+                }
+            }
+            .sorted { lhs, rhs in
+                let lhsScore = FirebaseSpotService.poiSearchScore(query: trimmed, poi: lhs)
+                let rhsScore = FirebaseSpotService.poiSearchScore(query: trimmed, poi: rhs)
+                if lhsScore != rhsScore { return lhsScore > rhsScore }
+                return lhs.name < rhs.name
+            }
+
+        return Array(matches.prefix(limit))
+    }
+
+    static func allAvailablePlaces() -> [NearbyPlace] {
+        if let cachedBundledPlaces {
+            return cachedBundledPlaces
+        }
+
+        let loaded = loadBundledPOIs()
+        cachedBundledPlaces = loaded
+        return loaded
+    }
 
     static func loadNearbyPlaces(from location: CLLocation, limit: Int = 50) -> [NearbyPlace] {
         let allPlaces = loadAllPlaces(from: location.coordinate)
@@ -454,13 +1034,7 @@ private enum NearbyPlaceLoader {
             NearbyPlace(id: "salt_lake_4", name: "Natural History Museum of Utah", category: "museum", latitude: 40.7647, longitude: -111.8261)
         ]
 
-        let allPlaces: [NearbyPlace]
-        if let cachedBundledPlaces {
-            allPlaces = cachedBundledPlaces
-        } else {
-            allPlaces = loadBundledPOIs()
-            cachedBundledPlaces = allPlaces
-        }
+        let allPlaces = allAvailablePlaces()
 
         // If no places loaded, return fallback
         guard !allPlaces.isEmpty else {
@@ -479,25 +1053,88 @@ private enum NearbyPlaceLoader {
     }
 
     private static func loadBundledPOIs() -> [NearbyPlace] {
-        // Keep local fallback lightweight and reliable to avoid startup/watchdog termination.
-        guard let url = Bundle.main.url(forResource: "salt_lake_city_pois", withExtension: "json") else {
-            return []
+        // We accept legacy *_pois.json files, seed JSONs, and compact global array JSON files (global_5m_locations.json / compact schema)
+        let allJSON = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? []
+        let poiJSONs = allJSON.filter { url in
+            let name = url.lastPathComponent.lowercased()
+            return name.hasSuffix("_pois.json")
+                || name.hasSuffix("_seed.json")
+                || name.hasPrefix("seed_")
+                || name.hasPrefix("osm_")
+                || name.contains("global") && name.hasSuffix(".json")
+                || name.contains("osm") && name.hasSuffix(".json")
         }
 
-        do {
-            let data = try Data(contentsOf: url)
-            let items = try JSONDecoder().decode([NearbyPlaceRecord].self, from: data)
-            var seen = Set<String>()
-
-            return items.compactMap { item -> NearbyPlace? in
-                if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return nil }
-                if seen.contains(item.poi_id) { return nil }
-                seen.insert(item.poi_id)
-                return NearbyPlace(id: item.poi_id, name: item.name, category: item.category, latitude: item.latitude, longitude: item.longitude)
+        let sources: [URL]
+        if poiJSONs.isEmpty {
+            if let single = Bundle.main.url(forResource: "salt_lake_city_pois", withExtension: "json") {
+                sources = [single]
+            } else {
+                sources = []
             }
-        } catch {
-            return []
+        } else {
+            sources = poiJSONs
         }
+
+        var seen = Set<String>()
+        var loaded: [NearbyPlace] = []
+
+        for url in sources {
+            guard let data = try? Data(contentsOf: url) else { continue }
+
+            // 1. Try standard JSON object format ([NearbyPlaceRecord])
+            if let items = try? JSONDecoder().decode([NearbyPlaceRecord].self, from: data) {
+                for item in items {
+                    let trimmedName = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedName.isEmpty else { continue }
+
+                    let key = item.poi_id.isEmpty
+                        ? "\(trimmedName.lowercased())|\(item.latitude)|\(item.longitude)"
+                        : item.poi_id
+                    guard seen.insert(key).inserted else { continue }
+
+                    loaded.append(
+                        NearbyPlace(
+                            id: item.poi_id.isEmpty ? key : item.poi_id,
+                            name: trimmedName,
+                            category: item.category,
+                            latitude: item.latitude,
+                            longitude: item.longitude
+                        )
+                    )
+                }
+                continue
+            }
+
+            // 2. Try compact global array format ([ ["Name", "Category/Subtitle", lat, lon, tier], ... ])
+            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[Any]] {
+                for row in jsonArray {
+                    guard row.count >= 4,
+                          let name = row[0] as? String,
+                          let category = row[1] as? String,
+                          let lat = (row[2] as? NSNumber)?.doubleValue,
+                          let lon = (row[3] as? NSNumber)?.doubleValue else { continue }
+
+                    let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedName.isEmpty else { continue }
+
+                    let key = "\(trimmedName.lowercased())|\(round(lat * 10000)/10000.0)|\(round(lon * 10000)/10000.0)"
+                    guard seen.insert(key).inserted else { continue }
+
+                    loaded.append(
+                        NearbyPlace(
+                            id: key,
+                            name: trimmedName,
+                            category: category,
+                            latitude: lat,
+                            longitude: lon
+                        )
+                    )
+                }
+            }
+        }
+
+        return loaded
     }
 
     static func haversineMiles(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
@@ -511,6 +1148,59 @@ private enum NearbyPlaceLoader {
         let c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return radiusMiles * c
     }
+}
+
+struct MajorCityRecord: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let subtitle: String
+    let latitude: Double
+    let longitude: Double
+
+    init(name: String, subtitle: String, latitude: Double, longitude: Double) {
+        self.id = "\(name), \(subtitle)"
+        self.name = name
+        self.subtitle = subtitle
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    static let knownWorldCities: [MajorCityRecord] = [
+        .init(name: "Friday Harbor", subtitle: "San Juan County, Washington", latitude: 48.5343, longitude: -123.0171),
+        .init(name: "San Juan Islands", subtitle: "Washington, United States", latitude: 48.5300, longitude: -123.0800),
+        .init(name: "San Juan County", subtitle: "Washington, United States", latitude: 48.5300, longitude: -123.0800),
+        .init(name: "Roche Harbor", subtitle: "San Juan Island, Washington", latitude: 48.6093, longitude: -123.1499),
+        .init(name: "Spring Street School", subtitle: "Friday Harbor, Washington", latitude: 48.5350, longitude: -123.0200),
+        .init(name: "Seattle", subtitle: "Washington, United States", latitude: 47.6062, longitude: -122.3321),
+        .init(name: "Seattle Center", subtitle: "Seattle, Washington", latitude: 47.6219, longitude: -122.3517),
+        .init(name: "Pike Place Market", subtitle: "Seattle, Washington", latitude: 47.6097, longitude: -122.3422),
+        .init(name: "Space Needle", subtitle: "Seattle, Washington", latitude: 47.6205, longitude: -122.3493),
+        .init(name: "Tokyo", subtitle: "Japan", latitude: 35.6762, longitude: 139.6503),
+        .init(name: "Shibuya", subtitle: "Tokyo, Japan", latitude: 35.6580, longitude: 139.7016),
+        .init(name: "Shinjuku", subtitle: "Tokyo, Japan", latitude: 35.6938, longitude: 139.7034),
+        .init(name: "New York", subtitle: "New York, United States", latitude: 40.7128, longitude: -74.0060),
+        .init(name: "Brooklyn", subtitle: "New York, United States", latitude: 40.6782, longitude: -73.9442),
+        .init(name: "Manhattan", subtitle: "New York, United States", latitude: 40.7831, longitude: -73.9712),
+        .init(name: "Paris", subtitle: "France", latitude: 48.8566, longitude: 2.3522),
+        .init(name: "London", subtitle: "United Kingdom", latitude: 51.5074, longitude: -0.1278),
+        .init(name: "Sydney", subtitle: "New South Wales, Australia", latitude: -33.8688, longitude: 151.2093),
+        .init(name: "Salt Lake City", subtitle: "Utah, United States", latitude: 40.7608, longitude: -111.8910),
+        .init(name: "San Francisco", subtitle: "California, United States", latitude: 37.7749, longitude: -122.4194),
+        .init(name: "Los Angeles", subtitle: "California, United States", latitude: 34.0522, longitude: -118.2437),
+        .init(name: "Chicago", subtitle: "Illinois, United States", latitude: 41.8781, longitude: -87.6298),
+        .init(name: "Miami", subtitle: "Florida, United States", latitude: 25.7617, longitude: -80.1918),
+        .init(name: "Austin", subtitle: "Texas, United States", latitude: 30.2672, longitude: -97.7431),
+        .init(name: "Vancouver", subtitle: "British Columbia, Canada", latitude: 49.2827, longitude: -123.1207),
+        .init(name: "Toronto", subtitle: "Ontario, Canada", latitude: 43.6532, longitude: -79.3832),
+        .init(name: "Berlin", subtitle: "Germany", latitude: 52.5200, longitude: 13.4050),
+        .init(name: "Rome", subtitle: "Italy", latitude: 41.9028, longitude: 12.4964),
+        .init(name: "Barcelona", subtitle: "Spain", latitude: 41.3851, longitude: 2.1734),
+        .init(name: "Amsterdam", subtitle: "Netherlands", latitude: 52.3676, longitude: 4.9041),
+        .init(name: "Seoul", subtitle: "South Korea", latitude: 37.5665, longitude: 126.9780),
+        .init(name: "Singapore", subtitle: "Singapore", latitude: 1.3521, longitude: 103.8198),
+        .init(name: "Hong Kong", subtitle: "Hong Kong", latitude: 22.3193, longitude: 114.1694),
+        .init(name: "Taipei", subtitle: "Taiwan", latitude: 25.0330, longitude: 121.5654)
+    ]
 }
 
 enum LocationSuggestionRanker {
@@ -564,8 +1254,8 @@ enum LocationSuggestionRanker {
                         return score
                     }()
 
-                    let proximityScore = max(0.0, 1000.0 - (distance * 70.0))
-                    let combinedScore = textScore + (proximityScore * 0.25)
+                    let proximityScore = max(0.0, 50.0 - (distance * 0.5))
+                    let combinedScore = textScore + proximityScore
                     return (place.name, combinedScore)
                 }
                 .filter { $0.score > 0 }
@@ -631,15 +1321,137 @@ enum LocationSuggestionRanker {
 }
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
+
+    static let usernameGoldColor = Color.black
+
+    private struct EngagementSnapshot: Codable {
+        var viewCount: Int
+        var timeViewedSeconds: Int
+        var savedCount: Int
+        var shareCount: Int
+        var likes: Int
+        var peakEngagementScore: Double
+    }
+
     private struct SavedAccountCredential: Codable, Identifiable {
         let email: String
         var username: String
         var displayName: String
+        var profilePhotoURL: String?
+        var password: String
         var lastUsedAt: TimeInterval
 
         var id: String {
-            email.lowercased()
+            let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+            if !normalizedUsername.isEmpty {
+                return normalizedUsername.lowercased()
+            }
+            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return trimmedEmail.isEmpty ? "anonymous" : trimmedEmail
         }
+
+        init(
+            email: String,
+            username: String,
+            displayName: String,
+            profilePhotoURL: String? = nil,
+            password: String = "",
+            lastUsedAt: TimeInterval
+        ) {
+            self.email = email
+            self.username = username
+            self.displayName = displayName
+            self.profilePhotoURL = profilePhotoURL
+            self.password = password
+            self.lastUsedAt = lastUsedAt
+        }
+    }
+
+    static func savedAccountIdentityKey(username: String, email: String) -> String {
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+        if !normalizedUsername.isEmpty {
+            return normalizedUsername.lowercased()
+        }
+
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !trimmedEmail.isEmpty {
+            return trimmedEmail
+        }
+
+        return "anonymous"
+    }
+
+    static func preferredProfilePhotoURL(candidateRemoteURL: String?, savedAccountPhotoURL: String?, fallbackLocalValue: String? = nil) -> String {
+        let candidate = candidateRemoteURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let candidate, !candidate.isEmpty {
+            return candidate
+        }
+
+        let savedValue = savedAccountPhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let savedValue, !savedValue.isEmpty {
+            return savedValue
+        }
+
+        let fallbackValue = fallbackLocalValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let fallbackValue, !fallbackValue.isEmpty {
+            return fallbackValue
+        }
+
+        return ""
+    }
+
+    static func canonicalProfilePhotoURL(fetchedRemoteURL: String?, fallbackProfilePhotoURL: String?, localProfilePhotoURL: String? = nil) -> String {
+        let fetched = (fetchedRemoteURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fetched.isEmpty {
+            return fetched
+        }
+
+        let fallback = (fallbackProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fallback.isEmpty {
+            return fallback
+        }
+
+        let local = (localProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !local.isEmpty {
+            return local
+        }
+
+        return ""
+    }
+
+    static func shouldSyncLocalProfilePhotoToCloud(
+        fetchedRemoteURL: String?,
+        cachedLocalPhotoExists: Bool,
+        hasPendingSync: Bool,
+        hasRemovalPending: Bool,
+        isUploadInFlight: Bool
+    ) -> Bool {
+        let remoteURL = (fetchedRemoteURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return remoteURL.isEmpty
+            && cachedLocalPhotoExists
+            && !hasPendingSync
+            && !hasRemovalPending
+            && !isUploadInFlight
+    }
+
+    static func preferredAccountUsername(storedUsername: String?, firebaseUsername: String?) -> String {
+        let normalizedStored = FirebaseSpotService.normalizeUsername(storedUsername ?? "")
+        if !normalizedStored.isEmpty && normalizedStored != "user" {
+            return normalizedStored
+        }
+
+        let normalizedFirebase = FirebaseSpotService.normalizeUsername(firebaseUsername ?? "")
+        if !normalizedFirebase.isEmpty && normalizedFirebase != "user" {
+            return normalizedFirebase
+        }
+
+        if !normalizedStored.isEmpty {
+            return normalizedStored
+        }
+
+        return normalizedFirebase
     }
 
     private let feedLocationDefaultsKey = "spot_feed_location"
@@ -651,33 +1463,72 @@ struct ContentView: View {
     private let phoneNumberDefaultsKey = "spot_phone_number"
     private let backupPhoneNumberDefaultsKey = "spot_backup_phone_number"
     private let accountUsernameDefaultsKey = "spot_account_username"
+    private let accountUsernameAliasesDefaultsKey = "spot_account_username_aliases"
     private let profileNameDefaultsKey = "spot_profile_name"
     private let accountEmailDefaultsKey = "spot_account_email"
     private let accountPasswordDefaultsKey = "spot_account_password"
+    private let remainingBoostsDefaultsKey = "spot_remaining_boosts"
+    private let passwordFaceIDProtectionDefaultsKey = "spot_password_face_id_protection_enabled"
     private let accountSignedInDefaultsKey = "spot_account_signed_in"
+    private let hasEverSignedInDefaultsKey = "spot_has_ever_signed_in"
     private let savedAccountsDefaultsKey = "spot_saved_accounts"
     private let draftAudioRecordingDefaultsKey = "spot_draft_recorded_audio_url"
     private let anonymousModeDefaultsKey = "spot_anonymous_mode_enabled"
+    private let anonymousSecureFaceIDDefaultsKey = "spot_anonymous_secure_face_id_enabled"
+    private static let postDetailAgeValueDefaultsKey = "spot_post_detail_age_value"
+    private static let postDetailPositionValueDefaultsKey = "spot_post_detail_position_value"
+    private static let positionTagPrefix = "spot:position:"
+    private let notifyLocationPostsDefaultsKey = "spot_notify_location_posts"
+    private let notifyPoints5DefaultsKey = "spot_notify_points_5"
+    private let notifyPoints20DefaultsKey = "spot_notify_points_20"
+    private let notifyPoints40DefaultsKey = "spot_notify_points_40"
+    private let notifyAccountViewedDefaultsKey = "spot_notify_account_viewed"
+    private let notifyDirectMessagesDefaultsKey = "spot_notify_direct_messages"
+    private static let engagementSnapshotsDefaultsKey = "spot_engagement_snapshots_by_post"
+    private static let pinnedScoresByPostRealmDefaultsKey = "spot_pinned_scores_by_post_realm"
+    private static let pinnedScoresByOwnerDefaultsKey = "spot_pinned_scores_by_owner"
     private static let locationPostCooldownDefaultsKey = "spot_location_post_cooldown_history"
+    private static let reportedPostKeysDefaultsKey = "spot_reported_post_keys"
+    private static let boostAutoApplyDefaultsKey = "spot_boost_auto_apply_enabled"
     private let profilePhotoLastWriteAtDefaultsKey = "spot_profile_photo_last_write_at"
     private let profilePhotoPendingSyncDefaultsKey = "spot_profile_photo_pending_sync"
+    private let profilePhotoRemovalPendingDefaultsKey = "spot_profile_photo_removal_pending"
 
     private static let anonymousDisplayName = "Anonymous"
     private static let anonymousHandle = "anonymous"
     private static let anonymousTagMarker = "spot:anonymous"
     private static let boostedTagMarker = "spot:boosted"
+    private static let ageTagPrefix = "spot:age:"
     private static let adminPinnedPostsByRealmDefaultsKey = "spot_admin_pinned_posts_by_realm"
     private static let adminPinnedPostsAtDefaultsKey = "spot_admin_pinned_posts_at"
     private static let adminGlobalPinCodeDefaultsKey = "spot_admin_global_pin_code"
+    private static let adminVideoMetricPinCodeDefaultsKey = "spot_admin_video_metric_pin_code"
+    private static let adminVideoMetricPinnedPostsAtDefaultsKey = "spot_admin_video_metric_pinned_posts_at"
+    private static let adminVideoNonMetricPinCodeDefaultsKey = "spot_admin_video_non_metric_pin_code"
+    private static let adminVideoNonMetricPinnedPostsAtDefaultsKey = "spot_admin_video_non_metric_pinned_posts_at"
     private static let adminUnpinCodeDefaultsKey = "spot_admin_unpin_code"
+    private static let adminProfilePinCodeDefaultsKey = "spot_admin_profile_pin_code"
+    private static let adminProfilePinnedPostsAtDefaultsKey = "spot_admin_profile_pinned_posts_at"
+    private static let adminMapTopPinCodeDefaultsKey = "spot_admin_map_top_pin_code"
+    private static let adminNearestPOIPinCodeDefaultsKey = "spot_admin_nearest_poi_pin_code"
     private static let adminPinAllNonMetricMarker = "spot:all-non-metric"
+    private static let adminPinNearestPOIMarker = "spot:nearest-poi"
+    private static let adminPinMapTopMarker = "spot:map-top"
     private static let adminPinRealmTagPrefix = "spot:admin-pin:realm:"
     private static let adminPinTimestampTagPrefix = "spot:admin-pin:at:"
+    private static let adminFlaggedPostsByKeyDefaultsKey = "spot_admin_flagged_posts_by_key"
+    private static let adminModerationUnlockCode = "2525"
+    private static let adminFlaggedRetentionSeconds: TimeInterval = 24 * 60 * 60
+    private static let mapAreaLocationLabel = "Map Area"
+    private static let mapIconLifetimeSeconds: TimeInterval = 86_400
+    private static let mapAreaDefaultRadiusMiles: Double = 8
     private static let perLocationPostLimit = 5
     private static let perLocationCooldownWindowSeconds: TimeInterval = 3600
+    private static let pageSwipeMinimumDistance: CGFloat = 28
+    private static let pageSwipeDismissThreshold: CGFloat = 82
+    private static let pageSwipeHorizontalDominanceRatio: CGFloat = 1.6
     private static let maxAudioRecordingDurationSeconds: TimeInterval = 36_000
-    private static let bottomSilverEndCapHeight: CGFloat = 3
-    private static let sparseProfileBottomInset: CGFloat = 170
+    private static let sparseProfileBottomInset: CGFloat = 72
 
     @State private var sendTo = ""
     @State private var fromLocation = ""
@@ -707,6 +1558,8 @@ struct ContentView: View {
     @State private var draftSaleContactPhone = ""
     @State private var draftSaleContactEmail = ""
     @State private var draftPhotoItem: PhotosPickerItem? = nil
+    @State private var draftListingItems: [PhotosPickerItem] = []
+    @State private var draftListingImages: [UIImage] = []
     private static let saleDraftPersistenceKey = "spot_draft_sale_state"
     @State private var draftPhotoImage: UIImage? = nil
     @State private var draftPhotoCropScale: CGFloat = 1.0
@@ -732,15 +1585,29 @@ struct ContentView: View {
     @State private var usernameAvailabilityIsAvailable = false
     @State private var usernameAvailabilityMessage = "Not checked"
     @State private var accountUsername = UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
+    @State private var signInUsername = UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
     @State private var showPasswordResetSpamNotice = false
     @State private var accountEmail = UserDefaults.standard.string(forKey: "spot_account_email") ?? ""
-    @State private var accountPassword = UserDefaults.standard.string(forKey: "spot_account_password") ?? ""
+    @State private var passwordResetEmail = UserDefaults.standard.string(forKey: "spot_account_email") ?? ""
+    @State private var accountPassword = ""
+    @State private var isShowingAccountPassword = false
+    @State private var isShowingSwitchAccountNotice = false
+    @State private var isPasswordSettingsSignOutArmed = false
+    @State private var explicitSignUpModeOverride: Bool? = nil
+    @State private var isPasswordFaceIDProtectionEnabled = UserDefaults.standard.object(forKey: "spot_password_face_id_protection_enabled") == nil ? false : UserDefaults.standard.bool(forKey: "spot_password_face_id_protection_enabled")
+    @State private var hasPhoneLoginBeenValidated = UserDefaults.standard.bool(forKey: "spot_phone_verified_once")
     @State private var isSignedInToAccount = UserDefaults.standard.bool(forKey: "spot_account_signed_in")
     @State private var accountAuthMessage = ""
+    @State private var technicalSupportCopyMessage = ""
     @State private var composerStatusMessage = ""
     @State private var isAnonymousModeEnabled = UserDefaults.standard.bool(forKey: "spot_anonymous_mode_enabled")
+    @State private var isAnonymousSecureFaceIDEnabled = UserDefaults.standard.bool(forKey: "spot_anonymous_secure_face_id_enabled")
+    @State private var postDetailAgeValue = UserDefaults.standard.string(forKey: Self.postDetailAgeValueDefaultsKey) ?? ""
+    @State private var postDetailPositionValue = UserDefaults.standard.string(forKey: Self.postDetailPositionValueDefaultsKey) ?? ""
+    @State private var positionSearchQuery = ""
+    @State private var isPositionExpanded = false
     @State private var draftIsAnonymous = UserDefaults.standard.bool(forKey: "spot_anonymous_mode_enabled")
-    @State private var locationPostCooldownHistory = ContentView.loadLocationPostCooldownHistory()
+    @State private var locationPostCooldownHistory = Self.loadLocationPostCooldownHistory()
     @State private var postLocationCooldownMessage = ""
     @State private var savedAccounts: [SavedAccountCredential] = []
     @State private var selectedSavedAccountEmail = ""
@@ -763,6 +1630,13 @@ struct ContentView: View {
     @State private var phoneAuthMessage = ""
     @State private var isSendingPhoneCode = false
     @State private var isVerifyingPhoneCode = false
+    @State private var mergePhoneNumber = ""
+    @State private var mergePhonePassword = ""
+    @State private var mergePhoneVerificationID: String? = nil
+    @State private var mergePhoneVerificationCode = ""
+    @State private var mergePhoneAuthMessage = ""
+    @State private var isSendingMergePhoneCode = false
+    @State private var isVerifyingMergePhoneCode = false
 
     @State private var backupPhoneNumber = ""
     @State private var backupPendingPhoneNumber = ""
@@ -777,6 +1651,8 @@ struct ContentView: View {
     @State private var profilePhotoPreviewImage: UIImage? = nil
     @State private var pendingProfilePhotoSelection: UIImage? = nil
     @State private var isProfilePhotoUploadPending = false
+    @State private var profileAvatarSetupNudgeAnimating = false
+    @State private var signedOutAvatarPressAnimating = false
 
     private var displayProfilePhotoImage: UIImage? {
         profilePhotoPreviewImage ?? profilePhotoImage
@@ -796,10 +1672,14 @@ struct ContentView: View {
     }
 
     private func resolvedUsernameForProfileSave(userID: String) async -> String {
-        let trimmedCurrent = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedUsername = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? ""
+        let trimmedCurrent = profileUsername.isEmpty ? savedUsername.trimmingCharacters(in: .whitespacesAndNewlines) : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCurrent.isEmpty {
             let normalized = FirebaseSpotService.normalizeUsername(trimmedCurrent)
             if FirebaseSpotService.isValidUsername(normalized) {
+                profileUsername = normalized
+                accountUsername = normalized
+                UserDefaults.standard.set(normalized, forKey: accountUsernameDefaultsKey)
                 return normalized
             }
         }
@@ -808,6 +1688,8 @@ struct ContentView: View {
             let existingUsername = FirebaseSpotService.normalizeUsername(existingAccount.username)
             if FirebaseSpotService.isValidUsername(existingUsername) {
                 profileUsername = existingUsername
+                accountUsername = existingUsername
+                UserDefaults.standard.set(existingUsername, forKey: accountUsernameDefaultsKey)
                 return existingUsername
             }
         }
@@ -817,6 +1699,8 @@ struct ContentView: View {
             let fromName = FirebaseSpotService.normalizeUsername(displayBase)
             if FirebaseSpotService.isValidUsername(fromName) {
                 profileUsername = fromName
+                accountUsername = fromName
+                UserDefaults.standard.set(fromName, forKey: accountUsernameDefaultsKey)
                 return fromName
             }
         }
@@ -834,6 +1718,8 @@ struct ContentView: View {
             valid = "user123"
         }
         profileUsername = valid
+        accountUsername = valid
+        UserDefaults.standard.set(valid, forKey: accountUsernameDefaultsKey)
         return valid
     }
     @State private var profilePhotoCropScale: CGFloat = 1.0
@@ -841,30 +1727,46 @@ struct ContentView: View {
     @State private var activeSettingsEditor: SettingsEditor? = nil
     @State private var blockedUsers: [String] = (UserDefaults.standard.array(forKey: "spot_blocked_users") as? [String]) ?? []
     @State private var blockedUserSearchText = ""
-    @State private var remainingBoosts: Int = UserDefaults.standard.integer(forKey: "spot_remaining_boosts")
+    @State private var remainingBoosts: Int = UserDefaults.standard.bool(forKey: "spot_account_signed_in") ? UserDefaults.standard.integer(forKey: "spot_remaining_boosts") : 0
+    @State private var isBoostAutoApplyEnabled = UserDefaults.standard.object(forKey: Self.boostAutoApplyDefaultsKey) == nil ? true : UserDefaults.standard.bool(forKey: Self.boostAutoApplyDefaultsKey)
+    @State private var boostPurchaseStatusMessage = ""
 
     @State private var userSearchText = ""
     @State private var firestoreUserSearchResults: [FirebaseUserAccountRecord] = []
     @State private var firestorePOISearchResults: [FirebasePOIRecord] = []
     @State private var poiSearchRequestRevision: Int = 0
     @State private var locationAlertSearchText = ""
-    @State private var notifySavedLocationPosts = true
-    @State private var notifySavedLocationPhotos = true
-    @State private var notifySavedLocationVideos = true
-    @State private var notifySavedLocationAudio = false
+    @State private var notifySavedLocationPosts = UserDefaults.standard.object(forKey: "spot_notify_location_posts") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_location_posts")
+    @State private var notifyPointsAt5 = UserDefaults.standard.object(forKey: "spot_notify_points_5") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_points_5")
+    @State private var notifyPointsAt20 = UserDefaults.standard.object(forKey: "spot_notify_points_20") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_points_20")
+    @State private var notifyPointsAt40 = UserDefaults.standard.object(forKey: "spot_notify_points_40") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_points_40")
+    @State private var notifyWhenAccountViewed = UserDefaults.standard.object(forKey: "spot_notify_account_viewed") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_account_viewed")
+    @State private var notifyDirectMessages = UserDefaults.standard.object(forKey: "spot_notify_direct_messages") == nil ? false : UserDefaults.standard.bool(forKey: "spot_notify_direct_messages")
+    @State private var postNotificationToggleStatusMessage = ""
+    @State private var locationNotificationToggleStatusMessage = ""
+    @State private var notificationPermissionStatusText = "Checking notification permission..."
+    @State private var canOpenNotificationSettings = false
+    @State private var inAppNotificationFallbackMessage = ""
+    @State private var showsInAppNotificationFallback = false
     @State private var recipientSearchText = ""
     @State private var selectedSendRecipient: String? = nil
     @State private var selectedProfilePost: MockPost? = nil
     @State private var lastSentMessage: String? = nil
     @State private var showSavedPostsOnly = false
     @State private var reportedPostIds: Set<Int> = []
+    @State private var reportedPostKeys: Set<String> = Self.loadReportedPostKeys()
+    @State private var adminFlaggedPostsByKey: [String: Double] = Self.loadAdminFlaggedPostsByKey()
     @State private var reportedUsers: Set<String> = []
+    @State private var isShowingAdminModerationPasswordPrompt = false
+    @State private var adminModerationPasswordInput = ""
+    @State private var adminModerationPasswordError = ""
+    @State private var adminModerationActionMessage = ""
     @State private var feedWindowSize = 8
-    @State private var feedLoadedCount = 3
+    @State private var feedLoadedCount = 24
     @State private var feedRankedPostIDs: [Int] = []
     @State private var feedRankingSignature = ""
     @State private var lazyVideoWindowSize = 8
-    @State private var lazyVideoLoadedCount = 4
+    @State private var lazyVideoLoadedCount = 24
     @State private var videoFeedRankedPostIDs: [Int] = []
     @State private var videoFeedRankingSignature = ""
     @State private var viewedPostIDs: Set<Int> = Self.loadViewedPostIDs()
@@ -906,39 +1808,15 @@ struct ContentView: View {
     @State private var selectedChatThread: DirectMessageThread? = nil
     @State private var pendingSharePost: MockPost? = nil
     @State private var chatComposerText = ""
-    @State private var chatMessages: [Int: [ChatMessage]] = [
-        1: [
-            .init(id: 1, text: "I’m heading to that rooftop tonight — want to meet there?", isMine: false, time: "9:41 AM"),
-            .init(id: 2, text: "Absolutely. I’ll bring the camera.", isMine: true, time: "9:42 AM"),
-            .init(id: 3, text: "Perfect — I’ll save us a spot near the edge.", isMine: false, time: "9:43 AM")
-        ],
-        2: [
-            .init(id: 1, text: "The photo from your last stop was incredible.", isMine: false, time: "Yesterday"),
-            .init(id: 2, text: "Thanks! I was chasing the light just before sunset.", isMine: true, time: "Yesterday")
-        ],
-        3: [
-            .init(id: 1, text: "I saved your café rec for next time I’m in Rome.", isMine: false, time: "1h ago"),
-            .init(id: 2, text: "Amazing — it’s one of those tiny spots that feels like a secret.", isMine: true, time: "1h ago")
-        ],
-        4: [
-            .init(id: 1, text: "Send me the location for the market you found.", isMine: true, time: "4h ago"),
-            .init(id: 2, text: "It’s just past the old square, near the lantern stalls.", isMine: false, time: "4h ago")
-        ],
-        5: [
-            .init(id: 1, text: "Let’s compare notes from the skyline view later.", isMine: true, time: "Yesterday"),
-            .init(id: 2, text: "Definitely. I want to hear what you noticed from the left side.", isMine: false, time: "Yesterday")
-        ],
-        6: [
-            .init(id: 1, text: "Your sound post from the waterfront was so good.", isMine: true, time: "Yesterday"),
-            .init(id: 2, text: "Thank you — it felt like the whole street was in the audio.", isMine: false, time: "Yesterday")
-        ]
-    ]
+    @State private var chatMessages: [Int: [ChatMessage]] = [:]
     @State private var fakeUserProfiles: [FakeUserProfile] = []
 
     @State private var messages: [DirectMessageThread] = []
+    @State private var userChatsListenerRegistration: ListenerRegistration? = nil
 
     @StateObject private var locationService = LocationService()
     @State private var locationSearchText = ""
+    @State private var locationSearchTask: Task<Void, Never>? = nil
     @State private var feedContentSearchText = ""
     @State private var isFeedSearchExpanded = false
     @State private var feedScrollOffset: CGFloat = 0
@@ -954,8 +1832,27 @@ struct ContentView: View {
     @State private var isBulkDeletingPosts = false
     @State private var platformBulkDeleteError = ""
     @State private var messagesTab: MessagesTab = .incoming
+    @State private var anonymousMessagesTab: MessagesTab = .incoming
+    @State private var unreadDirectMessageCount = 0
+    @State private var unreadBadgeScale: CGFloat = 1.0
+    @State private var unreadBadgePulseTask: Task<Void, Never>? = nil
+
+    // MARK: - Smart Feed Buffer & Pagination Manager State
+    @State private var unseenNewPostsAboveIDs: [Int] = []
+    @State private var pendingBufferedPosts: [MockPost] = []
+    @State private var visibleFeedPostIndices: Set<Int> = []
+    @State private var topVisibleFeedIndex: Int = 0
+    @State private var bottomVisibleFeedIndex: Int = 0
+    @State private var showNewPostsAbovePill: Bool = false
+    @State private var feedRawScrollY: CGFloat = 0
+
+    @State private var pinnedScoresByPostRealm = Self.loadPinnedScoresByPostRealm()
+    @State private var pinnedScoresByOwner = Self.loadPinnedScoresByOwner()
     @State private var savedLocations: [String] = []
     @State private var recentLocations: [String] = []
+    @State private var savedStateOverridesByPostID: [Int: Bool] = [:]
+    @State private var savedPostTimestampsByPostID: [Int: TimeInterval] = [:]
+    @State private var engagementSnapshotsByPostKey: [String: EngagementSnapshot] = Self.loadEngagementSnapshotsByPostKey()
     let recommendedLocations: [String] = []
     let randomLocations: [String] = []
 
@@ -963,13 +1860,16 @@ struct ContentView: View {
         case home
         case contentTypePicker
         case composer
+        case mapPostPreview
         case photoEditor
+        case mapExplorer
         case videoEditor
         case videoUpgrade
         case videoCheckout
         case settings
         case savedPosts
         case anonymousPosts
+        case anonymousDMs
         case profile
         case messages
         case chatDetail
@@ -978,11 +1878,13 @@ struct ContentView: View {
         case locationFeed
         case userProfile
         case postDetail
+        case adminFlaggedPosts
     }
 
     enum MessagesTab {
         case incoming
         case sent
+        case searchUsers
     }
 
     enum LocationContext {
@@ -993,6 +1895,240 @@ struct ContentView: View {
 
     @State private var userProfileReturnScreen: Screen? = nil
     @State private var userProfileReturnSettingsEditor: SettingsEditor? = nil
+    @State private var isCreatingPostFromMap = false
+    @State private var mapFocusedPostID: Int? = nil
+    @State private var mapDraftCoordinate: CLLocationCoordinate2D? = nil
+    @State private var mapAreaCenterCoordinate: CLLocationCoordinate2D? = nil
+    @State private var mapAreaZoomLevel: CGFloat = 13.8
+    @State private var mapAreaSourcePostID: Int? = nil
+    @State private var mapFocusMode: MapFocusMode = .nearbyRecent
+    @State private var mapFocusTrigger: Int = 0
+    @State private var showMapToolsMiniPage = false
+    @State private var showMiniMapOverlay = false
+    @State private var pendingHomeFeedRestorePostID: Int? = nil
+    @State private var pendingVideoFeedRestorePostID: Int? = nil
+    @State private var shouldAutoFocusNearestPostOnMapOpen = true
+
+    private func homeFeedPostScrollID(_ postID: Int) -> String {
+        "home-feed-post-\(postID)"
+    }
+
+    private var pinnedScoreRefreshSignature: String {
+        let realmMap = adminPinnedRealmMap()
+        let basePinMap = adminPinnedTimestampMap()
+        let profilePinMap = adminProfilePinnedTimestampMap()
+        let videoMetricPinMap = adminVideoMetricPinnedTimestampMap()
+        let videoNonMetricPinMap = adminVideoNonMetricPinnedTimestampMap()
+
+        let postsPart = posts
+            .map { post in
+                let postKey = postAdminPinStorageKey(post)
+                let ownerKey = ownerPinnedScoreStorageKey(for: post)
+                return "\(postKey)|\(ownerKey)|\(post.engagementScore)"
+            }
+            .sorted()
+            .joined(separator: ";")
+
+        let realmPart = realmMap
+            .map { "\($0.key)=\($0.value)" }
+            .sorted()
+            .joined(separator: ";")
+        let basePinsPart = basePinMap
+            .map { "\($0.key)=\($0.value)" }
+            .sorted()
+            .joined(separator: ";")
+        let profilePinsPart = profilePinMap
+            .map { "\($0.key)=\($0.value)" }
+            .sorted()
+            .joined(separator: ";")
+        let videoMetricPart = videoMetricPinMap
+            .map { "\($0.key)=\($0.value)" }
+            .sorted()
+            .joined(separator: ";")
+        let videoNonMetricPart = videoNonMetricPinMap
+            .map { "\($0.key)=\($0.value)" }
+            .sorted()
+            .joined(separator: ";")
+
+        return [postsPart, realmPart, basePinsPart, profilePinsPart, videoMetricPart, videoNonMetricPart].joined(separator: "||")
+    }
+
+    private func ownerPinnedScoreStorageKey(for post: MockPost) -> String {
+        let userID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !userID.isEmpty {
+            return "uid:\(userID)"
+        }
+
+        let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+        if !normalizedHandle.isEmpty {
+            return "handle:\(normalizedHandle)"
+        }
+
+        let normalizedAuthor = FirebaseSpotService.normalizeUsername(post.author)
+        if !normalizedAuthor.isEmpty {
+            return "name:\(normalizedAuthor)"
+        }
+
+        return ""
+    }
+
+    private static func loadPinnedScoresByPostRealm() -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: Self.pinnedScoresByPostRealmDefaultsKey) as? [String: Double] ?? [:]
+    }
+
+    private static func loadPinnedScoresByOwner() -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: Self.pinnedScoresByOwnerDefaultsKey) as? [String: Double] ?? [:]
+    }
+
+    private func persistPinnedScores() {
+        UserDefaults.standard.set(pinnedScoresByPostRealm, forKey: Self.pinnedScoresByPostRealmDefaultsKey)
+        UserDefaults.standard.set(pinnedScoresByOwner, forKey: Self.pinnedScoresByOwnerDefaultsKey)
+    }
+
+    private func recomputePinnedScores() {
+        let realmMap = adminPinnedRealmMap()
+        let basePinMap = adminPinnedTimestampMap()
+        let profilePinMap = adminProfilePinnedTimestampMap()
+        let videoMetricPinMap = adminVideoMetricPinnedTimestampMap()
+        let videoNonMetricPinMap = adminVideoNonMetricPinnedTimestampMap()
+
+        var nextPostRealmScores: [String: Double] = [:]
+        var nextOwnerScores: [String: Double] = [:]
+
+        for post in posts {
+            let postKey = postAdminPinStorageKey(post)
+            var pinRealmKeys: [String] = []
+
+            if let realm = realmMap[postKey], basePinMap[postKey] != nil {
+                pinRealmKeys.append("feed:\(realm)")
+            }
+            if profilePinMap[postKey] != nil {
+                pinRealmKeys.append("profile")
+            }
+            if videoMetricPinMap[postKey] != nil {
+                pinRealmKeys.append("video:metric")
+            }
+            if videoNonMetricPinMap[postKey] != nil {
+                pinRealmKeys.append("video:non-metric")
+            }
+
+            guard !pinRealmKeys.isEmpty else { continue }
+
+            let ownerKey = ownerPinnedScoreStorageKey(for: post)
+            let postScore = max(0, post.engagementScore)
+
+            for realmKey in pinRealmKeys {
+                let pinnedPostRealmKey = "\(postKey)|\(realmKey)"
+                let existingScore = pinnedScoresByPostRealm[pinnedPostRealmKey] ?? 0
+                let resolvedScore = max(existingScore, postScore)
+                nextPostRealmScores[pinnedPostRealmKey] = resolvedScore
+
+                if !ownerKey.isEmpty {
+                    nextOwnerScores[ownerKey, default: 0] += resolvedScore
+                }
+            }
+        }
+
+        if nextPostRealmScores != pinnedScoresByPostRealm || nextOwnerScores != pinnedScoresByOwner {
+            pinnedScoresByPostRealm = nextPostRealmScores
+            pinnedScoresByOwner = nextOwnerScores
+            persistPinnedScores()
+        }
+    }
+
+    private func persistUnreadDirectMessageCount() {
+        UserDefaults.standard.set(unreadDirectMessageCount, forKey: "spot_dm_unread_badge_count")
+    }
+
+    private func isUserBlocked(username: String = "", userID: String = "") -> Bool {
+        let normalizedList = blockedUsers.map { FirebaseSpotService.normalizeUsername($0) }.filter { !$0.isEmpty }
+        guard !normalizedList.isEmpty else { return false }
+
+        let cleanUsername = FirebaseSpotService.normalizeUsername(username)
+        if !cleanUsername.isEmpty && normalizedList.contains(where: { $0.lowercased() == cleanUsername.lowercased() }) {
+            return true
+        }
+
+        let cleanUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanUserID.isEmpty && normalizedList.contains(where: { $0.lowercased() == cleanUserID.lowercased() }) {
+            return true
+        }
+
+        return false
+    }
+
+    private func isPostBlockedByBlockedUsers(_ post: MockPost) -> Bool {
+        return isUserBlocked(username: post.handle, userID: post.authorUserID)
+    }
+
+    private func triggerUnreadBadgePulse() {
+        unreadBadgePulseTask?.cancel()
+        unreadBadgePulseTask = Task {
+            await MainActor.run {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.62)) {
+                    unreadBadgeScale = 1.24
+                }
+            }
+
+            try? await Task.sleep(nanoseconds: 180_000_000)
+
+            await MainActor.run {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                    unreadBadgeScale = 1.0
+                }
+            }
+        }
+    }
+
+    private func recalculateUnreadDirectMessageCount() {
+        let unreadCount = messages.filter { thread in
+            let isIncoming = isThreadIncoming(thread)
+            let isCurrentScreenChat = currentScreen == .chatDetail && selectedChatThread?.id == thread.id
+            let isRead = isChatThreadRead(thread)
+            return isIncoming && !isCurrentScreenChat && !isRead
+        }.count
+
+        unreadDirectMessageCount = unreadCount
+        persistUnreadDirectMessageCount()
+        if unreadCount > 0 {
+            triggerUnreadBadgePulse()
+        }
+    }
+
+    private func incrementUnreadDirectMessageCount(by amount: Int = 1) {
+        unreadDirectMessageCount = max(0, unreadDirectMessageCount + amount)
+        persistUnreadDirectMessageCount()
+        if unreadDirectMessageCount > 0 {
+            triggerUnreadBadgePulse()
+        }
+    }
+
+    private func resetUnreadDirectMessageIndicator() {
+        unreadDirectMessageCount = 0
+        persistUnreadDirectMessageCount()
+        unreadBadgePulseTask?.cancel()
+        unreadBadgeScale = 1.0
+    }
+
+    private func videoFeedPostScrollID(_ postID: Int) -> String {
+        "video-feed-post-\(postID)"
+    }
+
+    private func applyHomeFeedRestoreIfNeeded(_ proxy: ScrollViewProxy) {
+        guard let targetPostID = pendingHomeFeedRestorePostID else { return }
+        DispatchQueue.main.async {
+            proxy.scrollTo(homeFeedPostScrollID(targetPostID), anchor: .top)
+            pendingHomeFeedRestorePostID = nil
+        }
+    }
+
+    private func applyVideoFeedRestoreIfNeeded(_ proxy: ScrollViewProxy) {
+        guard let targetPostID = pendingVideoFeedRestorePostID else { return }
+        DispatchQueue.main.async {
+            proxy.scrollTo(videoFeedPostScrollID(targetPostID), anchor: .top)
+            pendingVideoFeedRestorePostID = nil
+        }
+    }
 
     private struct FeedScrollOffsetKey: PreferenceKey {
         static var defaultValue: CGFloat = 0
@@ -1003,15 +2139,16 @@ struct ContentView: View {
     }
 
     enum SettingsEditor: String, Identifiable {
-        case username
+        case accountPassword
         case searchUsers
-        case name
         case photo
-        case accountInfo
+        case technicalSupport
         case locationAlerts
+        case postNotifications
         case blockUsers
         case boostNextPosts
         case bulkDeletePosts
+        case positionPicker
 
         var id: String { rawValue }
     }
@@ -1122,7 +2259,7 @@ struct ContentView: View {
 
     let locationSuggestions: [String] = []
 
-    let postTypes = ["Text", "Photo", "Video", "Poll", "Audio", "Link", "Song", "Guide", "For Sale"]
+    let postTypes = ["Text", "Photo", "Video", "Poll", "Audio", "Link", "Guide", "For Sale"]
 
     private static func seedPosts() -> [MockPost] {
         // Real posts will populate from the app's own data source.
@@ -1134,30 +2271,67 @@ struct ContentView: View {
         let defaultLocation = "Metric"
         let persistedFeed = UserDefaults.standard.string(forKey: "spot_feed_location") ?? defaultLocation
         let persistedVideo = UserDefaults.standard.string(forKey: "spot_video_location") ?? defaultLocation
+        let sanitizedPersistedFeed = (Self.isMapAreaRealm(persistedFeed) || Self.isDeprecatedLocationOption(persistedFeed)) ? defaultLocation : persistedFeed
+        let sanitizedPersistedVideo = (Self.isMapAreaRealm(persistedVideo) || Self.isDeprecatedLocationOption(persistedVideo)) ? defaultLocation : persistedVideo
         let persistedPost = UserDefaults.standard.string(forKey: "spot_post_location") ?? "Metric"
-        let persistedSavedLocations = UserDefaults.standard.array(forKey: "spot_saved_locations") as? [String] ?? []
-        let persistedRecentLocations = UserDefaults.standard.array(forKey: "spot_recent_locations") as? [String] ?? []
+        let persistedSavedLocations = Self.deduplicatedLocationNames(
+            UserDefaults.standard.array(forKey: "spot_saved_locations") as? [String] ?? [],
+            limit: 10
+        )
+        let persistedRecentLocations = Self.deduplicatedLocationNames(
+            UserDefaults.standard.array(forKey: "spot_recent_locations") as? [String] ?? [],
+            limit: 3
+        )
         let persistedProfilePhoto = Self.cachedImage(forKey: "spot_profile_photo_data")
         let persistedPhoneNumber = UserDefaults.standard.string(forKey: "spot_phone_number") ?? ""
         let persistedSavedAccounts = Self.loadSavedAccountsFromDefaults()
         let persistedSelectedEmail = (UserDefaults.standard.string(forKey: "spot_account_email") ?? "").lowercased()
+        let persistedSelectedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
+        )
+        let persistedSelectedAccountID = Self.savedAccountIdentityKey(
+            username: persistedSelectedUsername,
+            email: persistedSelectedEmail
+        )
+        let persistedSelectedAccount = persistedSavedAccounts.first { $0.id == persistedSelectedAccountID }
+        let persistedSelectedUsernameValue = FirebaseSpotService.normalizeUsername(
+            persistedSelectedAccount?.username ?? persistedSelectedUsername
+        )
+        let restoredProfilePhotoURL = Self.preferredProfilePhotoURL(
+            candidateRemoteURL: persistedSelectedAccount?.profilePhotoURL,
+            savedAccountPhotoURL: persistedSelectedAccount?.profilePhotoURL,
+            fallbackLocalValue: nil
+        )
+        let hasPersistedSignedInState = UserDefaults.standard.bool(forKey: "spot_account_signed_in")
+            || (!persistedSelectedUsername.isEmpty && (UserDefaults.standard.object(forKey: "spot_account_signed_in") == nil || Auth.auth().currentUser != nil))
 
-        _fromLocation = State(initialValue: persistedFeed)
-        _videoLocation = State(initialValue: persistedVideo)
+        if hasPersistedSignedInState && !UserDefaults.standard.bool(forKey: "spot_account_signed_in") {
+            UserDefaults.standard.set(true, forKey: "spot_account_signed_in")
+            UserDefaults.standard.set(true, forKey: "spot_has_ever_signed_in")
+        }
+
+        _fromLocation = State(initialValue: sanitizedPersistedFeed)
+        _videoLocation = State(initialValue: sanitizedPersistedVideo)
         _postLocation = State(initialValue: persistedPost)
         _savedLocations = State(initialValue: persistedSavedLocations)
         _recentLocations = State(initialValue: persistedRecentLocations)
         _profilePhotoImage = State(initialValue: persistedProfilePhoto)
         _phoneNumber = State(initialValue: persistedPhoneNumber)
         _savedAccounts = State(initialValue: persistedSavedAccounts)
-        _selectedSavedAccountEmail = State(initialValue: persistedSelectedEmail)
+        _selectedSavedAccountEmail = State(initialValue: persistedSelectedAccountID)
+        _profileUsername = State(initialValue: persistedSelectedUsernameValue)
+        _accountUsername = State(initialValue: persistedSelectedUsernameValue)
+        _signInUsername = State(initialValue: persistedSelectedUsernameValue)
+        _profilePhotoRemoteURL = State(initialValue: restoredProfilePhotoURL)
+        _isSignedInToAccount = State(initialValue: hasPersistedSignedInState)
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             backgroundGradient
                 .ignoresSafeArea()
                 .task {
+                    _ = await ensureNotificationAuthorization()
                     await loadCurrentUserProfileFromRecord()
                     await loadCurrentUserPosts()
                     await refreshFollowingUIDs()
@@ -1165,10 +2339,11 @@ struct ContentView: View {
                         prefetchBlockedUserProfiles()
                         startRealtimeFeedListener()
                         configureAudioSessionForAppUse()
+                        resetUnreadDirectMessageIndicator()
                     }
 
                     while !Task.isCancelled {
-                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                        try? await Task.sleep(nanoseconds: 12_000_000_000)
                         guard !Task.isCancelled else { return }
 
                         let shouldRefreshAuthorPhotos = await MainActor.run {
@@ -1194,71 +2369,93 @@ struct ContentView: View {
                 .onChange(of: firestoreUserSearchResults.map(\.uid)) { _, _ in
                     cacheAndPrefetchSearchResultProfiles()
                 }
+                .onChange(of: pinnedScoreRefreshSignature) { _, _ in
+                    recomputePinnedScores()
+                }
+                .onAppear {
+                    recomputePinnedScores()
+                }
 
             Group {
                 switch currentScreen {
                 case .home:
                     GeometryReader { container in
                         let feedBodyMinHeight = max(320, container.size.height - 300)
+                        let topCapHeight = container.safeAreaInsets.top
+                        let feedTopInset = max(0, container.safeAreaInsets.top - 42)
+                        let homeTopFade = Color.black
 
                         ZStack(alignment: .bottom) {
-                            Color(red: 0.93, green: 0.93, blue: 0.93)
+                            Color.white
                                 .ignoresSafeArea()
 
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        feedModeToggle
-                                            .padding(.horizontal, 18)
-                                    }
-                                    .padding(.top, 8)
-                                    .padding(.bottom, 14)
-                                    .background(Color(red: 0.93, green: 0.93, blue: 0.93))
-                                    .overlay(alignment: .bottom) {
-                                        Rectangle()
-                                            .fill(Color.black.opacity(0.09))
-                                            .frame(height: 0.6)
-                                            .padding(.horizontal, 8)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        feedSection
-                                            .padding(.top, 14)
-                                        Spacer(minLength: 0)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    .frame(minHeight: feedBodyMinHeight, alignment: .top)
-                                    .background(Color.white)
-
-                                    Rectangle()
-                                        .fill(Color(red: 0.93, green: 0.93, blue: 0.93))
-                                        .frame(height: Self.bottomSilverEndCapHeight)
-                                }
-                                .padding(.bottom, 110)
-                                .background(
-                                    GeometryReader { proxy in
-                                        Color.clear
-                                            .preference(
-                                                key: FeedScrollOffsetKey.self,
-                                                value: max(0, -proxy.frame(in: .named("feedScrollSpace")).minY)
-                                            )
-                                    }
-                                )
+                            VStack(spacing: 0) {
+                                homeTopFade
+                                    .frame(height: topCapHeight)
+                                Spacer(minLength: 0)
                             }
-                            .coordinateSpace(name: "feedScrollSpace")
-                            .onPreferenceChange(FeedScrollOffsetKey.self) { value in
-                                feedScrollOffset = min(max(value, 0), 24)
+                            .ignoresSafeArea(edges: .top)
+
+                            VStack(spacing: 0) {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    feedModeToggle
+                                        .padding(.horizontal, 18)
+                                        .padding(.top, -3)
+                                        .padding(.bottom, 0)
+                                }
+                                .background(homeTopFade)
+
+                                ScrollViewReader { scrollProxy in
+                                    ZStack(alignment: .top) {
+                                        ScrollView {
+                                            VStack(alignment: .leading, spacing: 0) {
+                                                feedSection
+                                                    .padding(.top, feedTopInset)
+                                            }
+                                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                                            .frame(minHeight: feedBodyMinHeight, alignment: .top)
+                                            .background(Color.white)
+                                            .padding(.bottom, 110)
+                                            .background(
+                                                GeometryReader { proxy in
+                                                    Color.clear
+                                                        .preference(
+                                                            key: FeedScrollOffsetKey.self,
+                                                            value: max(0, -proxy.frame(in: .named("feedScrollSpace")).minY)
+                                                        )
+                                                }
+                                            )
+                                        }
+                                        .coordinateSpace(name: "feedScrollSpace")
+                                        .onPreferenceChange(FeedScrollOffsetKey.self) { value in
+                                            feedRawScrollY = value
+                                            feedScrollOffset = min(max(value, 0), 24)
+                                            handleFeedScrollYChange(value)
+                                        }
+                                        .onAppear {
+                                            applyHomeFeedRestoreIfNeeded(scrollProxy)
+                                        }
+                                        .onChange(of: pendingHomeFeedRestorePostID) { _, _ in
+                                            applyHomeFeedRestoreIfNeeded(scrollProxy)
+                                        }
+
+                                        if showNewPostsAbovePill && !unseenNewPostsAboveIDs.isEmpty {
+                                            newPostsAbovePillButton(scrollProxy: scrollProxy, feedTopInset: feedTopInset)
+                                        }
+                                    }
+                                }
                             }
 
                             floatingHomeActions
-                                .padding(.bottom, 12)
-                                .padding(.horizontal, 18)
+                                .padding(.bottom, 0)
                         }
                     }
                 case .contentTypePicker:
                     createTypePickerView
                 case .composer:
                     createComposerView
+                case .mapPostPreview:
+                    mapPostPreviewView
                 case .photoEditor:
                     photoEditorView
                 case .videoEditor:
@@ -1273,8 +2470,14 @@ struct ContentView: View {
                     savedPostsView
                 case .anonymousPosts:
                     anonymousPostsView
+                case .anonymousDMs:
+                    anonymousMessagesView
                 case .profile:
-                    profileView
+                    if selectedUserProfile != nil {
+                        userProfileDetailView
+                    } else {
+                        profileView
+                    }
                 case .messages:
                     messagesView
                 case .chatDetail:
@@ -1285,10 +2488,14 @@ struct ContentView: View {
                     postLocationPickerView
                 case .locationFeed:
                     locationFeedView
+                case .mapExplorer:
+                    mapExplorerView
                 case .userProfile:
                     userProfileDetailView
                 case .postDetail:
                     selectedPostDetailView
+                case .adminFlaggedPosts:
+                    adminFlaggedPostsView
                 }
             }
             .transition(.opacity)
@@ -1303,200 +2510,380 @@ struct ContentView: View {
                 for: nil
             )
         }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: Self.pageSwipeMinimumDistance)
+                .onEnded { value in
+                    handleRightSwipeCloseGesture(value)
+                }
+        )
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .background:
+                shouldAutoFocusNearestPostOnMapOpen = true
+            case .active:
+                if currentScreen == .mapExplorer {
+                    focusMapOnNearestPostAfterResumeIfNeeded()
+                }
+            default:
+                break
+            }
+        }
+        .onChange(of: currentScreen) { _, newScreen in
+            if newScreen == .mapExplorer {
+                currentScreen = .home
+                return
+            }
+            if newScreen == .messages || newScreen == .chatDetail {
+                resetUnreadDirectMessageIndicator()
+            }
+            if newScreen == .locationPicker || newScreen == .postLocationPicker {
+                locationService.requestPermission()
+            }
+            clearMapExplorerTransientState()
+        }
+        .onChange(of: fromLocation) { _, newValue in
+            guard Self.isMapAreaRealm(newValue) || Self.isDeprecatedLocationOption(newValue) else { return }
+            fromLocation = "Metric"
+            mapAreaCenterCoordinate = nil
+            mapAreaSourcePostID = nil
+            showFollowingOnly = false
+        }
+        .onChange(of: videoLocation) { _, newValue in
+            guard Self.isMapAreaRealm(newValue) || Self.isDeprecatedLocationOption(newValue) else { return }
+            videoLocation = "Metric"
+            mapAreaCenterCoordinate = nil
+            mapAreaSourcePostID = nil
+            showFollowingVideoOnly = false
+        }
     }
 
     private var backgroundGradient: some View {
         Color.white
     }
 
+    private var showsBottomBlackBorder: Bool {
+        let isMetricFeedOpen = currentScreen == .home && !showFollowingOnly
+        let isProfileOpen = currentScreen == .profile
+        return isMetricFeedOpen || isProfileOpen
+    }
+
+    private var supportsRightSwipeClose: Bool {
+        currentScreen == .profile || currentScreen == .userProfile || currentScreen == .contentTypePicker || currentScreen == .messages
+    }
+
+    private var profileButtonDestinationScreen: Screen {
+        resolvedSignedInState ? .profile : .settings
+    }
+
+    private var hasVisibleListingPostInFeed: Bool {
+        let activeLocation = fromLocation.isEmpty ? "Tokyo, Japan" : fromLocation
+        let isSearchFeedActive = isMainSearchFeedActive
+        let isFriendsFeed = isFriendsRealm(activeLocation)
+        let isFollowingFeed = isFollowingRealm(activeLocation)
+        let isMapAreaFeed = Self.isMapAreaRealm(activeLocation)
+        let boostedScopedSource = postsWithSmartBoostDistribution(includeVideos: true)
+        let scopedPosts = (isFriendsFeed || isFollowingFeed
+            ? boostedScopedSource
+            : (isMapAreaFeed
+                ? postsForActiveMapArea(includeVideos: true)
+                : Self.postsForLocationRealm(boostedScopedSource, activeLocation: activeLocation)))
+        let globalPinnedKeys = Set(
+            adminPinnedRealmMap()
+                .filter { $0.value == Self.adminPinAllNonMetricMarker }
+                .map { $0.key }
+        )
+        let includeGlobalPinnedForLocation = !isFriendsFeed
+            && !isFollowingFeed
+            && !isMapAreaFeed
+            && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
+        let globalPinnedPostsForLocation = includeGlobalPinnedForLocation
+            ? posts.filter { isGlobalPinnedActiveForLocation($0, location: activeLocation) }
+            : []
+        let realmMap = adminPinnedRealmMap()
+        let mapPinnedKeys = mapPinnedPostKeys(realmMap: realmMap)
+        let activeRealmPinnedPosts = (!isFriendsFeed && !isFollowingFeed && !isMapAreaFeed)
+            ? posts.filter { isAdminPinned($0, for: activeLocation, realmMap: realmMap) }
+            : []
+        var seenRelevantPostIDs: Set<Int> = []
+        let relevantPosts = (scopedPosts + globalPinnedPostsForLocation + activeRealmPinnedPosts).filter { post in
+            if seenRelevantPostIDs.contains(post.id) {
+                return false
+            }
+            seenRelevantPostIDs.insert(post.id)
+            return true
+        }
+            .filter { isMapAreaFeed || !mapPinnedKeys.contains(postAdminPinStorageKey($0)) }
+            .filter { postMatchesFeedSearch($0) }
+        let visiblePosts = (isFriendsFeed
+            ? relevantPosts.filter { post in
+                isUserMutualFollowed(authorUserID: post.authorUserID, username: post.handle)
+                    || Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername)
+            }
+            : (isFollowingFeed
+                ? (relevantPosts.filter { post in
+                    isUserFollowed(authorUserID: post.authorUserID, username: post.handle)
+                } + [MockPost.followingPinnedPost])
+                : (showFollowingOnly ? relevantPosts.filter { post in
+                    isUserMutualFollowed(authorUserID: post.authorUserID, username: post.handle)
+                        || Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername)
+                } : relevantPosts)))
+
+        let feedCandidates = isSearchFeedActive ? [] : visiblePosts
+        let isMetricRealmFeed = Self.normalizedLocationRealm(activeLocation) == "metric"
+        let effectiveFeedPosts: [MockPost] = isMetricRealmFeed
+            ? rankedPostsForFeed(feedCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
+            : newestFirstPosts(feedCandidates)
+        let sortedFeedPosts = prioritizeAdminPinnedPosts(effectiveFeedPosts, activeLocation: activeLocation)
+        let loadedPosts = Array(sortedFeedPosts.prefix(feedLoadedCount))
+        return loadedPosts.contains { $0.type == "For Sale" }
+    }
+
+    private func handleRightSwipeCloseGesture(_ value: DragGesture.Value) {
+        let horizontalTravel = value.translation.width
+        let projectedHorizontalTravel = value.predictedEndTranslation.width
+        let effectiveHorizontalTravel = max(horizontalTravel, projectedHorizontalTravel)
+        let verticalTravel = max(abs(value.translation.height), abs(value.predictedEndTranslation.height))
+        guard effectiveHorizontalTravel > Self.pageSwipeDismissThreshold else { return }
+        guard effectiveHorizontalTravel > (verticalTravel * Self.pageSwipeHorizontalDominanceRatio) else { return }
+
+        if currentScreen == .home {
+            guard !hasVisibleListingPostInFeed else { return }
+            isFeedSearchFieldFocused = false
+            selectedUserProfile = nil
+            userProfileReturnScreen = nil
+            userProfileReturnSettingsEditor = nil
+            currentScreen = profileButtonDestinationScreen
+            return
+        }
+
+        if currentScreen == .contentTypePicker {
+            isFeedSearchFieldFocused = false
+            selectedUserProfile = nil
+            userProfileReturnScreen = nil
+            userProfileReturnSettingsEditor = nil
+            currentScreen = profileButtonDestinationScreen
+            return
+        }
+
+        guard supportsRightSwipeClose else { return }
+
+        isFeedSearchFieldFocused = false
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+        currentScreen = .home
+    }
+
     private var feedModeToggle: some View {
         let isVideoFeed = currentScreen == .locationFeed
-        let isSearchFeedActive = isVideoFeed ? isVideoSearchFeedActive : isMainSearchFeedActive
         let activeFollowFilter = isVideoFeed ? showFollowingVideoOnly : showFollowingOnly
-        let isMetricActive = !activeFollowFilter
-        let activeLocation = isVideoFeed ? (videoLocation.isEmpty ? "Metric" : videoLocation) : (fromLocation.isEmpty ? "Metric" : fromLocation)
+        let mediaRowControlHeight: CGFloat = 52
+        let mediaRowHeight: CGFloat = 58
 
         return GeometryReader { geometry in
-            let rawWidth = max(geometry.size.width, 1)
-            // Keep pill sizing consistent when this toggle is hosted in different parent layouts.
-            let totalWidth = min(rawWidth, 420)
-            let expandedSearchWidth = min(120, max(88, totalWidth * 0.34))
-            let searchWidth = isFeedSearchExpanded ? expandedSearchWidth : 44
-            let remainingWidth = max(totalWidth - searchWidth - 24, 120)
-            let followingWidth = min(82, max(72, remainingWidth * 0.38))
-            let baseMetricWidth = max(72, remainingWidth - followingWidth - 8)
-            let totalButtonWidth = baseMetricWidth + followingWidth + searchWidth + 16
-            let overflow = max(0, totalButtonWidth - totalWidth)
-            let metricWidth = max(72, baseMetricWidth - overflow / 2)
-            let selectionDrift = min(max(feedScrollOffset * 0.22, 0), 12)
-            let hasSearchSelection = isSearchFeedActive || isFeedSearchExpanded || isFeedSearchFieldFocused
-            let metricSelectionWidth = max(26, metricWidth - 18)
-            let followingSelectionWidth = max(26, followingWidth - 18)
-            let searchSelectionWidth = max(24, searchWidth - 18)
-            let metricSelectionOffset = (metricWidth - metricSelectionWidth) / 2
-            let followingSelectionOffset = metricWidth + 8 + (followingWidth - followingSelectionWidth) / 2
-            let searchStartX = metricWidth + 8 + followingWidth + 8
-            let searchSelectionOffset = searchStartX + (searchWidth - searchSelectionWidth) / 2
+            let totalWidth = max(geometry.size.width, 1)
 
-            ZStack(alignment: .bottomLeading) {
+            HStack(spacing: 0) {
+                // Left: DM button
+                Button {
+                    isFeedSearchFieldFocused = false
+                    resetUnreadDirectMessageIndicator()
+                    currentScreen = .messages
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "message.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+
+                        if unreadDirectMessageCount > 0 {
+                            Text(unreadDirectMessageCount > 99 ? "99+" : "\(unreadDirectMessageCount)")
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.20))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.black, lineWidth: 1)
+                    )
+                    .scaleEffect(unreadBadgeScale)
+                }
+                .buttonStyle(.plain)
+
+                Spacer(minLength: 0)
+
+                // Center area: Nearest POI button + Location Picker Chevron
                 HStack(spacing: 8) {
                     Button {
-                        if isVideoFeed {
-                            if showFollowingVideoOnly {
-                                showFollowingVideoOnly = false
-                                currentScreen = .locationFeed
-                            } else {
-                                locationContext = .video
-                                currentScreen = .locationPicker
-                            }
-                            isVideoSearchFeedActive = false
-                            isFeedSearchExpanded = false
-                            isFeedSearchFieldFocused = false
-                            return
-                        }
-                        if currentScreen != .home {
-                            showFollowingOnly = false
-                            currentScreen = .home
-                        } else if showFollowingOnly {
-                            showFollowingOnly = false
-                        } else {
-                            locationContext = .feed
-                            currentScreen = .locationPicker
-                        }
-                        isMainSearchFeedActive = false
-                        isFeedSearchExpanded = false
-                        isFeedSearchFieldFocused = false
+                        recenterFeedToNearestPOI()
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "globe")
-                            Text(activeLocation)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                                .truncationMode(.tail)
-                            Image(systemName: "chevron.down")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(width: metricWidth, height: 44)
-                        .foregroundStyle(.primary)
-                        .background {
-                            if hasSearchSelection {
-                                Color.white
-                            } else if activeFollowFilter {
-                                Color(.secondarySystemBackground)
-                            } else {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundStyle(.white)
+                            .padding(5.5)
+                            .background(
                                 LinearGradient(
-                                    colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                                    colors: [
+                                        Color(red: 0.65, green: 0.25, blue: 0.98),
+                                        Color(red: 0.92, green: 0.35, blue: 0.82)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            )
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                            )
+                            .shadow(color: Color.purple.opacity(0.4), radius: 6, x: 0, y: 2)
                     }
                     .buttonStyle(.plain)
 
                     Button {
+                        isFeedSearchFieldFocused = false
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                         if isVideoFeed {
-                            showFollowingVideoOnly = true
+                            locationContext = .video
                             isVideoSearchFeedActive = false
                             isFeedSearchExpanded = false
                             isFeedSearchFieldFocused = false
+                            feedContentSearchText = ""
+                            currentScreen = .locationPicker
                             return
                         }
-                        showFollowingOnly = true
-                        if currentScreen == .locationFeed {
-                            currentScreen = .home
-                        }
+
+                        locationContext = .feed
+                        currentScreen = .locationPicker
                         isMainSearchFeedActive = false
                         isFeedSearchExpanded = false
                         isFeedSearchFieldFocused = false
+                        feedContentSearchText = ""
                     } label: {
-                        Image(systemName: "person.2.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(width: followingWidth, height: 44)
-                            .foregroundStyle(activeFollowFilter ? .primary : Color.secondary)
-                            .background {
-                            if hasSearchSelection {
-                                Color.white
-                            } else if activeFollowFilter {
-                                LinearGradient(
-                                    colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            } else {
-                                Color(.secondarySystemBackground)
-                            }
+                        HStack(spacing: 0) {
+                            flatChevronDownIcon(size: 68, thickness: 6.5, color: Color(white: 0.93))
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .frame(height: mediaRowControlHeight)
+                        .contentShape(Rectangle())
+                        .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
-
-                    Group {
-                        if isFeedSearchExpanded {
-                            HStack(spacing: 6) {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundStyle(.secondary)
-
-                                TextField("Search content", text: $feedContentSearchText)
-                                    .font(.subheadline)
-                                    .focused($isFeedSearchFieldFocused)
-                                    .submitLabel(.search)
-
-                                Button {
-                                    if feedContentSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                        if isVideoFeed {
-                                            isVideoSearchFeedActive = false
-                                        } else {
-                                            isMainSearchFeedActive = false
-                                        }
-                                        isFeedSearchExpanded = false
-                                        isFeedSearchFieldFocused = false
-                                    } else {
-                                        feedContentSearchText = ""
-                                    }
-                                } label: {
-                                    Image(systemName: feedContentSearchText.isEmpty ? "xmark.circle" : "xmark.circle.fill")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal, 10)
-                            .frame(width: searchWidth, height: 44)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        } else {
-                            Button {
-                                if isVideoFeed {
-                                    isVideoSearchFeedActive = true
-                                } else {
-                                    isMainSearchFeedActive = true
-                                }
-                                isFeedSearchExpanded = true
-                                DispatchQueue.main.async {
-                                    isFeedSearchFieldFocused = true
-                                }
-                            } label: {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(.secondarySystemBackground))
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .animation(.easeInOut(duration: 0.2), value: isFeedSearchExpanded)
                 }
-                .frame(width: totalWidth, alignment: .leading)
-                .clipped()
+
+                Spacer(minLength: 0)
+
+                // Right: Profile button
+                Button {
+                    selectedUserProfile = nil
+                    userProfileReturnScreen = nil
+                    userProfileReturnSettingsEditor = nil
+                    isFeedSearchFieldFocused = false
+                    currentScreen = profileButtonDestinationScreen
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.20))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.black, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .frame(height: 56)
-        .padding(6)
+        .frame(height: mediaRowHeight)
+        .padding(.horizontal, 2)
+    }
+
+    private func flatChevronUpIcon(size: CGFloat, thickness: CGFloat, color: Color) -> some View {
+        let width = size
+        let height = size * 0.68
+
+        let chevronPath = Path { path in
+            path.move(to: CGPoint(x: width * 0.18, y: height * 0.72))
+            path.addLine(to: CGPoint(x: width * 0.5, y: height * 0.28))
+            path.addLine(to: CGPoint(x: width * 0.82, y: height * 0.72))
+        }
+
+        return ZStack {
+            chevronPath
+                .stroke(
+                    Color.black.opacity(0.12),
+                    style: StrokeStyle(
+                        lineWidth: thickness + 0.8,
+                        lineCap: .butt,
+                        lineJoin: .miter,
+                        miterLimit: 8
+                    )
+                )
+
+            chevronPath
+                .stroke(
+                    color,
+                    style: StrokeStyle(
+                        lineWidth: thickness,
+                        lineCap: .butt,
+                        lineJoin: .miter,
+                        miterLimit: 8
+                    )
+                )
+        }
+        .compositingGroup()
+        .drawingGroup(opaque: false)
+    }
+
+    private func flatChevronDownIcon(size: CGFloat, thickness: CGFloat, color: Color) -> some View {
+        let width = size
+        let height = size * 0.68
+
+        let chevronPath = Path { path in
+            path.move(to: CGPoint(x: width * 0.18, y: height * 0.28))
+            path.addLine(to: CGPoint(x: width * 0.5, y: height * 0.72))
+            path.addLine(to: CGPoint(x: width * 0.82, y: height * 0.28))
+        }
+
+        return ZStack {
+            chevronPath
+                .stroke(
+                    Color.white.opacity(0.22),
+                    style: StrokeStyle(
+                        lineWidth: thickness + 0.8,
+                        lineCap: .butt,
+                        lineJoin: .miter,
+                        miterLimit: 8
+                    )
+                )
+
+            chevronPath
+                .stroke(
+                    color,
+                    style: StrokeStyle(
+                        lineWidth: thickness,
+                        lineCap: .butt,
+                        lineJoin: .miter,
+                        miterLimit: 8
+                    )
+                )
+        }
+        .compositingGroup()
+        .drawingGroup(opaque: false)
+        .frame(width: width, height: height)
+        .accessibilityHidden(true)
+    }
+
+    private func metricLocationFontSize(for label: String) -> CGFloat {
+        let shortLabelThreshold = 8
+        return label.count <= shortLabelThreshold ? 24 : 30
     }
 
     private var normalizedFeedSearchTokens: [String] {
@@ -1593,6 +2980,9 @@ struct ContentView: View {
     }
 
     private func postMatchesFeedSearch(_ post: MockPost) -> Bool {
+        if isPostBlockedByBlockedUsers(post) {
+            return false
+        }
         let rawTokens = normalizedFeedSearchTokens
         guard !rawTokens.isEmpty else { return true }
 
@@ -1629,180 +3019,97 @@ struct ContentView: View {
     }
 
     private var floatingHomeActions: some View {
-        let isProfileSelected = currentScreen == .profile
-        let isMessagesSelected = currentScreen == .messages
-        let isCreateSelected = currentScreen == .contentTypePicker
-        let isHomeSelected = currentScreen == .home
-        let isVideoSelected = currentScreen == .locationFeed
+        let mapIsSelected = currentScreen == .mapExplorer
+        let needsExtraTopGap = currentScreen == .contentTypePicker || currentScreen == .profile || currentScreen == .mapExplorer
 
-        return HStack(spacing: 12) {
-            Button {
-                currentScreen = .profile
-            } label: {
-                Image(systemName: "person.fill")
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .frame(width: isProfileSelected ? 60 : 52, height: isProfileSelected ? 60 : 52)
-                    .background(
-                        LinearGradient(
-                            colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black, lineWidth: isProfileSelected ? 1.5 : 1)
-                    )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                currentScreen = .contentTypePicker
-            } label: {
-                Image(systemName: "plus")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.primary)
-                    .frame(width: isCreateSelected ? 60 : 52, height: isCreateSelected ? 60 : 52)
-                    .background(
-                        LinearGradient(
-                            colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.black, lineWidth: isCreateSelected ? 1.5 : 1)
-                    )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                if currentScreen != .home {
-                    showFollowingOnly = false
-                    isMainSearchFeedActive = false
-                    isFeedSearchExpanded = false
-                    isFeedSearchFieldFocused = false
-                    currentScreen = .home
-                    return
-                }
-                cycleMainFeedMode()
-            } label: {
-                Image(systemName: showFollowingOnly ? "person.2.fill" : "globe")
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .frame(width: isHomeSelected ? 60 : 52, height: isHomeSelected ? 60 : 52)
-                    .background(
-                        LinearGradient(
-                            colors: showFollowingOnly ? [ContentView.appSecondaryThemeColor, ContentView.appPrimaryThemeColor] : [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black, lineWidth: isHomeSelected ? 1.5 : 1)
-                    )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                if currentScreen != .locationFeed {
-                    showFollowingVideoOnly = false
-                    isVideoSearchFeedActive = false
-                    isFeedSearchExpanded = false
-                    isFeedSearchFieldFocused = false
-                    currentScreen = .locationFeed
-                    return
-                }
-                cycleVideoFeedMode()
-            } label: {
-                Image(systemName: "play.fill")
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .frame(width: isVideoSelected ? 60 : 52, height: isVideoSelected ? 60 : 52)
-                    .background(
-                        LinearGradient(
-                            colors: [ContentView.appSecondaryThemeColor, ContentView.appPrimaryThemeColor],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.black, lineWidth: isVideoSelected ? 1.5 : 1)
-                    )
-            }
-            .buttonStyle(.plain)
-
+        return VStack(spacing: 0) {
+            Spacer(minLength: 0)
         }
-        .padding(10)
-        .background(
-            Color(.systemBackground).opacity(0.9)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .shadow(color: Color.black.opacity(0.12), radius: 14, x: 0, y: 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.top, needsExtraTopGap ? 5 : 0)
+        .padding(.bottom, 0)
+        .ignoresSafeArea(edges: .bottom)
     }
 
-    private func cycleMainFeedMode() {
-        if isMainSearchFeedActive || isFeedSearchExpanded || isFeedSearchFieldFocused {
-            // Search -> Metric
-            isMainSearchFeedActive = false
-            showFollowingOnly = false
-            isFeedSearchExpanded = false
-            isFeedSearchFieldFocused = false
-            return
-        }
-
-        if showFollowingOnly {
-            // Following -> Search
-            showFollowingOnly = false
-            isMainSearchFeedActive = true
-            isFeedSearchExpanded = true
-            DispatchQueue.main.async {
-                isFeedSearchFieldFocused = true
+    private func homeActionTabButton(
+        icon: String,
+        usesSystemIcon: Bool = true,
+        iconFont: Font = .title3,
+        isSelected: Bool,
+        buttonSize: CGFloat = 54,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Group {
+                if usesSystemIcon {
+                    Image(systemName: icon)
+                        .font(iconFont.weight(.semibold))
+                        .foregroundStyle(.primary)
+                } else {
+                    Text(icon)
+                        .font(.system(size: 24))
+                }
             }
-            return
+                .opacity(isSelected ? 1 : 0.72)
+                .frame(width: buttonSize, height: buttonSize)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color(red: 0.95, green: 0.95, blue: 0.96))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.black.opacity(0.14), lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+        .buttonStyle(.plain)
+    }
 
-        // Metric -> Following
-        showFollowingOnly = true
+    private func resetMapAreaFeedState() {
+        mapAreaCenterCoordinate = nil
+        mapAreaSourcePostID = nil
+        mapAreaZoomLevel = 13.8
+    }
+
+    private func prepareFreshMapExplorerState() {
+        resetMapAreaFeedState()
+        mapFocusedPostID = nil
+        mapFocusMode = .nearbyRecent
+        mapFocusTrigger += 1
+        shouldAutoFocusNearestPostOnMapOpen = true
+
+        if Self.isMapAreaRealm(fromLocation) {
+            fromLocation = "Metric"
+        }
+        if Self.isMapAreaRealm(videoLocation) {
+            videoLocation = "Metric"
+        }
+        showFollowingOnly = false
+        showFollowingVideoOnly = false
         isMainSearchFeedActive = false
-        isFeedSearchExpanded = false
-        isFeedSearchFieldFocused = false
-    }
-
-    private func cycleVideoFeedMode() {
-        if isVideoSearchFeedActive || isFeedSearchExpanded || isFeedSearchFieldFocused {
-            // Search -> Metric
-            isVideoSearchFeedActive = false
-            showFollowingVideoOnly = false
-            isFeedSearchExpanded = false
-            isFeedSearchFieldFocused = false
-            return
-        }
-
-        if showFollowingVideoOnly {
-            // Following -> Search
-            showFollowingVideoOnly = false
-            isVideoSearchFeedActive = true
-            isFeedSearchExpanded = true
-            DispatchQueue.main.async {
-                isFeedSearchFieldFocused = true
-            }
-            return
-        }
-
-        // Metric -> Following
-        showFollowingVideoOnly = true
         isVideoSearchFeedActive = false
         isFeedSearchExpanded = false
         isFeedSearchFieldFocused = false
+        feedContentSearchText = ""
+    }
+
+    private func clearMapExplorerTransientState() {
+        resetMapAreaFeedState()
+        mapFocusedPostID = nil
+        mapFocusMode = .nearbyRecent
+        shouldAutoFocusNearestPostOnMapOpen = true
+        mapFocusTrigger += 1
+    }
+
+    private func activateVideoMapAreaMode() {
+        showFollowingVideoOnly = true
+        videoLocation = "Metric"
+        resetMapAreaFeedState()
+        mapAreaCenterCoordinate = Self.resolvedMapAreaCenterCoordinate(
+            nil,
+            userCoordinate: locationService.lastKnownLocation?.coordinate,
+            markers: mapPostMarkers
+        )
     }
 
     private var expandedLocationHomeActions: some View {
@@ -1813,55 +3120,70 @@ struct ContentView: View {
     private var feedSection: some View {
         let activeLocation = fromLocation.isEmpty ? "Tokyo, Japan" : fromLocation
         let isSearchFeedActive = isMainSearchFeedActive
-        let includeVideoResults = requestedSearchContentTypes.contains("video")
         let isFriendsFeed = isFriendsRealm(activeLocation)
-        let scopedPosts = (isFriendsFeed
-            ? posts
-            : Self.postsForLocationRealm(posts, activeLocation: activeLocation))
+        let isFollowingFeed = isFollowingRealm(activeLocation)
+        let isMapAreaFeed = Self.isMapAreaRealm(activeLocation)
+        let boostedScopedSource = postsWithSmartBoostDistribution(includeVideos: true)
+        let scopedPosts = (isFriendsFeed || isFollowingFeed
+            ? boostedScopedSource
+            : (isMapAreaFeed
+                ? postsForActiveMapArea(includeVideos: true)
+                : Self.postsForLocationRealm(boostedScopedSource, activeLocation: activeLocation)))
         let globalPinnedKeys = Set(
             adminPinnedRealmMap()
                 .filter { $0.value == Self.adminPinAllNonMetricMarker }
                 .map { $0.key }
         )
-        let includeGlobalPinnedForLocation = !isFriendsFeed && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
+        let includeGlobalPinnedForLocation = !isFriendsFeed
+            && !isFollowingFeed
+            && !isMapAreaFeed
+            && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
         let globalPinnedPostsForLocation = includeGlobalPinnedForLocation
-            ? posts.filter { globalPinnedKeys.contains(postAdminPinStorageKey($0)) }
+            ? posts.filter { isGlobalPinnedActiveForLocation($0, location: activeLocation) }
+            : []
+        let realmMap = adminPinnedRealmMap()
+        let mapPinnedKeys = mapPinnedPostKeys(realmMap: realmMap)
+        let activeRealmPinnedPosts = (!isFriendsFeed && !isFollowingFeed && !isMapAreaFeed)
+            ? posts.filter { isAdminPinned($0, for: activeLocation, realmMap: realmMap) }
             : []
         var seenRelevantPostIDs: Set<Int> = []
-        let relevantPosts = (scopedPosts + globalPinnedPostsForLocation).filter { post in
+        let relevantPosts = (scopedPosts + globalPinnedPostsForLocation + activeRealmPinnedPosts).filter { post in
             if seenRelevantPostIDs.contains(post.id) {
                 return false
             }
             seenRelevantPostIDs.insert(post.id)
             return true
         }
-            .filter { includeVideoResults || $0.type != "Video" }
-            .filter { !reportedPostIds.contains($0.id) }
+            .filter { isMapAreaFeed || !mapPinnedKeys.contains(postAdminPinStorageKey($0)) }
             .filter { postMatchesFeedSearch($0) }
         let visiblePosts = (isFriendsFeed
             ? relevantPosts.filter { post in
                 isUserMutualFollowed(authorUserID: post.authorUserID, username: post.handle)
                     || Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername)
             }
-            : (showFollowingOnly ? relevantPosts.filter { post in
-                isUserFollowed(authorUserID: post.authorUserID, username: post.handle)
-                    || Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername)
-            } : relevantPosts))
+            : (isFollowingFeed
+                ? (relevantPosts.filter { post in
+                    isUserFollowed(authorUserID: post.authorUserID, username: post.handle)
+                } + [MockPost.followingPinnedPost])
+                : (showFollowingOnly ? relevantPosts.filter { post in
+                    isUserMutualFollowed(authorUserID: post.authorUserID, username: post.handle)
+                        || Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername)
+                } : relevantPosts)))
 
         let feedCandidates = isSearchFeedActive ? [] : visiblePosts
-        let rankedPosts = prioritizeAdminPinnedPosts(
-            orderedPosts(feedCandidates, using: feedRankedPostIDs),
-            activeLocation: activeLocation
-        )
-        let fallbackRankedPosts = rankedPosts.isEmpty
-            ? prioritizeAdminPinnedPosts(
-                rankedPostsForFeed(feedCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed),
-                activeLocation: activeLocation
-            )
-            : rankedPosts
-        let loadedPosts = Array(fallbackRankedPosts.prefix(feedLoadedCount))
+        let isMetricRealmFeed = Self.normalizedLocationRealm(activeLocation) == "metric"
+        let effectiveFeedPosts: [MockPost] = isMetricRealmFeed
+            ? rankedPostsForFeed(feedCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
+            : newestFirstPosts(feedCandidates)
+        let sortedFeedPosts = prioritizeAdminPinnedPosts(effectiveFeedPosts, activeLocation: activeLocation)
+        let restoreTargetIndex = pendingHomeFeedRestorePostID.flatMap { targetID in
+            sortedFeedPosts.firstIndex(where: { $0.id == targetID })
+        }
+        let minimumLoadedCountForRestore = restoreTargetIndex.map { min(sortedFeedPosts.count, $0 + 3) } ?? feedLoadedCount
+        let effectiveLoadedCount = max(feedLoadedCount, minimumLoadedCountForRestore)
+        let loadedPosts = Array(sortedFeedPosts.prefix(effectiveLoadedCount))
 
-        return VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(loadedPosts.enumerated()), id: \.element.id) { index, post in
                 PostCardView(
                     post: Binding(
@@ -1876,50 +3198,67 @@ struct ContentView: View {
                             }
                             }
                         ),
-                        isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
-                        currentUserProfilePhotoImage: displayProfilePhotoImage,
-                        isReported: reportedPostIds.contains(post.id),
-                        onSend: {
-                            sharePostToFriends(post)
-                        },
-                        onSave: { savedPost in
-                            toggleSavedState(for: savedPost)
-                        },
-                        onDelete: {
-                            deletePost(post)
-                        },
-                        onReport: {
-                            reportPost(post)
-                        },
-                        onProfileTap: {
-                            openUserProfile(from: post)
-                        },
-                        onMessageTap: {
-                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                            openDM(with: matchingUser)
-                        },
-                        onViewTracked: { updatedPost in
-                            applyTrackedPostViewUpdate(updatedPost)
-                        }
+                    isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
+                    currentUserProfilePhotoImage: displayProfilePhotoImage,
+                    isReported: isPostReported(post),
+                    onSend: {
+                        sharePostToFriends(post)
+                    },
+                    onSave: { savedPost in
+                        toggleSavedState(for: savedPost)
+                    },
+                    onDelete: {
+                        deletePost(post)
+                    },
+                    onAdminForceDelete: { adminCode in
+                        deletePost(post, adminDeleteCode: adminCode)
+                    },
+                    onReport: {
+                        reportPost(post)
+                    },
+                    onProfileTap: {
+                        openUserProfile(from: post)
+                    },
+                    onMessageTap: {
+                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
+                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
+                        openDM(with: matchingUser)
+                    },
+                    onMapFocusTap: { tappedPost in
+                        openMapFocusedOnPost(tappedPost)
+                    },
+                    onViewTracked: { updatedPost in
+                        applyTrackedPostViewUpdate(updatedPost)
+                    }
                     )
                     .padding(.horizontal, 0)
+                    .padding(.top, index == 0 && isMapAreaFeed && isMapTopPinned(post, realmMap: realmMap) ? 5 : 0)
+                    .id(homeFeedPostScrollID(post.id))
                     .onAppear {
-                        if index >= max(0, loadedPosts.count - 2), feedLoadedCount < fallbackRankedPosts.count {
-                            feedLoadedCount = min(feedLoadedCount + feedWindowSize, fallbackRankedPosts.count)
-                        }
+                        recordPostCardVisibility(index: index, postID: post.id, totalCount: sortedFeedPosts.count)
                     }
-                }
+                    .onDisappear {
+                        recordPostCardInvisibility(index: index, postID: post.id)
+                    }
+            }
         }
         .onAppear {
+            if feedLoadedCount < effectiveLoadedCount {
+                feedLoadedCount = effectiveLoadedCount
+            }
             rebuildMainFeedRanking(
                 candidates: visiblePosts,
                 activeLocation: activeLocation,
                 followingOnly: showFollowingOnly,
                 isFriendsFeed: isFriendsFeed,
-                includeVideoResults: includeVideoResults,
+                includeVideoResults: true,
                 force: true
             )
+        }
+        .onChange(of: pendingHomeFeedRestorePostID) { _, _ in
+            if feedLoadedCount < effectiveLoadedCount {
+                feedLoadedCount = effectiveLoadedCount
+            }
         }
         .onChange(of: fromLocation) { _, _ in
             rebuildMainFeedRanking(
@@ -1927,7 +3266,7 @@ struct ContentView: View {
                 activeLocation: activeLocation,
                 followingOnly: showFollowingOnly,
                 isFriendsFeed: isFriendsFeed,
-                includeVideoResults: includeVideoResults,
+                includeVideoResults: true,
                 force: true
             )
         }
@@ -1937,7 +3276,7 @@ struct ContentView: View {
                 activeLocation: activeLocation,
                 followingOnly: showFollowingOnly,
                 isFriendsFeed: isFriendsFeed,
-                includeVideoResults: includeVideoResults,
+                includeVideoResults: true,
                 force: true
             )
         }
@@ -1947,7 +3286,7 @@ struct ContentView: View {
                 activeLocation: activeLocation,
                 followingOnly: showFollowingOnly,
                 isFriendsFeed: isFriendsFeed,
-                includeVideoResults: includeVideoResults,
+                includeVideoResults: true,
                 force: true
             )
         }
@@ -1957,15 +3296,17 @@ struct ContentView: View {
                 activeLocation: activeLocation,
                 followingOnly: showFollowingOnly,
                 isFriendsFeed: isFriendsFeed,
-                includeVideoResults: includeVideoResults,
+                includeVideoResults: true,
                 force: true
             )
         }
     }
 
 
-    private func backButton(destination: Screen, title: String = "Back") -> some View {
+    private func backButton(destination: Screen, title: String = "Back", foregroundColor: Color = .primary) -> some View {
         Button {
+            isFeedSearchFieldFocused = false
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             currentScreen = destination
         } label: {
             HStack(spacing: 6) {
@@ -1974,7 +3315,10 @@ struct ContentView: View {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
             }
-            .foregroundStyle(.primary)
+            .padding(.vertical, 8)
+            .padding(.trailing, 12)
+            .contentShape(Rectangle())
+            .foregroundStyle(foregroundColor)
         }
         .buttonStyle(.plain)
     }
@@ -2033,11 +3377,47 @@ struct ContentView: View {
         return String(normalized.prefix(15))
     }
 
+    private func capAccountNameInput(_ raw: String) -> String {
+        String(raw.prefix(26))
+    }
+
+    private var resolvedAccountDisplayName: String {
+        let normalized = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
+        return normalized.isEmpty ? "you" : normalized
+    }
+
     private func displayUsername(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let withoutAt = trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed
         let capped = String(FirebaseSpotService.normalizeUsername(withoutAt).prefix(15))
         return capped.isEmpty ? "@you" : "@\(capped)"
+    }
+
+    private func rememberedUsernameAliases() -> [String] {
+        let rawAliases = UserDefaults.standard.array(forKey: accountUsernameAliasesDefaultsKey) as? [String] ?? []
+        var seen: Set<String> = []
+        return rawAliases.compactMap { alias in
+            let normalized = FirebaseSpotService.normalizeUsername(alias)
+            guard !normalized.isEmpty, !seen.contains(normalized) else { return nil }
+            seen.insert(normalized)
+            return normalized
+        }
+    }
+
+    private func persistRememberedUsernameAliases(_ aliases: [String]) {
+        var seen: Set<String> = []
+        let normalized = aliases.compactMap { alias -> String? in
+            let value = FirebaseSpotService.normalizeUsername(alias)
+            guard !value.isEmpty, !seen.contains(value) else { return nil }
+            seen.insert(value)
+            return value
+        }
+        UserDefaults.standard.set(normalized, forKey: accountUsernameAliasesDefaultsKey)
+    }
+
+    private func rememberUsernameAliases(_ aliases: [String]) {
+        let merged = rememberedUsernameAliases() + aliases
+        persistRememberedUsernameAliases(merged)
     }
 
     private var accountEditorStatusMessage: String {
@@ -2160,7 +3540,11 @@ struct ContentView: View {
                 let resolvedDisplayName = account.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? displayName
                     : account.displayName
-                let resolvedPhotoURL = account.profilePhotoURL ?? profilePhotoURL
+                let resolvedPhotoURL = Self.canonicalProfilePhotoURL(
+                    fetchedRemoteURL: account.profilePhotoURL,
+                    fallbackProfilePhotoURL: profilePhotoURL,
+                    localProfilePhotoURL: profilePhotoURL
+                )
                 let prefetched = FakeUserProfile(
                     userID: account.uid,
                     username: resolvedUsername,
@@ -2205,9 +3589,9 @@ struct ContentView: View {
         let resolvedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = resolvedDisplayName.isEmpty ? (resolvedUsername == "you" ? "You" : resolvedUsername.capitalized) : resolvedDisplayName
         let normalizedCurrentUsername = FirebaseSpotService.normalizeUsername(profileUsername)
-        let isCurrentUserByUsername = !normalizedCurrentUsername.isEmpty && normalizedCurrentUsername == resolvedUsername
+        let isCurrentUserByUsername = !normalizedCurrentUsername.isEmpty && normalizedCurrentUsername != "you" && resolvedUsername != "you" && normalizedCurrentUsername == resolvedUsername
         let isCurrentUserByUserID = !userID.isEmpty && !currentUserID.isEmpty && userID == currentUserID
-        let resolvedPhotoURL = profilePhotoURL ?? ((isCurrentUserByUsername || isCurrentUserByUserID) ? profilePhotoRemoteURL : nil)
+        let resolvedPhotoURL = profilePhotoURL ?? ((isCurrentUserByUsername || isCurrentUserByUserID) ? (profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL) : nil)
         let resolvedUserID = userID.isEmpty && (isCurrentUserByUsername || isCurrentUserByUserID) ? currentUserID : userID
 
         if let cached = cachedProfile(userID: resolvedUserID, username: resolvedUsername) {
@@ -2284,8 +3668,12 @@ struct ContentView: View {
         )
         if isOwnTappedProfile {
             selectedUserProfile = nil
-            currentScreen = .profile
+            currentScreen = profileButtonDestinationScreen
             return
+        }
+
+        Task {
+            await refreshFollowingUIDs()
         }
 
         let matchingUser = fakeUserProfiles.first(where: {
@@ -2303,12 +3691,20 @@ struct ContentView: View {
                 profilePhotoURL: post.authorProfilePhotoURL
             )
 
-        openUserProfileScreen(with: resolvedProfile)
+        openUserProfileScreen(with: resolvedProfile, originPostID: post.id)
     }
 
-    private func openUserProfileScreen(with profile: FakeUserProfile) {
+    private func openUserProfileScreen(with profile: FakeUserProfile, originPostID: Int? = nil) {
+        let originPost = originPostID != nil ? posts.first(where: { $0.id == originPostID }) : nil
+        let authorPosts = posts.filter { $0.handle.lowercased() == profile.username.lowercased() || (!profile.userID.isEmpty && $0.authorUserID == profile.userID) }
+        let isOwnViewedProfile = isOwnProfile(profile)
+        MetricFeedMLEngine.shared.recordProfileTap(profile: profile, originPost: originPost, authorPosts: authorPosts, isOwnProfile: isOwnViewedProfile)
+        if let originPost, !isOwnViewedProfile {
+            MetricFeedMLEngine.shared.recordInteraction(post: originPost, signal: .profileTap, allPosts: posts)
+        }
+
         let originScreen: Screen
-        if currentScreen == .userProfile {
+        if currentScreen == .userProfile || (currentScreen == .profile && selectedUserProfile != nil) {
             originScreen = userProfileReturnScreen ?? .home
         } else {
             originScreen = currentScreen
@@ -2321,8 +3717,21 @@ struct ContentView: View {
         if originScreen == .settings {
             activeSettingsEditor = nil
         }
+
+        if let originPostID {
+            if originScreen == .home {
+                pendingHomeFeedRestorePostID = originPostID
+            } else if originScreen == .locationFeed {
+                pendingVideoFeedRestorePostID = originPostID
+            }
+        }
+
+        Task {
+            await refreshFollowingUIDs()
+        }
+
         selectedUserProfile = profile
-        currentScreen = .userProfile
+        currentScreen = .profile
 
         Task {
             prefetchProfileIfNeeded(
@@ -2331,6 +3740,7 @@ struct ContentView: View {
                 displayName: profile.name,
                 profilePhotoURL: profile.profilePhotoURL
             )
+            await refreshFollowingUIDs()
             await refreshSelectedUserProfileFromRecord(expectedUserID: profile.userID)
         }
     }
@@ -2340,6 +3750,7 @@ struct ContentView: View {
         let destinationSettingsEditor = userProfileReturnSettingsEditor
         userProfileReturnScreen = nil
         userProfileReturnSettingsEditor = nil
+        selectedUserProfile = nil
         currentScreen = destination
         if destination == .settings {
             activeSettingsEditor = destinationSettingsEditor
@@ -2347,6 +3758,10 @@ struct ContentView: View {
     }
 
     private func refreshSelectedUserProfileFromRecord(expectedUserID: String? = nil) async {
+        if !currentUserID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            await refreshFollowingUIDs()
+        }
+
         let resolvedExpectedID = expectedUserID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedSnapshot = await MainActor.run { selectedUserProfile }
         guard let selectedSnapshot else { return }
@@ -2371,12 +3786,16 @@ struct ContentView: View {
             let resolvedBio = (account.bio ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? selectedSnapshot.bio
                 : (account.bio ?? selectedSnapshot.bio)
-            let resolvedPhotoURL = account.profilePhotoURL ?? selectedSnapshot.profilePhotoURL
+            let resolvedPhotoURL = Self.canonicalProfilePhotoURL(
+                fetchedRemoteURL: account.profilePhotoURL,
+                fallbackProfilePhotoURL: selectedSnapshot.profilePhotoURL,
+                localProfilePhotoURL: selectedSnapshot.profilePhotoURL
+            )
             let resolvedFollowerCount = liveCounts?.followers ?? account.followerCount
             let resolvedFollowingCount = liveCounts?.following ?? account.followingCount
 
             await MainActor.run {
-                guard currentScreen == .userProfile else { return }
+                guard currentScreen == .profile || currentScreen == .userProfile else { return }
                 if let currentSelected = selectedUserProfile,
                    !currentSelected.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                    currentSelected.userID.trimmingCharacters(in: .whitespacesAndNewlines) != targetUserID {
@@ -2436,6 +3855,12 @@ struct ContentView: View {
             .addSnapshotListener { _, error in
                 if let error {
                     print("Spot profile live follower listener error: \(error)")
+                    let nsError = error as NSError
+                    if nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
+                        DispatchQueue.main.async {
+                            stopSelectedUserProfileLiveListener()
+                        }
+                    }
                     return
                 }
 
@@ -2468,6 +3893,12 @@ struct ContentView: View {
             .addSnapshotListener { _, error in
                 if let error {
                     print("Spot current user profile listener error: \(error)")
+                    let nsError = error as NSError
+                    if nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
+                        DispatchQueue.main.async {
+                            stopCurrentUserProfileLiveListener()
+                        }
+                    }
                     return
                 }
 
@@ -2492,9 +3923,13 @@ struct ContentView: View {
     private func usernameText(_ raw: String) -> some View {
         Text(displayUsername(raw))
             .font(.title3.weight(.semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(usernameGoldTextColor)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var usernameGoldTextColor: Color {
+        Self.usernameGoldColor
     }
 
     private func profileAvatarText(_ value: String, size: CGFloat, circleSize: CGFloat) -> some View {
@@ -2524,53 +3959,135 @@ struct ContentView: View {
             .clipped()
     }
 
-    private func profileAvatarView(size: CGFloat, textSize: CGFloat = 26, border: Bool = true) -> some View {
+    private var profileAvatarGoldBorderColor: Color {
+        .clear
+    }
+
+    private func avatarGoldRing(lineWidth: CGFloat = 1.2) -> some View {
+        Circle()
+            .stroke(profileAvatarGoldBorderColor, lineWidth: lineWidth)
+    }
+
+    private func anonymousMaskAvatar(size: CGFloat) -> some View {
+        Circle()
+            .fill(Color.black)
+            .frame(width: size, height: size)
+            .overlay(
+                Image(systemName: "theatermasks.fill")
+                    .font(.system(size: size * 0.42, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.95))
+            )
+    }
+
+    private func anonymousMaskLabel(size: CGFloat = 18) -> some View {
+        Image(systemName: "theatermasks.fill")
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(usernameGoldTextColor)
+    }
+
+    private func emptyProfilePersonAvatar(size: CGFloat, iconColor: Color = .black.opacity(0.45)) -> some View {
+        Circle()
+            .fill(Color.white)
+            .frame(width: size, height: size)
+            .overlay(
+                Circle()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+            )
+            .overlay(
+                Image(systemName: "person.fill")
+                    .font(.system(size: max(14, size * 0.42), weight: .semibold))
+                    .foregroundStyle(iconColor)
+            )
+    }
+
+    private func profileAvatarView(size: CGFloat, textSize: CGFloat = 26, border: Bool = true, borderColor: Color? = nil) -> some View {
         let activeProfileImage = displayProfilePhotoImage
 
         return ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size, height: size)
-
-            if let image = activeProfileImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
+            if isAnonymousModeEnabled {
+                anonymousMaskAvatar(size: size)
             } else {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
+                            colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: size, height: size)
 
-                profileAvatarText(profilePhotoText.isEmpty ? "YO" : profilePhotoText, size: textSize, circleSize: size)
-                    .frame(width: size, height: size)
+                if let image = activeProfileImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(Circle())
+                } else {
+                    if !resolvedSignedInState {
+                        emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.55))
+                            .overlay(
+                                Image(systemName: "hand.tap.fill")
+                                    .font(.system(size: max(14, size * 0.34), weight: .semibold))
+                                    .foregroundStyle(.black.opacity(0.55))
+                                    .scaleEffect(signedOutAvatarPressAnimating ? 0.88 : 1.04)
+                                    .offset(y: signedOutAvatarPressAnimating ? 2 : -1)
+                                    .onAppear {
+                                        guard !signedOutAvatarPressAnimating else { return }
+                                        withAnimation(.easeInOut(duration: 0.78).repeatForever(autoreverses: true)) {
+                                            signedOutAvatarPressAnimating = true
+                                        }
+                                    }
+                            )
+                    } else {
+                        emptyProfilePersonAvatar(size: size)
+                    }
+                }
             }
 
-            if border {
+            if let customBorderColor = borderColor {
                 Circle()
-                    .stroke(Color.black.opacity(0.13), lineWidth: 0.9)
+                    .stroke(customBorderColor, lineWidth: 2)
                     .frame(width: size, height: size)
-
-                Circle()
-                    .stroke(Color.white.opacity(0.75), lineWidth: 0.55)
-                    .padding(0.8)
+            } else if border {
+                avatarGoldRing(lineWidth: 1.35)
                     .frame(width: size, height: size)
             }
         }
-        .shadow(color: Color.black.opacity(0.07), radius: 7, x: 0, y: 3)
+    }
+
+    private func savedAccountAvatarView(for account: SavedAccountCredential, size: CGFloat = 34) -> some View {
+        let normalizedAccountEmail = account.id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedCurrentEmail = accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let shouldUseLocalCurrentPhoto = !normalizedCurrentEmail.isEmpty && normalizedAccountEmail == normalizedCurrentEmail
+        let remotePhotoURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return ZStack {
+            if shouldUseLocalCurrentPhoto, let localImage = displayProfilePhotoImage {
+                Image(uiImage: localImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
+                AsyncImage(url: avatarURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: size, height: size)
+                            .clipShape(Circle())
+                    default:
+                        emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.5))
+                    }
+                }
+            } else {
+                emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.5))
+            }
+        }
+        .frame(width: size, height: size)
+        .overlay(avatarGoldRing(lineWidth: 1.2))
     }
 
     private func profileControlChrome(cornerRadius: CGFloat = 16) -> some View {
@@ -2595,262 +4112,1681 @@ struct ContentView: View {
     }
 
     private var settingsView: some View {
+        settingsNotificationObservers(
+            settingsDetailObservers(
+                settingsIdentityObservers(
+                    settingsViewOverlayAndAlertContent
+                )
+            )
+        )
+    }
+
+    private var settingsViewOverlayAndAlertContent: some View {
+        settingsViewBaseContent
+            .overlay {
+                if let editor = activeSettingsEditor {
+                    settingsDetailSheet(for: editor)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: activeSettingsEditor)
+                }
+            }
+            .alert("Admin moderation", isPresented: $isShowingAdminModerationPasswordPrompt) {
+                TextField("Password", text: $adminModerationPasswordInput)
+                Button("Open") {
+                    unlockAdminModerationFeedIfAuthorized()
+                }
+                Button("Cancel", role: .cancel) {
+                    adminModerationPasswordInput = ""
+                }
+            } message: {
+                if adminModerationPasswordError.isEmpty {
+                    Text("Enter admin password to open flagged posts.")
+                } else {
+                    Text(adminModerationPasswordError)
+                }
+            }
+    }
+
+    private func settingsIdentityObservers<Content: View>(_ content: Content) -> some View {
+        content
+            .onChange(of: profilePhotoItem) { _, newItem in
+                guard let newItem else {
+                    return
+                }
+
+                guard resolvedSignedInState else {
+                    profilePhotoItem = nil
+                    accountAuthMessage = "Create an account first before adding a profile photo."
+                    return
+                }
+
+                handleProfilePhotoSelection(newItem)
+            }
+            .onChange(of: isAnonymousModeEnabled) { _, enabled in
+                UserDefaults.standard.set(enabled, forKey: anonymousModeDefaultsKey)
+                accountAuthMessage = enabled
+                    ? "Anonymous mode enabled. New posts hide your identity."
+                    : "Anonymous mode disabled. New posts show your profile again."
+            }
+            .onChange(of: isAnonymousSecureFaceIDEnabled) { _, enabled in
+                UserDefaults.standard.set(enabled, forKey: anonymousSecureFaceIDDefaultsKey)
+                accountAuthMessage = enabled
+                    ? "Secure Face ID enabled for Anonymous Posts."
+                    : "Secure Face ID disabled for Anonymous Posts."
+            }
+            .onChange(of: isPasswordFaceIDProtectionEnabled) { _, enabled in
+                UserDefaults.standard.set(enabled, forKey: passwordFaceIDProtectionDefaultsKey)
+                accountAuthMessage = enabled
+                    ? "Face ID protection enabled for username/password."
+                    : "Face ID protection disabled for username/password."
+            }
+    }
+
+    private func settingsDetailObservers<Content: View>(_ content: Content) -> some View {
+        content
+            .onChange(of: postDetailAgeValue) { _, value in
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                UserDefaults.standard.set(trimmed, forKey: Self.postDetailAgeValueDefaultsKey)
+                updateAuthorAgeForOwnPosts(age: trimmed)
+            }
+            .onChange(of: postDetailPositionValue) { _, value in
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                UserDefaults.standard.set(trimmed, forKey: Self.postDetailPositionValueDefaultsKey)
+                updateAuthorPositionForOwnPosts(position: trimmed)
+            }
+    }
+
+    private func settingsNotificationObservers<Content: View>(_ content: Content) -> some View {
+        content
+            .onChange(of: postNotificationsToggleSignature) { _, _ in
+                UserDefaults.standard.set(notifyPointsAt5, forKey: notifyPoints5DefaultsKey)
+                UserDefaults.standard.set(notifyPointsAt20, forKey: notifyPoints20DefaultsKey)
+                UserDefaults.standard.set(notifyPointsAt40, forKey: notifyPoints40DefaultsKey)
+                UserDefaults.standard.set(notifyWhenAccountViewed, forKey: notifyAccountViewedDefaultsKey)
+                UserDefaults.standard.set(notifyDirectMessages, forKey: notifyDirectMessagesDefaultsKey)
+                if !notifyDirectMessages {
+                    resetUnreadDirectMessageIndicator()
+                }
+            }
+            .onChange(of: locationNotificationsToggleSignature) { _, _ in
+                UserDefaults.standard.set(notifySavedLocationPosts, forKey: notifyLocationPostsDefaultsKey)
+            }
+    }
+
+    private var settingsViewBaseContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    backButton(destination: .profile)
+                    backButton(destination: resolvedSignedInState ? .profile : .home)
                     Spacer()
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
 
-                VStack(alignment: .center, spacing: 14) {
-                    PhotosPicker(selection: $profilePhotoItem, matching: .images, photoLibrary: .shared()) {
-                        profileAvatarView(size: 84, textSize: 26)
-                    }
-                    .buttonStyle(.plain)
+                if resolvedSignedInState {
+                    settingsProfileHeader
+                    settingsBoostCard
 
-                    VStack(alignment: .center, spacing: 6) {
-                        Text(displayUsername(profileUsername))
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 12) {
+                        settingsPrimaryRowsCard
+                        settingsPostDetailOptionsCard
+                        settingsAdvancedRowsCard
+                        settingsAnonymousCard
+                        settingsTechnicalSupportCard
                     }
+                    .padding(.horizontal, 18)
+                } else {
+                    settingsLockedSection
+                        .padding(.horizontal, 18)
                 }
-                .frame(maxWidth: .infinity)
-
-                if remainingBoosts > 0 {
-                    let availableBoosts = min(max(remainingBoosts, 0), 3)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Boost ready")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        HStack(alignment: .lastTextBaseline, spacing: 6) {
-                            Text("\(availableBoosts) out of 3")
-                                .font(.system(size: 30, weight: .bold))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        LinearGradient(
-                            colors: [ContentView.appPrimaryThemeColor.opacity(0.18), ContentView.appSecondaryThemeColor.opacity(0.12)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    settingsRow(title: "Account name", value: profileName.isEmpty ? "Add" : profileName, action: { activeSettingsEditor = .name })
-                    settingsRow(title: "Username", value: profileUsername.isEmpty ? "Add" : displayUsername(profileUsername), action: { activeSettingsEditor = .username })
-                    settingsRow(title: "Account", value: phoneNumber.isEmpty ? "Open" : phoneNumber, action: {
-                        accountAuthMessage = ""
-                        showPasswordResetSpamNotice = false
-                        activeSettingsEditor = .accountInfo
-                    })
-                    settingsRow(title: "Search users", value: "Open", action: { activeSettingsEditor = .searchUsers })
-                    settingsRow(title: "Block Users", value: "\(blockedUsers.count)", action: { activeSettingsEditor = .blockUsers })
-                    settingsRow(title: "Saved posts", value: "Open", action: { currentScreen = .savedPosts })
-                    settingsRow(title: "Location alerts", value: "\(min(savedLocations.count, 10)) saved", action: { activeSettingsEditor = .locationAlerts })
-                    settingsRow(title: "Boost Next Posts", value: "Open", action: { activeSettingsEditor = .boostNextPosts })
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle(isOn: $isAnonymousModeEnabled) {
-                            Text("Anonymous")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                        }
-                        .toggleStyle(SwitchToggleStyle(tint: .black))
-
-                        Text("When Anonymous is on, every new post hides your account name and username. People also cannot open your profile from those posts.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            currentScreen = .anonymousPosts
-                        } label: {
-                            HStack {
-                                Text("Anonymous Posts")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white.opacity(0.55))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .padding(.horizontal, 18)
-
             }
-        }
-        .overlay {
-            if let editor = activeSettingsEditor {
-                settingsDetailSheet(for: editor)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .animation(.spring(response: 0.32, dampingFraction: 0.86), value: activeSettingsEditor)
-            }
-        }
-        .onChange(of: profilePhotoItem) { _, newItem in
-            guard let newItem else {
-                return
-            }
-            handleProfilePhotoSelection(newItem)
-        }
-        .onChange(of: isAnonymousModeEnabled) { _, enabled in
-            UserDefaults.standard.set(enabled, forKey: anonymousModeDefaultsKey)
-            accountAuthMessage = enabled
-                ? "Anonymous mode enabled. New posts hide your identity."
-                : "Anonymous mode disabled. New posts show your profile again."
         }
     }
 
-    private var messagesView: some View {
-        ZStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Search users", text: $userSearchText)
-                        .textInputAutocapitalization(.words)
-                        .disableAutocorrection(true)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    private var adminFlaggedPostsView: some View {
+        let flaggedPosts = adminFlaggedFeedPosts
 
-                    let results = directMessageSuggestions
-                    if results.isEmpty {
-                        Text(userSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No suggested users yet" : "No users found")
+        return ZStack(alignment: .bottom) {
+            Color(.systemGray6)
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        backButton(destination: .settings, foregroundColor: .black)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+
+                    if !adminModerationActionMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(adminModerationActionMessage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.yellow.opacity(0.2))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.horizontal, 18)
+                    }
+
+                    if flaggedPosts.isEmpty {
+                        Text("No flagged posts in the last 24 hours.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 18)
+                            .padding(.top, 12)
                     } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(results, id: \ .username) { user in
-                                Button {
-                                    openDM(with: user)
-                                } label: {
-                                    HStack(alignment: .center, spacing: 10) {
-                                        Circle()
-                                            .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                            .frame(width: 34, height: 34)
-                                            .overlay(Text(user.profilePhotoText).font(.caption.weight(.bold)).foregroundStyle(.black))
-
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(user.name.isEmpty ? user.username : user.name)
-                                                .font(.subheadline.weight(.semibold))
-                                                .foregroundStyle(.primary)
-                                            Text(displayUsername(user.username))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                        VStack(spacing: 14) {
+                            ForEach(flaggedPosts, id: \.id) { post in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    PostCardView(
+                                        post: Binding(
+                                            get: { posts.first(where: { $0.id == post.id }) ?? post },
+                                            set: { updatedPost in
+                                                if let index = posts.firstIndex(where: { $0.id == post.id }) {
+                                                    posts[index] = updatedPost
+                                                }
+                                            }
+                                        ),
+                                        isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
+                                        tracksViewEngagement: false,
+                                        currentUserProfilePhotoImage: displayProfilePhotoImage,
+                                        showsAuthorLine: true,
+                                        prefersDeleteAction: false,
+                                        isReported: true,
+                                        onSend: {
+                                            sharePostToFriends(post)
+                                        },
+                                        onSave: { savedPost in
+                                            toggleSavedState(for: savedPost)
+                                        },
+                                        onDelete: {
+                                            adminDeleteFlaggedPostPermanently(post)
+                                        },
+                                        onAdminForceDelete: { _ in
+                                            adminDeleteFlaggedPostPermanently(post)
+                                        },
+                                        onReport: {
+                                            reportPost(post)
+                                        },
+                                        onProfileTap: {
+                                            openUserProfile(from: post)
+                                        },
+                                        onMessageTap: {
+                                            let target = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
+                                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
+                                            openDM(with: target)
+                                        },
+                                        onMapFocusTap: { tappedPost in
+                                            openMapFocusedOnPost(tappedPost)
+                                        },
+                                        onViewTracked: { updatedPost in
+                                            applyTrackedPostViewUpdate(updatedPost)
                                         }
+                                    )
 
-                                        Spacer()
-                                        Image(systemName: "arrow.up.right")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.secondary)
+                                    HStack(spacing: 8) {
+                                        Button {
+                                            adminDeleteFlaggedPostPermanently(post)
+                                        } label: {
+                                            Text("Delete post now")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 8)
+                                                .background(Color.black)
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        Button {
+                                            adminRegisterBanPlaceholder(for: post, days: 1)
+                                        } label: {
+                                            Text("Ban 1 day")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.black)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 8)
+                                                .background(Color.white)
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 10)
-                                    .background(Color(.secondarySystemBackground))
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .padding(.horizontal, 8)
+                                    .padding(.bottom, 2)
+                                }
+                                .padding(.horizontal, 18)
+                            }
+                        }
+                    }
+
+                    Color.clear
+                        .frame(height: 132)
+                }
+            }
+            .onAppear {
+                pruneExpiredAdminFlaggedPosts()
+            }
+
+            floatingHomeActions
+                .padding(.bottom, 0)
+        }
+    }
+
+    private var postNotificationsToggleSignature: String {
+        "\(notifyPointsAt5 ? 1 : 0)|\(notifyPointsAt20 ? 1 : 0)|\(notifyPointsAt40 ? 1 : 0)|\(notifyWhenAccountViewed ? 1 : 0)|\(notifyDirectMessages ? 1 : 0)"
+    }
+
+    private var locationNotificationsToggleSignature: String {
+        "\(notifySavedLocationPosts ? 1 : 0)"
+    }
+
+    private var settingsPasswordValue: String {
+        let savedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return savedPassword.isEmpty ? "Set" : "Update"
+    }
+
+    private var resolvedSignedInState: Bool {
+        if isSignedInToAccount {
+            return true
+        }
+        if UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey) {
+            return true
+        }
+        if let authUser = Auth.auth().currentUser {
+            return !authUser.isAnonymous
+        }
+        return false
+    }
+
+    private var isSigningUpUser: Bool {
+        guard !resolvedSignedInState else { return false }
+        if let override = explicitSignUpModeOverride {
+            return override
+        }
+        if UserDefaults.standard.bool(forKey: hasEverSignedInDefaultsKey) {
+            return false
+        }
+        let cleanedUsername = FirebaseSpotService.normalizeUsername(signInUsername)
+        if cleanedUsername.isEmpty {
+            return savedAccounts.isEmpty
+        }
+        let hasSavedAccount = savedAccounts.contains {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+        }
+        return !hasSavedAccount
+    }
+
+    private var settingsPostNotificationsSummary: String {
+        let enabledCount =
+            (notifyPointsAt5 ? 1 : 0)
+            + (notifyPointsAt20 ? 1 : 0)
+            + (notifyPointsAt40 ? 1 : 0)
+            + (notifyWhenAccountViewed ? 1 : 0)
+            + (notifyDirectMessages ? 1 : 0)
+        return "\(enabledCount)/5 on"
+    }
+
+    private var settingsProfileHeader: some View {
+        VStack(alignment: .center, spacing: 14) {
+            PhotosPicker(selection: $profilePhotoItem, matching: .images, photoLibrary: .shared()) {
+                profileAvatarView(size: 80)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .center, spacing: 6) {
+                if !isAnonymousModeEnabled {
+                    Text(displayUsername(profileUsername))
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(usernameGoldTextColor)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .onLongPressGesture(minimumDuration: 2.0) {
+                            adminModerationPasswordInput = ""
+                            adminModerationPasswordError = ""
+                            isShowingAdminModerationPasswordPrompt = true
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    @ViewBuilder
+    private var settingsBoostCard: some View {
+        if remainingBoosts > 0 {
+            let availableBoosts = max(remainingBoosts, 0)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Boost ready")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text("\(availableBoosts) boosts")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [ContentView.appPrimaryThemeColor.opacity(0.18), ContentView.appSecondaryThemeColor.opacity(0.12)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+
+    private var settingsPrimaryRowsCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            settingsRow(
+                title: resolvedSignedInState ? "Password/Account" : (isSigningUpUser ? "Sign up" : "Sign in"),
+                value: settingsPasswordValue,
+                action: { openPasswordSettingsEditor() }
+            )
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var settingsAdvancedRowsCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider().opacity(0.3)
+            settingsRow(title: "Block Users", value: "\(blockedUsers.count)", action: { activeSettingsEditor = .blockUsers })
+            Divider().opacity(0.3)
+            settingsRow(title: "Saved posts", value: "Open", action: { currentScreen = .savedPosts })
+            Divider().opacity(0.3)
+            settingsRow(title: "Location notifications", value: "\(min(savedLocations.count, 10)) saved", action: { activeSettingsEditor = .locationAlerts })
+            Divider().opacity(0.3)
+            settingsRow(
+                title: "Post Notifications",
+                value: settingsPostNotificationsSummary,
+                action: { activeSettingsEditor = .postNotifications }
+            )
+            Divider().opacity(0.3)
+            settingsRow(title: "Boost Next Posts", value: "Open", action: { activeSettingsEditor = .boostNextPosts })
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var settingsLockedSection: some View {
+        ZStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 12) {
+                settingsAdvancedRowsCard
+                settingsAnonymousCard
+                settingsTechnicalSupportCard
+            }
+            .blur(radius: 7)
+            .opacity(0.72)
+            .allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(isSigningUpUser ? "Sign up" : "Sign in")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(isSigningUpUser ? "Create your account with a username and password to unlock all features." : "Enter your username and password to sign in and unlock all features.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    openPasswordSettingsEditor()
+                } label: {
+                    Text(isSigningUpUser ? "Sign up" : "Sign in")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(Color.black)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+            .padding(.horizontal, 12)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private static let positionPresetCatalog: [String] = [
+        "Tiding",
+        // --- Not Working, Between Jobs, Sabbatical, Life Transition & Non-Employment Statuses ---
+        "Unemployed", "Currently unemployed", "Between jobs", "Between opportunities", "Looking for work", "Actively looking for work", "Job hunting", "Job seeker", "Open to work", "Open to new opportunities", "Career transitioning", "Career pivot", "Career changer",
+        "Retired", "Happily retired", "Semi-retired", "Early retiree", "Medically retired", "Disability retiree", "Military retiree", "Retired teacher", "Retired engineer", "Retired nurse", "Retired officer",
+        "Sabbatical", "On sabbatical", "Taking a break", "Taking a gap year", "Gap year student", "Career break", "Personal sabbatical", "Travelling the world", "World traveler", "Backpacker", "Exploring life", "Finding myself", "Life reset",
+        "Disability benefit recipient", "On disability", "Permanently disabled", "Temporarily disabled", "Medically unfit for work", "Medical leave", "On medical leave", "On sick leave", "On family leave", "On parental leave", "On maternity leave", "On paternity leave",
+        "Independent wealth", "Trust fund recipient", "Living off investments", "Privately wealthy", "Financial independence", "FIRE movement", "Early retirement enthusiast", "Passive income earner", "Real estate investor living off rent", "Day trader", "Full-time investor",
+        "Student", "Full-time student", "Part-time student", "Recent graduate", "Recent college grad", "Unemployed graduate", "Gap year before college", "Gap year before grad school", "Studying for bar exam", "Studying for MCAT", "Studying for CPA exam", "Studying for USMLE", "Studying for GRE",
+        "Homemaker", "Stay-at-home mom", "Stay-at-home dad", "Stay-at-home parent", "Stay-at-home spouse", "Full-time parent", "Family caregiver", "Full-time caregiver", "Caring for aging parents", "Caring for family member",
+        "Volunteer", "Full-time volunteer", "Community volunteer", "Charity volunteer", "Nonprofit volunteer", "Peace Corps volunteer", "AmeriCorps member", "Church volunteer", "Missionary",
+        "Casual job seeker", "Exploring options", "Not currently working", "Not working", "Unemployed by choice", "Neet", "Living life", "Free spirit", "Daydreamer", "Self-discovery", "Vagabond", "Nomad", "Digital nomad between projects",
+        // --- Digital Creators, Streaming, Social Media & Modern Media Roles ---
+        "Content creator", "Full-time content creator", "Part-time content creator", "Digital creator", "Social media creator",
+        "Vlogger", "Daily vlogger", "Travel vlogger",
+        "Streamer", "Full-time streamer", "Part-time streamer", "Twitch streamer", "Twitch affiliate", "Twitch partner", "Kick streamer", "YouTube streamer", "Gaming streamer", "IRL streamer", "Anime streamer",
+        "TikTok creator", "TikToker", "TikTok influencer", "Reels creator", "Shorts creator", "Viral video creator",
+        "Podcaster", "Full-time podcaster", "Part-time podcaster", "Podcast host", "Podcast co-host", "Podcast producer", "Podcast editor", "True crime podcaster", "Sports podcaster", "Tech podcaster", "Comedy podcaster",
+        "Substack writer", "Newsletter writer", "Blogger", "Travel blogger", "Food blogger", "Fashion blogger", "Lifestyle blogger", "Tech blogger",
+        "Influencer", "Micro-influencer", "Nano-influencer", "Brand ambassador", "UGC creator", "User generated content creator", "Social media manager", "Community manager", "Discord moderator", "Subreddit moderator", "Twitch moderator",
+        "E-sports competitor", "Pro gamer", "Competitive gamer", "E-sports athlete", "E-sports coach", "E-sports caster", "Shoutcaster",
+        // --- Fine Arts, Crafts, Performers & Creative Discipline Roles ---
+        "Fine artist", "Painter", "Oil painter", "Watercolor artist", "Acrylic painter", "Sculptor", "Ceramist", "Potter", "Glassblower", "Woodcarver", "Printmaker", "Textile artist",
+        "Tattoo artist", "Full-time tattoo artist", "Part-time tattoo artist", "Tattoo apprentice", "Piercer", "Body piercer", "Tattoo shop owner",
+        "Street artist", "Muralist", "Graffiti artist", "Illustrator", "Children's book illustrator", "Comic book artist", "Manga artist", "Concept artist", "Digital painter", "Character designer", "Storyboard artist",
+        "Stand-up comedian", "Part-time comedian", "Improv performer", "Comedy writer", "Roast comic", "Magician", "Illusionist", "Mentalist", "Puppeteer", "Ventriloquist",
+        "Circus performer", "Aerialist", "Trapeze artist", "Fire dancer", "Fire spinner", "Contortionist", "Stunt performer", "Stunt double", "Stunt coordinator",
+        "Session musician", "Touring musician", "Busker", "Street musician", "Band member", "Lead singer", "Lead guitarist", "Bassist", "Drummer", "Violin player", "Cellist", "Saxophonist",
+        "Voice actor", "Voiceover artist", "Part-time voice actor", "Audiobook narrator", "Anime voice actor", "Video game voice actor",
+        "DJ", "Full-time DJ", "Part-time DJ", "Club DJ", "Wedding DJ", "Mobile DJ", "Festival DJ", "Radio DJ", "EDM producer", "Beatmaker",
+        // --- Pet Care, Animal Handling, Agriculture & Rural Life Identities ---
+        "Dog trainer", "Full-time dog trainer", "Part-time dog trainer", "Canine behaviorist", "Service dog trainer", "Puppy trainer",
+        "Pet groomer", "Full-time pet groomer", "Part-time pet groomer", "Mobile pet groomer", "Cat groomer",
+        "Dog walker", "Part-time dog walker", "Pet sitter", "House sitter & pet sitter", "Cat sitter", "Reptile caretaker",
+        "Equestrian", "Horse trainer", "Horse breeder", "Farrier", "Barn manager", "Stable hand", "Horseback riding instructor",
+        "Veterinary technician", "Vet tech", "Vet assistant", "Vet receptionist", "Animal shelter worker", "Animal rescue coordinator", "Wildlife rehabilitator", "Zoo keeper", "Aquarist",
+        "Homesteader", "Off-grid homesteader", "Hobby farmer", "Beekeeper", "Apiarist", "Urban farmer", "Permaculturist", "Master gardener", "Hydroponic farmer", "Mushroom cultivator",
+        // --- Outdoors, Adventure, Extreme Sports & Fitness Identities ---
+        "Mountain guide", "Wilderness guide", "Outdoor educator", "Backcountry guide", "Hiking guide", "Hunting guide", "Fishing guide", "Fly fishing guide",
+        // --- Religious, Spiritual & Clergy Roles ---
+        // Christianity (Protestant, Catholic, Orthodox, Non-Denominational)
+        "Pastor", "Part-time pastor", "Senior pastor", "Associate pastor", "Youth pastor", "Worship pastor", "Worship leader", "Part-time worship leader", "Children's pastor", "Discipleship pastor", "Executive pastor", "Campus pastor", "Outreach pastor", "Preacher", "Evangelist", "Part-time evangelist", "Missionary", "Foreign missionary", "Church elder", "Deacon", "Deaconess", "Church administrator", "Church secretary", "Part-time church secretary", "Church organist", "Choir director", "Part-time choir director", "Youth leader", "Sunday school teacher", "Part-time Sunday school teacher", "Small group leader",
+        "Priest", "Catholic priest", "Parish priest", "Monsignor", "Bishop", "Catholic bishop", "Archbishop", "Cardinal", "Pope", "Deacon", "Permanent deacon", "Seminarian", "Catholic nun", "Sister", "Mother superior", "Monk", "Benedictine monk", "Franciscan friar", "Abbot", "Prior", "Parish administrator", "Catechist", "Part-time catechist", "Altar server coordinator",
+        "Orthodox priest", "Archpriest", "Protodeacon", "Orthodox bishop", "Monastic", "Hieromonk",
+        // Judaism
+        "Rabbi", "Part-time rabbi", "Senior rabbi", "Associate rabbi", "Reform rabbi", "Conservative rabbi", "Orthodox rabbi", "Chabad rabbi", "Cantor", "Chazzan", "Part-time cantor", "Rabbinical student", "Mohel", "Shochet", "Kosher supervisor", "Mashgiach", "Synagogue president", "Synagogue administrator", "Hebrew school teacher", "Part-time Hebrew school teacher", "Torah reader", "Baal koreh",
+        // Islam
+        "Imam", "Part-time imam", "Resident imam", "Islamic scholar", "Sheikh", "Mufti", "Qari", "Quran teacher", "Part-time Quran teacher", "Muezzin", "Mosque administrator", "Mosque board member", "Islamic center director", "Chaplain", "Muslim chaplain", "Khatib",
+        // Hinduism, Buddhism & Eastern Traditions
+        "Hindu priest", "Pujari", "Temple priest", "Pandit", "Swami", "Guru", "Brahmin", "Temple manager", "Vedanta teacher", "Yoga philosophy teacher",
+        "Buddhist monk", "Buddhist nun", "Bhikkhu", "Bhikkhuni", "Zen master", "Roshi", "Lama", "Tibetan lama", "Dharma teacher", "Part-time dharma teacher", "Meditation instructor", "Part-time meditation instructor", "Sangha leader",
+        // Other Faiths, Chaplains & Interfaith Roles
+        "Chaplain", "Part-time chaplain", "Hospital chaplain", "Military chaplain", "Police chaplain", "Fire chaplain", "Hospice chaplain", "Prison chaplain", "University chaplain", "Airport chaplain", "Interfaith minister", "Ordained minister", "Wedding officiant", "Part-time wedding officiant", "Spiritual director", "Part-time spiritual director", "Faith healer", "Clergy member", "Part-time clergy member",
+        // --- Government, Public Administration & Civil Service Roles (Federal, State, Local) ---
+        // Federal Government & Agencies
+        "Federal employee", "Federal civil servant", "GS-5 federal employee", "GS-7 federal employee", "GS-9 federal employee", "GS-11 federal employee", "GS-12 federal employee", "GS-13 federal employee", "GS-14 federal employee", "GS-15 federal employee", "Senior Executive Service", "SES officer",
+        "IRS agent", "IRS auditor", "IRS revenue officer", "IRS customer service rep",
+        "FBI special agent", "FBI analyst", "FBI forensic accountant", "FBI field technician",
+        "CIA officer", "CIA analyst", "CIA operations officer",
+        "NSA analyst", "NSA cybersecurity officer", "NSA linguist",
+        "Secret Service agent", "Secret Service officer",
+        "DEA agent", "DEA diversion investigator",
+        "ATF agent", "ATF inspector",
+        "TSA officer", "TSA lead inspector", "TSA supervisor",
+        "Customs officer", "CBP officer", "Border Patrol agent", "Immigration officer", "USCIS adjudicator", "ICE agent",
+        "FEMA specialist", "FEMA emergency coordinator",
+        "EPA scientist", "EPA inspector", "EPA environmental engineer",
+        "FDA inspector", "FDA reviewer", "FDA scientist",
+        "CDC epidemiologist", "CDC health scientist", "NIH researcher", "NIH scientist",
+        "NASA engineer", "NASA scientist", "NASA flight controller", "NASA astronaut", "NASA project manager",
+        "USPS postmaster", "USPS postal inspector", "USPS mail processing supervisor",
+        "Social Security claims representative", "SSA specialist", "VA claims examiner", "VA hospital worker",
+        // State Government & Public Administration
+        "State employee", "State civil servant", "State trooper", "State highway patrol officer", "State park ranger", "Part-time state park ranger", "State auditor", "State tax examiner", "State health inspector", "State environmental officer", "State DMV clerk", "Part-time DMV clerk", "State caseworker", "State social worker", "State licensing specialist", "State fish and game warden", "State wildlife biologist", "State DOT engineer", "State road maintenance worker", "Governor's staff member", "State legislator assistant", "State senator aide", "State representative aide",
+        // Local, Municipal & County Government
+        "City employee", "County employee", "Municipal worker", "City manager", "Assistant city manager", "City clerk", "Part-time city clerk", "County clerk", "County registrar", "City planner", "Urban planner", "Zoning administrator", "Building inspector", "Code enforcement officer", "City engineer", "Public works director", "Public works technician", "Part-time public works worker", "Water department operator", "Waste water technician", "City accountant", "County auditor", "County treasurer assistant", "Public defender", "ADA", "Prosecutor", "Court clerk", "Part-time court clerk", "Bailiff", "Jury commissioner", "County sheriff deputy", "Correctional officer", "Part-time jailer", "911 dispatcher", "Part-time 911 dispatcher", "Emergency management director", "Public health officer", "Sanitarian", "County extension agent", "Animal control officer", "Part-time animal control officer", "City park maintenance worker", "Part-time park maintenance", "Public library director", "Branch librarian", "Part-time librarian assistant",
+        // Foreign Service, Diplomacy & International Government
+        "Diplomat", "Foreign service officer", "Ambassador", "Consular officer", "Public diplomacy officer", "USAID officer", "Attaché", "Trade commissioner", "United Nations officer", "UN delegate",
+        // Elected & Appointed Political Officials
+        "Mayor", "City council member", "County commissioner", "County supervisor", "School board member", "State representative", "State senator", "Governor", "Lieutenant governor", "Member of Congress", "US Representative", "US Senator", "Political campaign manager", "Part-time campaign staff", "Field organizer", "Political strategist", "Legislative assistant", "Press secretary",
+        // --- Family, Home & Life Roles ---
+        "Stay-at-home dad", "Stay-at-home mom", "Mom", "Dad", "Wife", "Husband", "Father", "Mother", "Parent", "Single parent", "Single dad", "Single mom", "Fostering parent", "Adoptive parent", "Child", "Son", "Daughter", "Grandmother", "Grandfather", "Grandparent", "Great-grandmother", "Great-grandfather", "Brother", "Sister", "Stepdad", "Stepmom", "Stepbrother", "Stepsister", "Uncle", "Aunt", "Nephew", "Niece", "Cousin", "Godparent", "Godfather", "Godmother", "Caregiver", "Family caregiver", "Homemaker", "Retiree", "Volunteer", "Head of household", "Family anchor", "Pet parent", "Dog mom", "Dog dad", "Cat mom", "Cat dad", "Empty nester", "New parent", "Expecting mother", "Expecting father", "Trophy husband", "Trophy wife", "Breadwinner", "Family matriarch", "Family patriarch", "Stay-at-home parent", "Housedad", "Housewife", "Family provider", "First-time mom", "First-time dad", "Girl dad", "Boy mom", "Twin parent", "Triplet parent", "Foster mom", "Foster dad", "Surrogate", "Nanny parent",
+        // --- Military Ranks, Branches, Veterans & Historical Conflict Roles ---
+        "Military veteran", "Army veteran", "Navy veteran", "Air Force veteran", "Marine veteran", "Marine Corps veteran", "Coast Guard veteran", "Space Force veteran", "National Guard veteran", "Reserve veteran", "Combat veteran", "Disabled veteran", "Wounded warrior", "Service-connected disabled veteran", "Purple Heart recipient", "Medal of Honor recipient", "Bronze Star recipient", "Silver Star recipient", "Distinguished Service Cross recipient", "Navy Cross recipient", "Air Force Cross recipient", "Cold War veteran", "WWII veteran", "World War II veteran", "Korean War veteran", "Vietnam veteran", "Vietnam War veteran", "Gulf War veteran", "Desert Storm veteran", "Desert Shield veteran", "Post-9/11 veteran", "War in Afghanistan veteran", "OEF veteran", "Operation Enduring Freedom veteran", "Iraq War veteran", "OIF veteran", "Operation Iraqi Freedom veteran", "OND veteran", "Operation New Dawn veteran", "GWOT veteran", "Global War on Terrorism veteran", "Somalia veteran", "Operation Restore Hope veteran", "Bosnia veteran", "Kosovo veteran", "Panama veteran", "Operation Just Cause veteran", "Grenada veteran", "Operation Urgent Fury veteran", "Lebanon veteran", "Peacekeeping veteran", "UN peacekeeping veteran", "NATO veteran", "Foreign military veteran", "British Armed Forces veteran", "Royal Navy veteran", "RAF veteran", "Canadian Armed Forces veteran", "Australian Defence Force veteran", "IDF veteran", "French Foreign Legion veteran",
+        "Army soldier", "Navy sailor", "Air Force airman", "Marine Corps marine", "Coast Guard member", "Space Force guardian", "National Guard member", "Army Reserve member", "Navy Reserve member", "Air Force Reserve member", "Marine Corps Reserve member", "Retired officer", "Commissioned officer", "Non-commissioned officer", "NCO", "Staff NCO", "Warrant officer", "Chief warrant officer", "Enlisted member", "Private", "Private first class", "Specialist", "Corporal", "Sergeant", "Staff sergeant", "Sergeant first class", "Master sergeant", "First sergeant", "Sergeant major", "Command sergeant major", "Petty officer", "Chief petty officer", "Senior chief petty officer", "Master chief petty officer", "Seaman", "Airman first class", "Senior airman", "Technical sergeant", "Chief master sergeant", "Lance corporal", "Gunnery sergeant", "Master gunnery sergeant", "Second lieutenant", "First lieutenant", "Captain", "Major", "Lieutenant colonel", "Colonel", "Brigadier general", "Major general", "Lieutenant general", "General", "Ensign", "Lieutenant junior grade", "Commander", "Rear admiral", "Vice admiral", "Admiral", "Military pilot", "Fighter pilot", "Helicopter pilot", "Bomber pilot", "Transport pilot", "Flight medic", "Military medic", "Corpsman", "Combat medic", "Military doctor", "Military nurse", "Military engineer", "Sapper", "Combat engineer", "Special forces operator", "Navy SEAL", "Army Ranger", "Green Beret", "Delta Force operator", "Pararescue", "PJ", "Air Force CCT", "Combat controller", "Marine Recon", "MARSOC operator", "Sniper", "Scout sniper", "Infantryman", "Artilleryman", "Tanker", "Armor crewman", "Submariner", "Surface warfare officer", "Intelligence officer", "Military intelligence analyst", "Cryptologic technician", "Cyber warfare specialist", "Drill sergeant", "Drill instructor", "Military recruiter", "Quartermaster", "Military police", "MP", "K9 handler", "EOD technician", "Bomb squad operator", "Honor guard member", "Military chaplain", "Department of Defense civilian", "DoD contractor",
+        // --- Education, Academics & Students ---
+        "College student", "High school student", "Community College student", "Graduate student", "University student", "PhD Candidate", "Medical student", "Law student", "Middle school student", "Elementary student", "Trade school student", "Bootcamp student", "Self-taught developer", "Intern", "Apprentice", "Fellow", "Postdoc researcher", "Fulbright scholar", "Honor student", "Student athlete", "NCAA D1 student athlete", "NCAA D2 student athlete", "NCAA D3 student athlete", "NAIA student athlete", "JUCO student athlete", "High school varsity athlete", "Greek life member", "Fraternity president", "Sorority president", "Student council president", "Class valedictorian", "Class salutatorian", "Research assistant", "Teaching assistant", "TA", "Lab assistant", "Exchange student", "Homeschooled student", "Online student", "Continuing education student", "Lifelong learner", "Scholarship recipient", "Dean's list student", "Freshman", "Sophomore", "Junior", "Senior", "Pre-med student", "Pre-law student", "Pre-engineering student", "Business student", "Art student", "Music student", "Nursing student", "Pharmacy student", "Dental student", "Veterinary student", "Architecture student", "Journalism student", "Film student", "Student ambassador", "Peer tutor", "Resident advisor", "RA", "Dorm president", "Club president", "Model UN delegate", "Debate team member",
+        // --- Sports, Athletics & Level of Play ---
+        // General Sports Roles by Level
+        "Youth athlete", "Middle school athlete", "High school athlete", "Varsity athlete", "JV athlete", "Junior varsity athlete", "Club athlete", "Travel team athlete", "AAU athlete", "Academy athlete", "College athlete", "NCAA Division 1 athlete", "NCAA D1 athlete", "NCAA Division 2 athlete", "NCAA D2 athlete", "NCAA Division 3 athlete", "NCAA D3 athlete", "NAIA athlete", "JUCO athlete", "Junior college athlete", "Semipro athlete", "Semiprofessional athlete", "Professional athlete", "Pro athlete", "Olympic athlete", "Olympian", "Paralympic athlete", "Paralympian", "National team athlete", "Division 1 athlete", "Division 2 athlete", "Division 3 athlete", "Master athlete", "Adult league athlete", "Rec league athlete", "Intramural athlete",
+        // Basketball by Level
+        "Youth basketball player", "Middle school basketball player", "High school varsity basketball player", "AAU basketball player", "Prep school basketball player", "NCAA D1 basketball player", "NCAA D2 basketball player", "NCAA D3 basketball player", "JUCO basketball player", "Overseas pro basketball player", "G League basketball player", "NBA player", "WNBA player", "Semipro basketball player", "Rec league basketball player", "Intramural basketball player",
+        // Football by Level
+        "PeeWee football player", "Middle school football player", "High school varsity football player", "NCAA D1 football player", "NCAA D2 football player", "NCAA D3 football player", "JUCO football player", "UFL football player", "CFL football player", "NFL player", "Semipro football player", "Flag football player", "Intramural football player",
+        // Soccer by Level
+        "Youth soccer player", "Club soccer player", "ECNL soccer player", "MLS NEXT soccer player", "High school varsity soccer player", "NCAA D1 soccer player", "NCAA D2 soccer player", "NCAA D3 soccer player", "NAIA soccer player", "USL League Two soccer player", "USL League One soccer player", "USL Championship soccer player", "MLS soccer player", "NWSL soccer player", "Premier League soccer player", "Champions League soccer player", "Pro soccer player", "Semipro soccer player", "Sunday league soccer player",
+        // Baseball & Softball by Level
+        "Little League baseball player", "Travel baseball player", "High school varsity baseball player", "NCAA D1 baseball player", "NCAA D2 baseball player", "NCAA D3 baseball player", "Single-A baseball player", "Double-A baseball player", "Triple-A baseball player", "Minor League baseball player", "MiLB player", "MLB player", "Pro baseball player", "Travel softball player", "High school varsity softball player", "NCAA D1 softball player", "NCAA D2 softball player", "Pro softball player", "Rec softball player",
+        // Track & Field / Running by Level
+        "High school track athlete", "NCAA D1 track athlete", "NCAA D2 track athlete", "NCAA D3 track athlete", "Pro track athlete", "Olympic track athlete", "High school cross country runner", "Collegiate cross country runner", "Marathoner", "Boston Marathon qualifier", "Ultra-marathoner", "Trail runner", "Rec runner",
+        // Volleyball by Level
+        // Tennis & Pickleball by Level
+        "Junior tennis player", "High school varsity tennis player", "NCAA D1 tennis player", "NCAA D2 tennis player", "NCAA D3 tennis player", "UTR tennis player", "ITF tennis player", "ATP pro tennis player", "WTA pro tennis player", "Club tennis player", "Amateur pickleball player", "3.5 pickleball player", "4.0 pickleball player", "4.5 pickleball player", "5.0 pickleball player", "Pro pickleball player", "PPA pro pickleball player",
+        // Golf & Swimming by Level
+        "Junior golfer", "High school varsity golfer", "NCAA D1 golfer", "NCAA D2 golfer", "NCAA D3 golfer", "Korn Ferry Tour golfer", "PGA Tour golfer", "LPGA Tour golfer", "Club golfer", "Scratch golfer", "Club swimmer", "High school varsity swimmer", "NCAA D1 swimmer", "NCAA D2 swimmer", "NCAA D3 swimmer", "National swimmer", "Olympic swimmer",
+        // Hockey & Winter Sports by Level
+        "NHL player", "Competitive skier", "Freestyle skier", "Alpine ski racer", "Pro snowboarder", "Olympic figure skater",
+        // Combat Sports & Martial Arts by Level
+        "Amateur boxer", "Pro boxer", "Golden Gloves boxer", "Amateur MMA fighter", "Pro MMA fighter", "UFC fighter", "Bellator fighter", "ONE Championship fighter", "BJJ white belt", "BJJ blue belt", "BJJ purple belt", "BJJ brown belt", "BJJ black belt", "Competitive judoka", "Taekwondo black belt", "Karate black belt",
+        // Gymnastics, Cheer & Dance by Level
+        "Level 8 gymnast", "Level 9 gymnast", "Level 10 gymnast", "Elite gymnast", "NCAA D1 gymnast", "Olympic gymnast", "Competitive cheerleader", "NCAA cheerleader", "Pro cheerleader", "NFL cheerleader", "NBA dancer", "Competitive dancer", "Pre-professional dancer", "Pro ballet dancer",
+        // Endurance, Cycling & Outdoor Sports by Level
+        "Cat 5 cyclist", "Cat 4 cyclist", "Cat 3 cyclist", "Cat 2 cyclist", "Cat 1 cyclist", "Pro cyclist", "WorldTour cyclist", "Age group triathlete", "Ironman finisher", "Pro triathlete", "Competitive rock climber", "V-scale boulderer", "Competitive surfer", "QS surfer", "CT pro surfer", "Esports pro player", "Ranked esports player", "Grandmaster chess player",
+        // --- Business Owners, Executives & Corporate Roles ---
+        "Founder", "Co-founder", "CEO", "Chief Executive Officer", "CTO", "Chief Technology Officer", "CFO", "Chief Financial Officer", "COO", "Chief Operating Officer", "CMO", "Chief Marketing Officer", "CPO", "Chief Product Officer", "CRO", "Chief Revenue Officer", "CIO", "Chief Information Officer", "CISO", "President", "Vice President", "VP of Engineering", "VP of Product", "VP of Sales", "VP of Marketing", "Director", "Managing Director", "General Manager", "Operations Manager", "Branch Manager", "Store Manager", "Team Lead", "Engineering Manager", "Product Lead", "Tech Lead", "Entrepreneur", "Solopreneur", "Startup founder", "Small business owner", "Franchise owner", "Restaurant owner", "Bar owner", "Café owner", "Boutique owner", "Agency owner", "E-commerce store owner", "Etsy seller", "Shopify store owner", "Local business owner", "Family business owner", "Co-owner", "Sole proprietor", "Managing partner", "Senior partner", "Junior partner", "Investor", "Angel investor", "Venture capitalist", "VC", "Board member", "Chairman of the board", "Advisor", "Business consultant", "Management consultant", "Strategy consultant", "Account executive", "AE", "Business development representative", "BDR", "Sales development representative", "SDR", "Customer success manager", "CSM", "Account manager", "HR director", "Talent acquisition lead", "Chief of staff", "Executive assistant", "EA", "Office manager", "Administrative assistant",
+        // --- Freelancers, Contractors & Gig Workers ---
+        "Freelancer", "Freelance writer", "Freelance designer", "Freelance developer", "Freelance photographer", "Freelance videographer", "Freelance illustrator", "Freelance editor", "Freelance translator", "Freelance marketer", "Freelance consultant", "Contractor", "Independent contractor", "Gig worker", "Subcontractor", "Remote worker", "Digital nomad", "Virtual assistant", "VA", "Ghostwriter", "Proofreader", "Transcriptionist", "Voice actor", "Voiceover artist", "Session musician", "Stock photographer", "UGC creator", "User generated content creator", "Fiverr seller", "Upwork freelancer", "Consultant", "Fractional executive", "Fractional CMO", "Fractional CFO", "Fractional CTO", "Self-employed", "Solo practitioner",
+        // --- Healthcare, Medical & Mental Health ---
+        "Nurse", "Registered nurse", "RN", "Nurse practitioner", "NP", "ER nurse", "ICU nurse", "NICU nurse", "Surgical nurse", "Pediatric nurse", "Labor & delivery nurse", "Travel nurse", "Licensed practical nurse", "LPN", "CNA", "Certified nursing assistant", "Doctor", "Physician", "Attending physician", "Resident doctor", "Medical intern", "Surgeon", "General surgeon", "Orthopedic surgeon", "Neurosurgeon", "Plastic surgeon", "Cardiologist", "Dermatologist", "Pediatrician", "OB/GYN", "Oncologist", "Psychiatrist", "Neurologist", "Anesthesiologist", "Radiologist", "Pathologist", "Ophthalmologist", "ENT specialist", "Urologist", "Gastroenterologist", "Endocrinologist", "Rheumatologist", "Allergist", "Emergency physician", "Family doctor", "General practitioner", "Dentist", "Orthodontist", "Oral surgeon", "Dental hygienist", "Dental assistant", "Pharmacist", "Pharmacy technician", "Physician assistant", "PA", "Therapist", "Psychologist", "Licensed counselor", "LMFT", "LCSW", "Mental health counselor", "Physical therapist", "PT", "Occupational therapist", "OT", "Speech therapist", "Speech pathologist", "Paramedic", "EMT", "Flight medic", "Veterinarian", "Vet surgeon", "Veterinary technician", "Vet tech", "Chiropractor", "Massage therapist", "Licensed massage therapist", "Acupuncturist", "Naturopath", "Nutritionist", "Dietitian", "Registered dietitian", "Doula", "Midwife", "Phlebotomist", "Ultrasound tech", "MRI technician", "X-ray technician", "Medical lab scientist", "Genetic counselor",
+        // --- Trades, Construction, Energy & Maintenance ---
+        "Electrician", "Master electrician", "Apprentice electrician", "Plumber", "Master plumber", "Carpenter", "Framing carpenter", "Finish carpenter", "Cabinet maker", "Welder", "TIG welder", "MIG welder", "Structural welder", "Mechanic", "Auto mechanic", "Diesel mechanic", "Aircraft mechanic", "Avionics technician", "Auto technician", "Body shop technician", "Construction worker", "Construction foreman", "General contractor", "HVAC technician", "Landscaper", "Landscape architect", "Groundskeeper", "Painter", "Commercial painter", "Roofer", "Machinist", "CNC machinist", "Tool and die maker", "Millwright", "Pipefitter", "Boilermaker", "Ironworker", "Mason", "Bricklayer", "Tile setter", "Drywall installer", "Glazier", "Insulation installer", "Heavy equipment operator", "Crane operator", "Forklift operator", "Technician", "Maintenance technician", "Handyman", "Janitor", "Custodian", "Building superintendent", "Locksmith", "Sanitation worker", "Waste management driver", "Solar panel installer", "Wind turbine technician", "Lineman", "Utility worker", "Oil rig worker", "Miner", "Logging worker",
+        // --- Service Industry, Culinary & Hospitality ---
+        "Barista", "Head barista", "Coffee roaster", "Bartender", "Mixologist", "Sommelier", "Barback", "Server", "Waiter", "Waitress", "Head waiter", "Host", "Hostess", "Bouncer", "Door staff", "Chef", "Executive chef", "Sous chef", "Pastry chef", "Line cook", "Prep cook", "Short order cook", "Personal chef", "Private chef", "Sushi chef", "Baker", "Master baker", "Dishwasher", "Flight attendant", "Purser", "Hotel manager", "Front desk agent", "Front desk clerk", "Concierge", "Bellhop", "Housekeeper", "Hotel maid", "Event planner", "Event coordinator", "Wedding planner", "Caterer", "Catering manager", "Store associate", "Sales associate", "Cashier", "Head cashier", "Retail store manager", "Assistant store manager", "Visual merchandiser", "Stock associate", "Inventory specialist", "Customer service rep", "Call center agent", "Helpdesk representative", "Brand ambassador", "Promoter", "Esthetician", "Nail technician", "Spa manager", "Tanning consultant", "Personal shopper",
+        // --- Finance, Accounting, Real Estate & Law ---
+        "Accountant", "Staff accountant", "Senior accountant", "CPA", "Certified Public Accountant", "Auditor", "Tax specialist", "Bookkeeper", "Financial analyst", "Quantitative analyst", "Quant", "Investment banker", "Portfolio manager", "Hedge fund manager", "Private equity analyst", "Venture capital analyst", "Financial advisor", "Financial planner", "Wealth manager", "Bank teller", "Loan officer", "Mortgage broker", "Underwriter", "Credit analyst", "Stockbroker", "Trader", "Crypto trader", "Insurance agent", "Actuary", "Risk analyst", "Architect", "Landscape architect", "Interior designer", "Real estate agent", "Realtor", "Real estate broker", "Property manager", "Leasing agent", "Real estate investor", "Appraiser", "Title agent", "Lawyer", "Corporate lawyer", "Prosecutor", "Public defender", "Trial lawyer", "Family lawyer", "Immigration lawyer", "Paralegal", "Legal assistant", "Legal secretary", "Court reporter", "Judge", "Magistrate", "Bailiff", "Arbitrator", "Mediator", "Notary public", "Compliance officer",
+        // --- Education, Teaching & Public Sector ---
+        "Teacher", "Elementary school teacher", "Middle school teacher", "High school teacher", "Special education teacher", "ESL teacher", "Preschool teacher", "Daycare worker", "Nanny", "Babysitter", "Au pair", "Professor", "Assistant professor", "Associate professor", "Adjunct professor", "Department chair", "Dean", "Tutor", "Private tutor", "SAT/ACT prep tutor", "Librarian", "School librarian", "Archivist", "Museum curator", "Principal", "Vice principal", "School counselor", "Superintendent", "Academic researcher", "Scholar", "Historian", "Sociologist", "Anthropologist", "Economist", "Political scientist", "Philosopher", "Civil servant", "Government employee", "Diplomat", "Foreign service officer", "Social worker", "Case manager", "Child advocate", "Community organizer", "Nonprofit director", "Grant writer", "Urban planner", "City planner", "Environmental specialist",
+        // --- Public Safety, Military & Transportation ---
+        "Police officer", "Detective", "State trooper", "Deputy sheriff", "Sheriff", "Highway patrol officer", "FBI agent", "Secret Service agent", "DEA agent", "Border patrol agent", "Customs officer", "Correctional officer", "Firefighter", "Fire captain", "Fire investigator", "Smokejumper", "Security guard", "Bouncer", "Bodyguard", "Private investigator", "PI", "Military member", "Soldier", "Sailor", "Airman", "Marine", "Coast Guardsman", "Commissioned officer", "Non-commissioned officer", "NCO", "Veteran", "Special forces operator", "Navy SEAL", "Army Ranger", "Green Beret", "Pilot", "Commercial airline pilot", "Private pilot", "Helicopter pilot", "Cargo pilot", "Flight instructor", "Air traffic controller", "Train conductor", "Locomotive engineer", "Subway operator", "Bus driver", "School bus driver", "Transit operator", "Truck driver", "Long haul trucker", "Freight driver", "Delivery driver", "Courier", "Postal carrier", "Mail delivery worker", "Rideshare driver", "Taxi driver", "Chauffeur", "Limo driver", "Ship captain", "Harbor pilot", "Sailor", "Deckhand", "Yacht captain", "Boat captain", "Crane operator", "Forklift operator", "Warehouse worker", "Fulfillment associate", "Logistics coordinator", "Dispatcher", "Fleet manager",
+        // Retail & E-Commerce
+        "Home Depot employee", "Home Depot associate", "Home Depot department supervisor", "Home Depot store manager",
+        "Trader Joe's employee", "Trader Joe's crew member", "Trader Joe's mate", "Trader Joe's captain",
+        "Whole Foods employee", "Whole Foods team member", "Whole Foods department lead",
+        "Dollar General employee", "Dollar General sales associate", "Dollar General store manager",
+        // Tech & Software
+        "NVIDIA employee", "NVIDIA AI engineer", "NVIDIA hardware engineer", "NVIDIA research scientist",
+        // Fast Food, Coffee & Hospitality
+        "Chick-fil-A employee", "Chick-fil-A team member", "Chick-fil-A shift leader", "Chick-fil-A operator",
+        "Chipotle employee", "Chipotle crew member", "Chipotle service manager", "Chipotle general manager",
+        "Dutch Bros employee", "Dutch Bros broista", "Dutch Bros shop lead",
+        "Dunkin' employee", "Dunkin' crew member", "Dunkin' shift leader",
+        "Taco Bell employee", "Taco Bell team member", "Taco Bell shift lead",
+        "Wendy's employee", "Burger King employee", "Subway employee", "Domino's delivery driver",
+        // Shipping, Freight & Logistics
+        "USPS postal worker", "USPS mail carrier", "USPS postal clerk",
+        "DoorDash employee", "DoorDash Dasher", "Instacart shopper",
+        // Finance & Banking
+        "Bank of America employee", "Bank of America teller", "Bank of America client manager", "Bank of America VP",
+        "Wells Fargo employee", "Wells Fargo teller", "Wells Fargo personal banker",
+        "Capital One employee", "Capital One software engineer", "Capital One relationship manager",
+        "Fidelity employee", "Fidelity financial advisor", "Vanguard employee", "Charles Schwab employee",
+        // Healthcare, Hospitals & Pharmacy
+        "CVS employee", "CVS pharmacy technician", "CVS pharmacist", "CVS store manager",
+        "Walgreens employee", "Walgreens pharmacy tech", "Walgreens pharmacist",
+        "Kaiser Permanente employee", "Kaiser nurse", "Kaiser physician", "Kaiser receptionist",
+        "Mayo Clinic employee", "Mayo Clinic doctor", "Mayo Clinic nurse", "Mayo Clinic researcher",
+        "Cleveland Clinic employee", "UnitedHealth employee", "HCA Healthcare employee",
+        // Aerospace, Defense & Automotive
+        "Northrop Grumman employee", "SpaceX employee", "SpaceX launch engineer",
+        "Ford employee", "Ford assembly worker", "Ford engineer", "General Motors employee", "GM assembly worker", "Toyota employee",
+        // Media, Entertainment & Telecom
+        "Universal employee", "Warner Bros. employee",
+        "AT&T employee", "AT&T retail sales rep", "AT&T network technician", "Verizon employee", "Verizon retail specialist", "T-Mobile employee", "T-Mobile mobile expert",
+        // Tech Giants
+        "NVIDIA AI engineer", "NVIDIA Deep Learning Engineer", "NVIDIA CUDA software engineer", "NVIDIA GPU hardware engineer", "NVIDIA research scientist", "NVIDIA product manager", "NVIDIA solution architect",
+        // Retail & Superstores
+        "Home Depot associate", "Home Depot sales associate", "Home Depot cashier", "Home Depot department supervisor", "Home Depot assistant store manager", "Home Depot store manager",
+        "Lowes sales associate", "Lowes cashier", "Lowes department supervisor", "Lowes store manager",
+        "Trader Joe's crew member", "Trader Joe's merchant", "Trader Joe's mate", "Trader Joe's captain",
+        "Whole Foods team member", "Whole Foods buyer", "Whole Foods department supervisor", "Whole Foods assistant store leader", "Whole Foods store team leader",
+        "Best Buy blue shirt associate", "Best Buy Geek Squad agent", "Best Buy Geek Squad supervisor", "Best Buy sales supervisor", "Best Buy general manager",
+        // Coffee, Fast Food & Restaurants
+        "Chick-fil-A team member", "Chick-fil-A kitchen crew", "Chick-fil-A shift leader", "Chick-fil-A director", "Chick-fil-A franchise operator",
+        "Chipotle crew member", "Chipotle kitchen manager", "Chipotle service manager", "Chipotle apprentice", "Chipotle general manager",
+        "Dutch Bros broista", "Dutch Bros shift lead", "Dutch Bros shop lead", "Dutch Bros franchisee",
+        "Dunkin' crew member", "Dunkin' baker", "Dunkin' shift leader", "Dunkin' store manager",
+        "Domino's delivery driver", "Domino's customer service rep", "Domino's assistant manager", "Domino's general manager",
+        // Delivery, Freight & Logistics
+        "USPS mail carrier", "USPS city carrier", "USPS rural carrier", "USPS postal clerk", "USPS mail processing clerk", "USPS postmaster",
+        "DoorDash Dasher", "Instacart in-store shopper", "Instacart full-service shopper",
+        // Banking, Investment & Finance
+        "Bank of America bank teller", "Bank of America personal banker", "Bank of America client manager", "Bank of America Vice President",
+        "Wells Fargo bank teller", "Wells Fargo personal banker", "Wells Fargo branch manager", "Wells Fargo loan officer",
+        "Capital One software engineer", "Capital One business analyst", "Capital One product manager", "Capital One relationship manager",
+        "Fidelity financial advisor", "Fidelity investment consultant", "Vanguard client service associate", "Charles Schwab financial consultant",
+        // Healthcare, Hospitals & Pharmacy
+        "CVS pharmacy technician", "CVS certified pharmacy tech", "CVS staff pharmacist", "CVS pharmacy manager", "CVS store manager",
+        "Walgreens pharmacy tech", "Walgreens staff pharmacist", "Walgreens pharmacy manager", "Walgreens store manager",
+        "Kaiser Permanente registered nurse", "Kaiser Permanente physician", "Kaiser Permanente receptionist", "Kaiser Permanente lab tech",
+        "Mayo Clinic attending physician", "Mayo Clinic resident physician", "Mayo Clinic registered nurse", "Mayo Clinic clinical researcher",
+        "Cleveland Clinic physician", "Cleveland Clinic nurse", "UnitedHealth case manager", "HCA Healthcare registered nurse",
+        // Aerospace, Defense, Telecom & Entertainment
+        "Northrop Grumman software engineer", "SpaceX launch engineer", "SpaceX propulsion engineer", "SpaceX technician",
+        "Ford assembly line worker", "Ford mechanical engineer", "GM assembly worker", "General Motors design engineer",
+        "AT&T retail sales rep", "AT&T field technician", "Verizon retail specialist", "Verizon network engineer", "T-Mobile mobile expert", "T-Mobile store manager",
+        // Movie Studios, TV Networks, Record Labels & Media Companies
+        "Universal Pictures producer", "Universal Studios crew member", "Warner Bros. production assistant", "Warner Bros. editor", "Paramount Pictures executive", "Sony Pictures cinematographer", "A24 production assistant", "A24 creative coordinator", "Marvel Studios concept artist", "Marvel Studios VFX artist", "Pixar animator", "Pixar story artist", "DreamWorks animator", "Lucasfilm creative director",
+        "HBO production coordinator", "HBO showrunner", "HBO camera operator", "CBS crew member", "NBC production assistant", "ABC news crew", "FOX broadcast technician", "BBC journalist", "BBC producer", "ESPN camera operator", "ESPN sports commentator",
+        "Universal Music Group artist", "Universal Music Group A&R", "Sony Music label coordinator", "Sony Music A&R scout", "Warner Music Group marketing manager", "Atlantic Records A&R", "Def Jam publicist", "Interscope label employee", "Capitol Records promoter", "Sub Pop label representative", "Part-time record label employee", "Record label intern",
+        // Detailed Creative, Music, Art, Film & TV Roles
+        "Indie filmmaker", "Feature film director", "Documentary director", "Assistant director", "1st AD", "2nd AD", "Showrunner", "TV staff writer", "TV writers' assistant", "Script supervisor", "Cinematographer", "Director of photography", "DP", "Camera operator", "1st AC", "2nd AC", "Gaffer", "Best boy electric", "Boom operator", "Sound recordist", "Production designer", "Art director", "Prop master", "Costume designer", "SFX artist", "Location manager", "Casting director", "Production assistant", "PA", "Film editor", "Assistant editor", "Colorist", "Sound designer", "Re-recording mixer", "VFX supervisor", "Compositor", "Stunt coordinator", "Stunt performer", "Extra", "Background actor",
+        "Indie musician", "Recording artist", "Session guitarist", "Session bassist", "Session drummer", "Session pianist", "Touring musician", "Lead singer", "Backing vocalist", "Concertmaster", "Orchestral musician", "Symphony player", "Opera singer", "Bandleader", "Music producer", "Audio engineer", "Recording engineer", "Mixing engineer", "Mastering engineer", "Beatmaker", "Songwriter", "Lyricist", "Arranger", "Orchestrator", "Music director", "Music supervisor", "A&R scout", "Artist manager", "Tour manager", "Booking agent", "Stage manager", "FOH engineer", "Monitor engineer", "Roadie", "Guitar tech", "Drum tech",
+        "Fine artist", "Oil painter", "Watercolorist", "Acrylic painter", "Muralist", "Sculptor", "Ceramicist", "Potter", "Printmaker", "Illustrator", "Comic book artist", "Concept artist", "Digital painter", "Character designer", "Environment artist", "Storyboard artist", "3D sculptor", "Gallery artist", "Curator", "Gallery director", "Art conservator", "Art restorer", "Art appraiser", "Art dealer",
+        // --- Everyday, Niche & Informal Roles (With Full-Time & Part-Time Variants) ---
+        // Hospitality, Food & Beverage
+        "Barista", "Part-time barista", "Full-time barista", "Bartender", "Part-time bartender", "Full-time bartender", "Barback", "Part-time barback", "Server", "Part-time server", "Full-time server", "Waiter", "Part-time waiter", "Waitress", "Part-time waitress", "Host", "Part-time host", "Hostess", "Part-time hostess", "Bouncer", "Part-time bouncer", "Busser", "Part-time busser", "Dishwasher", "Part-time dishwasher", "Line cook", "Part-time line cook", "Prep cook", "Part-time prep cook", "Coffee roaster", "Part-time coffee roaster", "Sommelier", "Part-time sommelier", "Caterer", "Part-time caterer", "Food truck worker", "Part-time food truck operator", "Ice cream scooper", "Part-time ice cream scooper", "Juice bar associate", "Part-time juice bar associate", "Bakery assistant", "Part-time bakery assistant",
+        // Retail, Sales & Customer Service
+        "Retail associate", "Part-time retail associate", "Cashier", "Part-time cashier", "Stock associate", "Part-time stocker", "Fitting room attendant", "Part-time fitting room attendant", "Sales clerk", "Part-time sales clerk", "Customer service rep", "Part-time customer service rep", "Call center agent", "Part-time call center agent", "Brand ambassador", "Part-time brand ambassador", "Event staff", "Part-time event staff", "Ticket taker", "Part-time ticket taker", "Usher", "Part-time usher", "Coat check attendant", "Part-time coat check attendant", "Personal shopper", "Part-time personal shopper", "Mystery shopper", "Part-time mystery shopper", "Product demonstrator", "Part-time product demonstrator",
+        // Pet Care, Animal Services & Outdoor Maintenance
+        "Dog walker", "Part-time dog walker", "Pet sitter", "Part-time pet sitter", "Cat sitter", "Part-time cat sitter", "Dog groomer", "Part-time dog groomer", "Vet assistant", "Part-time vet assistant", "Kennel attendant", "Part-time kennel attendant", "Dog trainer", "Part-time dog trainer", "Horse trainer", "Part-time horse groomer",
+        "Lawn care worker", "Part-time lawn care worker", "Gardener", "Part-time gardener", "Pool cleaner", "Part-time pool cleaner", "Landscaper", "Part-time landscaper", "Snow removal operator", "Part-time snow shoveler", "Tree trimmer", "Part-time tree trimmer", "Golf course groundskeeper", "Part-time groundskeeper",
+        // Domestic, Caregiving & Personal Services
+        "Nanny", "Part-time nanny", "Babysitter", "Part-time babysitter", "Au pair", "Childcare provider", "Part-time childcare provider", "Daycare assistant", "Part-time daycare assistant", "Housekeeper", "Part-time housekeeper", "House cleaner", "Part-time house cleaner", "Home organizer", "Part-time home organizer", "Elderly caregiver", "Part-time caregiver", "Senior companion", "Part-time senior companion", "House sitter", "Part-time house sitter", "Plant sitter", "Part-time plant sitter",
+        // Transportation, Delivery & Rideshare
+        "Rideshare driver", "Part-time rideshare driver", "Delivery driver", "Part-time delivery driver", "DoorDash Dasher", "Part-time Dasher", "Instacart shopper", "Part-time Instacart shopper", "Courier", "Part-time courier", "Bike courier", "Part-time bike courier", "Food delivery worker", "Part-time food delivery worker", "Valet driver", "Part-time valet attendant", "School bus driver", "Part-time bus driver", "Shuttle driver", "Part-time shuttle driver", "Chauffeur", "Part-time chauffeur", "Limo driver", "Part-time limo driver",
+        // Resale, E-Commerce & Gig Economy
+        "Resale seller", "Part-time reseller", "Thrift reseller", "Part-time thrift reseller", "eBay seller", "Part-time eBay seller", "Poshmark seller", "Part-time Poshmark seller", "Depop seller", "Part-time Depop seller", "Etsy seller", "Part-time Etsy seller", "Mercari seller", "Part-time Mercari seller", "Flea market vendor", "Part-time flea market vendor", "Farmers market vendor", "Part-time market vendor", "Yard sale organizer", "Antique dealer", "Part-time antique collector",
+        // Creative, Entertainment & Content Creation
+        "Freelance photographer", "Part-time photographer", "Event photographer", "Part-time event photographer", "Portrait photographer", "Part-time portrait photographer", "Videographer", "Part-time videographer", "Content creator", "Part-time content creator", "Twitch streamer", "Part-time streamer", "Podcaster", "Part-time podcaster", "Blogger", "Part-time blogger", "Social media manager", "Part-time social media manager", "Graphic designer", "Part-time graphic designer", "Illustrator", "Part-time illustrator", "Ghostwriter", "Part-time ghostwriter", "Voice actor", "Part-time voice actor", "Session musician", "Part-time session musician", "DJ", "Part-time DJ", "Wedding DJ", "Part-time wedding DJ", "Street performer", "Part-time busker", "Background actor", "Part-time movie extra", "Model", "Part-time model", "Promotional model", "Part-time promo model",
+        // Fitness, Sports & Recreation
+        "Personal trainer", "Part-time personal trainer", "Fitness instructor", "Part-time fitness instructor", "Yoga teacher", "Part-time yoga teacher", "Pilates instructor", "Part-time Pilates instructor", "Spin instructor", "Part-time spin instructor", "Swim instructor", "Part-time swim instructor", "Lifeguard", "Part-time lifeguard", "Youth sports coach", "Part-time sports coach", "Camp counselor", "Part-time camp counselor", "Ski instructor", "Part-time ski instructor", "Snowboard instructor", "Part-time snowboard instructor", "Surf instructor", "Part-time surf instructor", "Tennis coach", "Part-time tennis coach", "Pickleball instructor", "Part-time pickleball instructor", "Golf caddie", "Part-time caddie", "Referee", "Part-time referee", "Umpire", "Part-time umpire",
+        // Education, Tutoring & Academics
+        "Tutor", "Part-time tutor", "Math tutor", "Part-time math tutor", "English tutor", "Part-time English tutor", "SAT/ACT tutor", "Part-time SAT tutor", "Substitute teacher", "Part-time substitute teacher", "Teacher's aide", "Part-time teacher's aide", "Lab assistant", "Part-time lab assistant", "Music teacher", "Part-time music teacher", "Piano teacher", "Part-time piano teacher", "Guitar instructor", "Part-time guitar instructor", "Art teacher", "Part-time art teacher", "Dance teacher", "Part-time dance teacher",
+        // General Maintenance, Trades & Odd Jobs
+        "Handyman", "Part-time handyman", "Car detailer", "Part-time car detailer", "Car washer", "Part-time car washer", "Window washer", "Part-time window washer", "Pressure washer", "Part-time pressure washer", "Auto mechanic assistant", "Part-time mechanic", "Apprentice electrician", "Part-time electrician assistant", "Apprentice plumber", "Part-time plumber assistant", "Carpenter assistant", "Part-time carpenter", "Painter assistant", "Part-time painter", "Locksmith assistant", "Part-time locksmith", "Junk removal specialist", "Part-time junk remover", "Mover", "Part-time mover", "Warehouse packer", "Part-time warehouse packer", "Forklift operator", "Part-time forklift operator", "Janitor", "Part-time janitor", "Custodian", "Part-time custodian", "Sanitation worker", "Part-time sanitation worker",
+        // Security, Safety & Facilities
+        "Security guard", "Part-time security guard", "Event security guard", "Part-time event security guard", "Night watchman", "Part-time night watchman", "Crossing guard", "Part-time crossing guard", "Parking attendant", "Part-time parking attendant", "Parking enforcement officer", "Part-time parking enforcement", "Facility assistant", "Part-time facility worker",
+        // Office, Administration & Virtual Work
+        "Virtual assistant", "Part-time virtual assistant", "Receptionist", "Part-time receptionist", "Office assistant", "Part-time office assistant", "Data entry clerk", "Part-time data entry clerk", "File clerk", "Part-time file clerk", "Typist", "Part-time typist", "Transcriber", "Part-time transcriber", "Executive assistant", "Part-time executive assistant", "Bookkeeper", "Part-time bookkeeper", "Tax preparer", "Part-time tax preparer",
+        // --- Specialized Technical, Science, Engineering & Environmental Roles ---
+        "Biomedical researcher", "Part-time biomedical researcher", "Lab technician", "Part-time lab technician", "Quality assurance analyst", "Part-time QA analyst", "Environmental scientist", "Part-time environmental scientist", "Geologist", "Part-time geologist", "Hydrologist", "Part-time hydrologist", "GIS analyst", "Part-time GIS analyst", "Meteorologist", "Part-time meteorologist", "Astronomer", "Part-time astronomer", "Chemist", "Part-time chemist", "Biologist", "Part-time biologist", "Microbiologist", "Part-time microbiologist", "Ecologist", "Part-time ecologist", "Botanist", "Part-time botanist", "Zoologist", "Part-time zoologist", "Marine biologist", "Part-time marine biologist", "Genetist", "Part-time geneticist", "Bioinformatician", "Part-time bioinformatician", "Data engineer", "Part-time data engineer", "AI prompt engineer", "Part-time AI prompt engineer", "Robotics technician", "Part-time robotics technician", "3D printing technician", "Part-time 3D printing technician", "CAD drafter", "Part-time CAD drafter",
+        // --- Niche Trades, Artisans, Craft & Specialty Roles ---
+        "Blacksmith", "Part-time blacksmith", "Glassblower", "Part-time glassblower", "Leatherworker", "Part-time leatherworker", "Tailor", "Part-time tailor", "Seamstress", "Part-time seamstress", "Cobbler", "Part-time shoe repairer", "Watchmaker", "Part-time watchmaker", "Horologist", "Part-time horologist", "Jeweler", "Part-time jeweler", "Gemologist", "Part-time gemologist", "Goldsmith", "Part-time goldsmith", "Silversmith", "Part-time silversmith", "Engraver", "Part-time engraver", "Bookbinder", "Part-time bookbinder", "Upholsterer", "Part-time upholsterer", "Woodworker", "Part-time woodworker", "Luthier", "Part-time instrument maker", "Taxidermist", "Part-time taxidermist", "Brewmaster", "Part-time brewer", "Distiller", "Part-time distiller", "Winemaker", "Part-time winemaker", "Vintner", "Part-time vintner", "Cider maker", "Part-time cider maker", "Cheese maker", "Part-time cheesemonger", "Chocolatier", "Part-time chocolatier", "Roaster", "Part-time coffee roaster", "Butcher", "Part-time butcher", "Fishmonger", "Part-time fishmonger", "Florist", "Part-time florist", "Horticulturist", "Part-time horticulturist", "Arborist", "Part-time arborist", "Beekeeper", "Part-time beekeeper", "Farrier", "Part-time farrier",
+        // --- Agriculture, Farming, Forestry & Rural Roles ---
+        "Farmer", "Part-time farmer", "Organic farmer", "Part-time organic farmer", "Rancher", "Part-time rancher", "Cattle rancher", "Part-time cattle rancher", "Dairy farmer", "Part-time dairy farmer", "Crop farmer", "Part-time crop farmer", "Farmhand", "Part-time farmhand", "Ranch hand", "Part-time ranch hand", "Harvest worker", "Seasonal harvest worker", "Tractor operator", "Part-time tractor operator", "Greenhouse worker", "Part-time greenhouse worker", "Nursery worker", "Part-time nursery worker", "Forester", "Part-time forester", "Logger", "Part-time logger", "Fisherman", "Part-time commercial fisherman", "Aquaculturist", "Part-time fish farmer",
+        // --- Maritime, Aviation, Transport & Specialized Logistics ---
+        "Deckhand", "Part-time deckhand", "Boat captain", "Part-time boat captain", "Yacht crew member", "Part-time yacht crew", "Harbor master assistant", "Part-time harbor worker", "Dockworker", "Part-time dockworker", "Longshoreman", "Part-time longshoreman", "Flight instructor", "Part-time flight instructor", "Avionics mechanic", "Part-time avionics tech", "Airport baggage handler", "Part-time baggage handler", "Airport ramp agent", "Part-time ramp agent", "Cargo handler", "Part-time cargo handler", "Train conductor", "Part-time train conductor", "Subway operator", "Part-time transit operator", "Dispatch operator", "Part-time dispatcher",
+        // --- Public Sector, Civic, Community & Non-Profit ---
+        "Community organizer", "Part-time community organizer", "Poll worker", "Seasonal election poll worker", "Volunteer coordinator", "Part-time volunteer coordinator", "Non-profit coordinator", "Part-time non-profit worker", "Grant writer", "Part-time grant writer", "Fundraiser", "Part-time fundraiser", "Youth mentor", "Part-time youth mentor", "Advocate", "Part-time patient advocate", "Museum docent", "Part-time museum guide", "Tour guide", "Part-time tour guide", "Historical reenactor", "Part-time historical guide", "Park ranger assistant", "Seasonal park ranger",
+        // --- Hospitality, Gaming, Events & Nightlife Specialty ---
+        "Casino dealer", "Part-time casino dealer", "Poker dealer", "Part-time poker dealer", "Pit boss assistant", "Part-time gaming attendant", "Slot technician", "Part-time slot technician", "Bingo caller", "Part-time bingo caller", "Karaoke host", "Part-time karaoke host", "Trivia host", "Part-time trivia host", "Escape room operator", "Part-time escape room game master", "Arcade attendant", "Part-time arcade technician", "Amusement park ride operator", "Seasonal ride operator", "Water park attendant", "Seasonal water park guard", "Carnival worker", "Seasonal festival worker", "Event decorator", "Part-time event decorator", "AV technician", "Part-time audio visual tech", "Lighting technician", "Part-time lighting tech",
+        // --- Health, Wellness, Beauty & Alternative Therapy ---
+        "Esthetician", "Part-time esthetician", "Nail technician", "Part-time nail tech", "Lash technician", "Part-time lash tech", "Microblading artist", "Part-time microblading artist", "Tattoo artist", "Part-time tattoo artist", "Piercer", "Part-time piercer", "Hair stylist", "Part-time hair stylist", "Barber", "Part-time barber", "Makeup artist", "Part-time MUA", "Spray tan technician", "Part-time spray tan tech", "Massage therapist", "Part-time massage therapist", "Reiki practitioner", "Part-time reiki healer", "Acupuncturist", "Part-time acupuncturist", "Chiropractic assistant", "Part-time chiropractic assistant", "Physical therapy aide", "Part-time PT aide", "Occupational therapy aide", "Part-time OT aide", "Doula", "Part-time birth doula", "Postpartum doula", "Part-time postpartum doula", "Lactation consultant", "Part-time lactation consultant", "Life coach", "Part-time life coach", "Health coach", "Part-time health coach", "Nutritionist", "Part-time nutritionist",
+        // --- Writing, Publishing, Languages & Media Niche ---
+        "Copywriter", "Part-time copywriter", "Content writer", "Part-time content writer", "Technical writer", "Part-time technical writer", "Proofreader", "Part-time proofreader", "Editor", "Part-time editor", "Indexist", "Part-time indexer", "Translator", "Part-time translator", "Interpreter", "Part-time interpreter", "ASL interpreter", "Part-time ASL interpreter", "Transcriptionist", "Part-time transcriber", "Subtitler", "Part-time captioner", "Closed captioner", "Part-time closed captioner", "Court reporter assistant", "Part-time court reporter", "Literary agent assistant", "Part-time editorial assistant",
+        // --- Digital, Web, E-Sports & Gaming Niche ---
+        "Web developer", "Part-time web developer", "Frontend developer", "Part-time frontend developer", "Backend developer", "Part-time backend developer", "UI designer", "Part-time UI designer", "UX designer", "Part-time UX designer", "SEO specialist", "Part-time SEO consultant", "PPC specialist", "Part-time ad specialist", "Email marketer", "Part-time email marketer", "Affiliate marketer", "Part-time affiliate marketer", "Domain investor", "Part-time domainer", "Crypto miner", "Part-time crypto trader", "Esports coach", "Part-time esports coach", "Game tester", "Part-time QA game tester", "Modder", "Part-time game modder", "3D artist", "Part-time 3D animator", "VFX artist", "Part-time VFX artist", "Twitch moderator", "Part-time channel moderator", "Discord moderator", "Part-time Discord mod", "Community manager", "Part-time community manager",
+        // --- Outdoor & Adventure Sports Roles ---
+        "Rock climber", "Boulderer", "Alpinist", "Mountaineer", "Canyoneer", "Ice climber",
+        "Surfer", "Longboard surfer", "Shortboard surfer", "Kitesurfer", "Windsurfer", "Bodyboarder", "Stand-up paddleboarder", "SUP instructor",
+        "Scuba diver", "Divemaster", "Scuba instructor", "Freediver", "Cave diver", "Commercial diver", "Underwater photographer",
+        "Skydiver", "BASE jumper", "Wingsuit flyer", "Paraglider pilot", "Hang glider pilot",
+        "Ultrarunner", "Trail runner", "Marathon runner", "Triathlete", "Ironman finisher", "Spartan racer", "CrossFit athlete", "Calisthenics practitioner",
+        "Ski instructor", "Full-time ski instructor", "Part-time ski instructor", "Snowboard instructor", "Backcountry skier", "Heliski guide", "Cat ski guide",
+        "Lifeguard", "Beach lifeguard", "Pool lifeguard", "Water rescue specialist",
+        // --- Startup, Solo Founder & Web3 Ecosystem Identities ---
+        "Startup founder", "Co-founder", "Solo founder", "Tech founder", "Non-technical founder", "Bootstrapped founder", "Venture-backed founder",
+        "Solopreneur", "Indie hacker", "Micro-SaaS founder", "Serial entrepreneur", "Side hustler", "Passive income builder",
+        "Angel investor", "Venture capitalist", "VC scout", "Syndicate lead", "Private equity associate",
+        "Web3 developer", "Blockchain developer", "Smart contract auditor", "Crypto researcher", "DeFi analyst", "NFT artist", "Web3 community manager",
+        "AI prompt engineer", "AI researcher", "AI practitioner", "Machine learning enthusiast", "LLM developer",
+        // --- Hobbies, Collecting & Subculture Identities ---
+        "Community organizer", "Grassroots organizer", "Political activist", "Environmental activist", "Animal rights activist",
+        "Astronomy enthusiast", "Amateur astronomer", "Astrophotographer", "Stargazer",
+        "Birdwatcher", "Birder", "Wildlife photographer", "Nature photographer",
+        "Cosplayer", "Prop maker", "Armor maker", "Costumer", "Fursuit maker",
+        "Maker", "3D printing enthusiast", "CNC machinist hobbyist", "Electronics hobbyist", "Raspberry Pi tinkerer", "Arduino developer",
+        "Woodworker", "Cabinetmaker", "Custom furniture maker", "Luthier", "Guitar builder",
+        "Car enthusiast", "Auto restorer", "Hot rod builder", "Drift driver", "Track day enthusiast", "Off-road enthusiast", "Overlander",
+        "Collector", "Vintage clothing dealer", "Sneakerhead", "Watch collector", "Card collector", "Pokémon card collector", "Comic collector", "Vinyl record collector", "Antique dealer", "Thrifter", "Reseller", "eBay seller", "Poshmark seller",
+        // --- Expanded Niche Trades & Specialized Artisans ---
+        "Blacksmith", "Bladesmith", "Knife maker", "Farrier blacksmith", "Locksmith", "Safe technician", "Gunsmith", "Watchmaker", "Horologist", "Clock repairer", "Jewelry repairer", "Goldsmith", "Silversmith", "Gemologist", "Stone setter", "Lapidary artist", "Engraver", "Glassblower", "Stained glass artist", "Neon sign maker", "Leatherworker", "Saddlemaker", "Cobbler", "Shoemaker", "Bookbinder", "Restoration artist", "Taxidermist", "Piano tuner", "Organ technician", "Violin maker", "Bow maker",
+        // --- Expanded Wellness, Mind-Body & Alternative Healing ---
+        "Acupuncturist", "Licensed acupuncturist", "Reiki master", "Reiki practitioner", "Breathwork facilitator", "Sound healer", "Sound bath practitioner", "Ayurvedic practitioner", "Naturopathic doctor", "Naturopath", "Herbalist", "Clinical herbalist", "Master herbalist", "Doula", "Birth doula", "Postpartum doula", "End-of-life doula", "Death doula", "Hypnotherapist", "Somatics practitioner", "Craniosacral therapist", "Kinesiologist", "Holistic health coach", "Integrative health practitioner", "Functional medicine practitioner", "Astrologer", "Tarot reader", "Psychic medium", "Energy healer",
+        // --- Expanded Food, Beverage, Coffee & Culinary Niche Roles ---
+        "Master sommelier", "Sommelier", "Assistant sommelier", "Ciceron", "Beer sommelier", "Craft brewer", "Head brewer", "Assistant brewer", "Head distiller", "Master distiller", "Winemaker", "Enologist", "Viticulturist", "Roaster", "Coffee roaster", "Head roaster", "Specialty barista", "Latte artist", "Tea master", "Tasting room manager", "Mixologist", "Craft cocktail bartender", "Sushiman", "Sushi chef", "Pastry chef", "Chocolatier", "Cheesemonger", "Salumi maker", "Charcuterie artist", "Food stylist", "Recipe developer", "Personal chef", "Private chef", "Catering chef", "Food truck owner", "Food truck chef",
+        // --- Specialized Aviation, Nautical & Heavy Transport Roles ---
+        "Airline pilot", "Captain pilot", "First officer pilot", "Cargo pilot", "Charter pilot", "Bush pilot", "Flight instructor", "CFI", "CFII", "Helicopter pilot", "Drone pilot", "Part 107 drone operator", "FPV drone pilot", "Hot air balloon pilot", "Air traffic controller", "Flight attendant", "Lead flight attendant",
+        "Yacht captain", "Charter boat captain", "Commercial captain", "Harbor master", "Tugboat captain", "Deckhand", "Yacht deckhand", "Yacht stewardess", "Chief stew", "Maritime engineer", "Chief engineer vessel", "Sailor", "Merchant mariner", "Offshore rig worker", "Deep sea diver",
+        // --- Niche Sports, Athletics, Martial Arts & Fitness Roles ---
+        "BJJ black belt", "BJJ brown belt", "BJJ purple belt", "BJJ blue belt", "BJJ instructor", "Judo black belt", "Karate sensei", "Taekwondo instructor", "Muay Thai fighter", "Muay Thai coach", "Kickboxer", "Professional boxer", "Amateur boxer", "Boxing coach", "MMA fighter", "MMA coach", "Wrestler", "Wrestling coach", "Fencer", "Fencing coach", "Kendo practitioner", "Archery instructor", "Bowhunter",
+        "Padel player", "Pickleball pro", "Pickleball instructor", "Tennis pro", "Squash pro", "Racquetball player", "Golf pro", "PGA professional", "Golf caddie", "Discgolf pro", "Professional bowler", "Equestrian jumper", "Dressage rider", "Rodeo cowboy", "Bull rider", "Skateboarder", "BMX rider", "Inline skater", "Roller derby skater",
+        // --- Specialized IT, Cybersecurity, DevOps & Cloud Engineering Roles ---
+        "Cybersecurity analyst", "Penetration tester", "Ethical hacker", "Red team operator", "Blue team defender", "SOC analyst", "Incident responder", "Security engineer", "Cloud security architect", "DevOps engineer", "DevSecOps engineer", "Site reliability engineer", "SRE", "Cloud architect", "AWS architect", "Azure architect", "GCP architect", "Database administrator", "DBA", "Data engineer", "Analytics engineer", "MLOps engineer", "Data scientist", "AI engineer",
+        // --- Corporate Support, Operations, HR & Supply Chain Roles ---
+        "Chief of staff", "VP of Operations", "Operations manager", "Business operations lead", "Scrum master", "Agile coach", "Product manager", "Senior product manager", "Group product manager", "Director of Product", "Technical product manager", "Project manager", "PMP certified project manager", "Program manager", "Portfolio manager", "Human resources generalist", "HR business partner", "HRBP", "Technical recruiter", "Executive recruiter", "Talent acquisition specialist", "Compensation analyst", "People operations manager", "Procurement manager", "Supply chain analyst", "Logistics manager", "Warehouse manager", "Inventory analyst",
+        // --- Legal, Compliance, Risk & Financial Specialty Roles ---
+        "Corporate counsel", "General counsel", "Compliance officer", "Chief compliance officer", "AML analyst", "BSA officer", "Risk manager", "Enterprise risk analyst", "Actuary", "Fellow of the Society of Actuaries", "Underwriter", "Senior underwriter", "Claims adjuster", "Public adjuster", "IP lawyer", "Criminal defense lawyer", "Estate planning lawyer", "Paralegal", "Senior paralegal", "Legal assistant", "Court reporter", "Notary public", "Mobile notary",
+        // --- Specialized Medical, Allied Health & Mental Health Roles ---
+        "Nurse practitioner", "NP", "Family nurse practitioner", "Psychiatric nurse practitioner", "PMHNP", "Certified registered nurse anesthetist", "CRNA", "Physician assistant", "PA-C", "Physical therapist", "DPT", "Occupational therapist", "OTR/L", "Speech language pathologist", "SLP", "Clinical psychologist", "PsyD", "Licensed clinical social worker", "LCSW", "Licensed professional counselor", "LPC", "Marriage and family therapist", "LMFT", "Substance abuse counselor", "CADC", "Certified addiction counselor", "Genetic counselor", "Perfusionist", "Surgical technologist", "Radiologic technologist", "MRI technologist", "Sonographer", "Ultrasound tech", "Phlebotomist", "Dialysis technician", "Respiratory therapist", "RRT", "Paramedic", "Critical care paramedic", "Flight paramedic",
+        // --- Local Service, Hospitality, Retail & Real Estate Specialty Roles ---
+        "Real estate agent", "Realtor", "Commercial real estate broker", "Property manager", "Leasing agent", "Real estate appraiser", "Mortgage broker", "Loan originator", "Title officer", "Escrow officer", "Home inspector", "Stager", "Interior designer", "Landscape architect", "Pool technician", "Pest control technician", "HVAC technician", "Appliance repair technician", "Auto detailer", "Mobile auto detailer", "Valet attendant", "Concierge", "Hotel general manager", "Front desk agent", "Event planner", "Wedding planner", "Venue coordinator", "Catering manager", "Floral designer", "Florist",
+        // --- Gender Identities & Expression Options ---
+        "Male", "Female", "Man", "Woman", "Non-binary", "Nonbinary", "Genderfluid", "Genderqueer", "Agender", "Bigender", "Pangender", "Transgender", "Transgender man", "Transgender woman", "Trans man", "Trans woman", "Cisgender", "Cisgender man", "Cisgender woman", "Two-spirit", "Demiboy", "Demigirl", "Intersex", "Gender non-conforming", "Androgynous", "Questioning", "Prefer not to say",
+        // --- Political Beliefs, Ideologies & Worldviews ---
+        "Democrat", "Republican", "Independent", "Libertarian", "Green Party member", "Democratic Socialist", "Socialist", "Capitalist", "Progressive", "Conservative", "Moderate", "Centrist", "Classical liberal", "Liberal", "Neoliberal", "Fiscal conservative", "Social conservative", "Social liberal", "Constitutionalist", "Anarchist", "Anarcho-capitalist", "Marxist", "Marxist-Leninist", "Communist", "Populist", "Nationalist", "Patriot", "Globalist", "Internationalist", "Monarchist", "Apolitical", "Non-partisan", "Swing voter", "Politically independent",
+        // --- Nationalities, Citizenships & Regional Origins ---
+        "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Antiguan", "Argentine", "Armenian", "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian", "Belarusian", "Belgian", "Belizean", "Beninese", "Bhutanese", "Bolivian", "Bosnian", "Botswanan", "Brazilian", "British", "Bruneian", "Bulgarian", "Burkinabe", "Burmese", "Burundian", "Cambodian", "Cameroonian", "Canadian", "Cape Verdean", "Central African", "Chadian", "Chilean", "Chinese", "Colombian", "Comoran", "Congolese", "Costa Rican", "Croatian", "Cuban", "Cypriot", "Czech", "Danish", "Djiboutian", "Dominican", "Dutch", "East Timorese", "Ecuadorian", "Egyptian", "Emirati", "Equatorial Guinean", "Eritrean", "Estonian", "Eswatini", "Ethiopian", "Fijian", "Filipino", "Finnish", "French", "Gabonese", "Gambian", "Georgian", "German", "Ghanaian", "Greek", "Grenadian", "Guatemalan", "Guinean", "Guyanese", "Haitian", "Honduran", "Hungarian", "Icelandic", "Indian", "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Ivorian", "Jamaican", "Japanese", "Jordanian", "Kazakh", "Kenyan", "Kiribati", "Korean", "South Korean", "North Korean", "Kosovar", "Kuwaiti", "Kyrgyz", "Lao", "Latvian", "Lebanese", "Liberian", "Libyan", "Liechtensteiner", "Lithuanian", "Luxembourger", "Malagasy", "Malawian", "Malaysian", "Maldivian", "Malian", "Maltese", "Marshallese", "Mauritanian", "Mauritian", "Mexican", "Micronesian", "Moldovan", "Monacan", "Mongolian", "Montenegrin", "Moroccan", "Mozambican", "Namibian", "Nauruan", "Nepalese", "New Zealander", "Nicaraguan", "Nigerien", "Nigerian", "North Macedonian", "Norwegian", "Omani", "Pakistani", "Palau", "Palestinian", "Panamanian", "Papua New Guinean", "Paraguayan", "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan", "Saint Lucian", "Salvadoran", "Samoan", "San Marinese", "Saudi", "Senegalese", "Serbian", "Sierra Leonean", "Singaporean", "Slovak", "Slovenian", "Solomon Islander", "Somali", "South African", "South Sudanese", "Spanish", "Sri Lankan", "Sudanese", "Surinamese", "Swedish", "Swiss", "Syrian", "Taiwanese", "Tajik", "Tanzanian", "Thai", "Togolese", "Tongan", "Trinidadian", "Tunisian", "Turkish", "Turkmen", "Tuvaluan", "Ugandan", "Ukrainian", "Uruguayan", "Uzbek", "Vanuatu", "Venezuelan", "Vietnamese", "Welsh", "Yemeni", "Zambian", "Zimbabwean",
+        "Freelance software engineer", "Freelance web developer", "Freelance mobile developer", "Freelance frontend developer", "Freelance backend developer", "Freelance UI/UX designer", "Freelance graphic designer", "Freelance logo designer", "Freelance motion designer", "Freelance 3D artist", "Freelance illustrator", "Freelance copywriter", "Freelance content writer", "Freelance technical writer", "Freelance editor", "Freelance proofreader", "Freelance translator", "Freelance SEO specialist", "Freelance digital marketer", "Freelance social media manager", "Freelance photographer", "Freelance videographer", "Freelance audio engineer", "Freelance music producer", "Freelance voice actor", "Freelance accountant", "Freelance bookkeeper", "Freelance business consultant", "Freelance HR consultant", "Freelance IT consultant",
+        "Owner of a local business", "Owner of a small business", "Owner of a coffee shop", "Owner of a restaurant", "Owner of a bar", "Owner of a bakery", "Owner of a boutique", "Owner of a salon", "Owner of a barbershop", "Owner of a gym", "Owner of a fitness studio", "Owner of a yoga studio", "Owner of a daycare", "Owner of an agency", "Owner of a marketing firm", "Owner of a consulting firm", "Owner of an IT company", "Owner of a software company", "Owner of a construction company", "Owner of a contracting business", "Owner of a landscaping company", "Owner of a cleaning company", "Owner of a auto repair shop", "Owner of a body shop", "Owner of a pet care business", "Owner of a dog grooming salon", "Owner of a photography studio", "Owner of an e-commerce store", "Owner of an online shop", "Owner of a craft business",
+        // --- Self-Employed & Contract Industry Roles ---
+        "Self-employed software engineer", "Self-employed developer", "Self-employed designer", "Self-employed consultant", "Self-employed accountant", "Self-employed bookkeeper", "Self-employed contractor", "Self-employed electrician", "Self-employed plumber", "Self-employed mechanic", "Self-employed carpenter", "Self-employed painter", "Self-employed landscaper", "Self-employed handyman", "Self-employed photographer", "Self-employed videographer", "Self-employed musician", "Self-employed artist", "Self-employed tutor", "Self-employed personal trainer", "Self-employed massage therapist", "Self-employed esthetician", "Self-employed hair stylist", "Self-employed barber", "Self-employed driver", "Self-employed courier", "Self-employed writer", "Self-employed editor", "Self-employed translator", "Self-employed virtual assistant",
+
+        // --- Generic Company & Position Combination Patterns (Non-Major Companies) ---
+        "Engineer at a local tech company", "Junior developer at a software firm", "Senior developer at a software company", "Lead engineer at a tech startup", "Systems admin at an IT firm", "IT support at a local company", "Marketing specialist at an agency", "Sales manager at a local business", "HR specialist at a midsize company", "Recruiter at a staffing agency", "Operations analyst at a local firm", "Financial analyst at a local company", "Accountant at a local business", "Project manager at a local firm", "Business analyst at a consulting firm", "Consultant at an advisory firm", "Executive assistant at a local firm", "Office manager at a small company", "Customer service rep at a local business", "Warehouse manager at a local distributor",
+
+        // --- Generic Part-Time Industry Positions ---
+        "Part-time software developer at a startup", "Part-time engineer at a tech company", "Part-time designer at an agency", "Part-time accountant at a firm", "Part-time lawyer at a law office", "Part-time nurse at a clinic", "Part-time doctor at a practice", "Part-time teacher at a school", "Part-time instructor at an academy", "Part-time coordinator at a non-profit", "Part-time specialist at a company", "Part-time technician at a shop", "Part-time consultant at a firm", "Part-time analyst at a company", "Part-time manager at a local business", "Part-time assistant at a small business", "Part-time associate at a local store", "Part-time clerk at an office", "Part-time worker at a local company", "Part-time staff member at a business",
+
+        // --- Generic Industry-Specific Company Titles (Non-Major / Any Company) ---
+        // Software & Tech Companies
+        "Software engineer at a tech company", "Developer at a software company", "Product manager at a tech company", "Designer at a tech startup", "Data scientist at an AI company", "Engineer at a robotics company", "Cybersecurity analyst at a tech company", "DevOps engineer at a cloud company", "QA tester at a software company", "Tech lead at a startup",
+        // Healthcare & Medical Facilities
+        "Nurse at a hospital", "Doctor at a private clinic", "Physician at a hospital", "Surgeon at a medical center", "Therapist at a clinic", "Pharmacist at a retail pharmacy", "Technician at a medical lab", "Receptionist at a doctor's office", "Administrator at a hospital",
+        // Law, Finance & Real Estate Firms
+        "Lawyer at a law firm", "Paralegal at a law firm", "Attorney at a private practice", "Accountant at an accounting firm", "CPA at an accounting firm", "Financial analyst at an investment firm", "Banker at a local bank", "Loan officer at a mortgage company", "Real estate agent at a brokerage", "Property manager at a real estate firm",
+        // Retail, Service & Restaurants
+        "Barista at a local coffee shop", "Bartender at a restaurant", "Server at a restaurant", "Chef at a local restaurant", "Manager at a retail store", "Sales associate at a retail shop", "Cashier at a grocery store", "Baker at a local bakery", "Stylist at a salon", "Barber at a barbershop",
+        // Engineering, Construction & Trades
+        "Engineer at an engineering firm", "Civil engineer at a construction company", "Project manager at a construction company", "Electrician at a contractor firm", "Plumber at a plumbing company", "Mechanic at an auto shop", "Technician at a repair shop", "Foreman at a construction company",
+        // Education & Non-Profits
+        "Teacher", "Professor", "Tutor", "Director", "Coordinator", "Researcher"
+    ]
+
+    private static let poiPositionCatalog: [(name: String, searchKey: String)] = {
+        guard let url = Bundle.main.url(forResource: "poi_positions", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] else {
+            return []
+        }
+        var seen = Set<String>()
+        var results: [(name: String, searchKey: String)] = []
+        for dict in jsonArray {
+            guard let name = dict["n"], !name.isEmpty else { continue }
+            let nameKey = name.lowercased()
+            if seen.contains(nameKey) { continue }
+            seen.insert(nameKey)
+            let loc = dict["l"] ?? ""
+            let fullSearch = (loc.isEmpty ? name : "\(name) \(loc)").lowercased()
+            results.append((name: name, searchKey: fullSearch))
+        }
+        return results
+    }()
+
+    private var filteredPositionPresets: [String] {
+        let query = positionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if query.isEmpty {
+            return Array(Self.positionPresetCatalog.prefix(100))
+        }
+        let searchTokens = query.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+        var matches: [String] = []
+        var seen = Set<String>()
+
+        for entry in Self.positionPresetCatalog {
+            let lower = entry.lowercased()
+            if searchTokens.allSatisfy({ lower.contains($0) }) {
+                if !seen.contains(lower) {
+                    seen.insert(lower)
+                    matches.append(entry)
+                    if matches.count >= 100 { break }
+                }
+            }
+        }
+
+        if matches.count < 100 {
+            for poi in Self.poiPositionCatalog {
+                if searchTokens.allSatisfy({ poi.searchKey.contains($0) }) {
+                    let lower = poi.name.lowercased()
+                    if !seen.contains(lower) {
+                        seen.insert(lower)
+                        matches.append(poi.name)
+                        if matches.count >= 100 { break }
+                    }
+                }
+            }
+        }
+
+        return matches
+    }
+
+    private var settingsPostDetailOptionsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Text("Age")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                TextField("Age", text: $postDetailAgeValue)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .keyboardType(.numberPad)
+                    .frame(width: 70)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+
+            Divider().opacity(0.3)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Button {
+                    isFeedSearchFieldFocused = false
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isPositionExpanded.toggle()
+                    }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if !postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text(postDetailPositionValue)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(ContentView.usernameGoldColor)
+                            } else {
+                                Text("Select or search bio")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: isPositionExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if isPositionExpanded {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+
+                            TextField("Search bio...", text: $positionSearchQuery)
+                                .font(.subheadline)
+                                .textInputAutocapitalization(.words)
+                                .disableAutocorrection(true)
+
+                            if !positionSearchQuery.isEmpty {
+                                Button {
+                                    positionSearchQuery = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
-                    }
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
+                        .padding(10)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                HStack(spacing: 8) {
-                    Button {
-                        messagesTab = .incoming
-                    } label: {
-                        Text("Incoming")
-                            .font(.subheadline.weight(.semibold))
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 4) {
+                                ForEach(filteredPositionPresets, id: \.self) { preset in
+                                    let isSelected = postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == preset.lowercased()
+
+                                    Button {
+                                        postDetailPositionValue = preset
+                                        withAnimation { isPositionExpanded = false }
+                                    } label: {
+                                        HStack {
+                                            Text(preset)
+                                                .font(.subheadline)
+                                                .foregroundStyle(isSelected ? Color(.systemGray) : .primary)
+                                            Spacer()
+                                            if isSelected {
+                                                Image(systemName: "checkmark")
+                                                    .font(.caption.weight(.bold))
+                                                    .foregroundStyle(Color(.systemGray))
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 10)
+                                        .background(isSelected ? Color(.systemGray).opacity(0.12) : Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 220)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var settingsAnonymousCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                Text("Anonymous")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 0)
+
+                Toggle("", isOn: $isAnonymousModeEnabled)
+                    .labelsHidden()
+                    .toggleStyle(SwitchToggleStyle(tint: .black))
+                    .scaleEffect(1.12)
+                    .padding(.trailing, 4)
+            }
+
+            Text("When Anonymous is on, every new post hides your username. People also cannot open your profile from those posts.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Divider().opacity(0.25)
+
+            Toggle(isOn: $isAnonymousSecureFaceIDEnabled) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Secure Face ID")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Face ID to open Anonymous Posts and Anonymous DMs.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .black))
+
+            Button {
+                openAnonymousPostsScreen()
+            } label: {
+                HStack {
+                    Text("Anonymous Posts")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                openAnonymousDMsScreen()
+            } label: {
+                HStack {
+                    Text("Anonymous DMs")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            Text("Chats started anonymous stay anonymous, even if you turn off Anonymous mode.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var anonymousMessagesView: some View {
+        ZStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                anonymousMessagesTab = .incoming
+                            }
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Incoming")
+                                    .font(anonymousMessagesTab == .incoming ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(anonymousMessagesTab == .incoming ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(anonymousMessagesTab == .incoming ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .foregroundStyle(.primary)
-                            .background {
-                                if messagesTab == .incoming {
-                                    LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .leading, endPoint: .trailing)
-                                } else {
-                                    Color(.secondarySystemBackground)
-                                }
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.black, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
 
-                    Button {
-                        messagesTab = .sent
-                    } label: {
-                        Text("Sent")
-                            .font(.subheadline.weight(.semibold))
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                anonymousMessagesTab = .sent
+                            }
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Sent")
+                                    .font(anonymousMessagesTab == .sent ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(anonymousMessagesTab == .sent ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(anonymousMessagesTab == .sent ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .foregroundStyle(.primary)
-                            .background {
-                                if messagesTab == .sent {
-                                    LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .leading, endPoint: .trailing)
-                                } else {
-                                    Color(.secondarySystemBackground)
-                                }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                anonymousMessagesTab = .searchUsers
                             }
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.black, lineWidth: 1)
-                            )
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Search users")
+                                    .font(anonymousMessagesTab == .searchUsers ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(anonymousMessagesTab == .searchUsers ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(anonymousMessagesTab == .searchUsers ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 18)
                 }
-                .padding(.horizontal, 18)
+                .background(Color.black.ignoresSafeArea(edges: .top))
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        let visibleThreads = (messagesTab == .incoming ? messages.filter { $0.isIncoming } : messages.filter { !$0.isIncoming })
-                            .sorted {
-                                if $0.isPinned != $1.isPinned {
-                                    return $0.isPinned && !$1.isPinned
+                Spacer().frame(height: 14)
+
+                if anonymousMessagesTab == .searchUsers {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.secondary)
+
+                            TextField("Search users", text: $userSearchText)
+                                .font(.subheadline)
+                                .textInputAutocapitalization(.words)
+                                .disableAutocorrection(true)
+
+                            if !userSearchText.isEmpty {
+                                Button {
+                                    userSearchText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(.secondary)
                                 }
-                                return false
+                                .buttonStyle(.plain)
                             }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
 
-                        ForEach(visibleThreads) { thread in
-                            messageThreadRow(for: thread)
+                        let results = directMessageSuggestions
+                        if results.isEmpty {
+                            if !userSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("No users found")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.top, 4)
+                            }
+                        } else {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(results, id: \.username) { user in
+                                        Button {
+                                            openDM(with: user, startsAnonymous: true)
+                                        } label: {
+                                            HStack(alignment: .center, spacing: 10) {
+                                                Circle()
+                                                    .fill(Color.black)
+                                                    .frame(width: 34, height: 34)
+                                                    .overlay(
+                                                        Image(systemName: "theatermasks.fill")
+                                                            .font(.system(size: 14, weight: .semibold))
+                                                            .foregroundStyle(Color.white.opacity(0.95))
+                                                    )
+
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(user.name.isEmpty ? user.username : user.name)
+                                                        .font(.subheadline.weight(.semibold))
+                                                        .foregroundStyle(.primary)
+                                                    Text(displayUsername(user.username))
+                                                        .font(.caption)
+                                                        .foregroundStyle(usernameGoldTextColor)
+                                                }
+
+                                                Spacer()
+                                                Image(systemName: "arrow.up.right")
+                                                    .font(.caption.weight(.bold))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 10)
+                                            .background(Color(.secondarySystemBackground))
+                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.bottom, 100)
+                            }
                         }
                     }
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 100)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 22) {
+                            let visibleThreads = (anonymousMessagesTab == .incoming
+                                ? messages.filter { isThreadIncoming($0) && $0.isAnonymousConversation }
+                                : messages.filter { !isThreadIncoming($0) && $0.isAnonymousConversation })
+                                .filter { _ in resolvedSignedInState }
+                                .filter { !isUserBlocked(username: $0.username, userID: $0.participantUserID) && !isUserBlocked(username: $0.participant, userID: $0.participantUserID) }
+                                .sorted { lhs, rhs in
+                                    if lhs.isPinned != rhs.isPinned {
+                                        return lhs.isPinned && !rhs.isPinned
+                                    }
+                                    let lhsLatest = latestChatMessage(for: lhs)?.id ?? 0
+                                    let rhsLatest = latestChatMessage(for: rhs)?.id ?? 0
+                                    return lhsLatest > rhsLatest
+                                }
+
+                            if !visibleThreads.isEmpty {
+                                ForEach(visibleThreads) { thread in
+                                    messageThreadRow(for: thread)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.top, 16)
+                        .padding(.bottom, 100)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                HStack {
+                    backButton(destination: .settings)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 12)
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
 
             floatingHomeActions
-                .padding(.bottom, 12)
-                .padding(.horizontal, 18)
+                .padding(.bottom, 0)
         }
     }
 
-    private func messageThreadRow(for thread: DirectMessageThread) -> some View {
+    private func openAnonymousPostsScreen() {
+        guard resolvedSignedInState else {
+            accountAuthMessage = "Sign in to view your Anonymous Posts."
+            return
+        }
+
+        Task {
+            if isAnonymousSecureFaceIDEnabled {
+                let unlocked = await authenticateForAnonymousAccess()
+                await MainActor.run {
+                    guard unlocked else {
+                        accountAuthMessage = "Face ID is required to open Anonymous Posts."
+                        return
+                    }
+
+                    accountAuthMessage = ""
+                    currentScreen = .anonymousPosts
+                }
+            } else {
+                await MainActor.run {
+                    currentScreen = .anonymousPosts
+                }
+            }
+        }
+    }
+
+    private func openAnonymousDMsScreen() {
+        guard resolvedSignedInState else {
+            accountAuthMessage = "Sign in to view your Anonymous DMs."
+            return
+        }
+
+        Task {
+            if isAnonymousSecureFaceIDEnabled {
+                let unlocked = await authenticateForAnonymousAccess()
+                await MainActor.run {
+                    guard unlocked else {
+                        accountAuthMessage = "Face ID is required to open Anonymous DMs."
+                        return
+                    }
+
+                    accountAuthMessage = ""
+                    currentScreen = .anonymousDMs
+                }
+            } else {
+                await MainActor.run {
+                    currentScreen = .anonymousDMs
+                }
+            }
+        }
+    }
+
+    private func authenticateForAnonymousAccess() async -> Bool {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        var authError: NSError?
+        let reason = "Unlock Anonymous features"
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) {
+            return await withCheckedContinuation { continuation in
+                context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) {
+            return await withCheckedContinuation { continuation in
+                context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+
+        return false
+    }
+
+    private var settingsTechnicalSupportCard: some View {
         Button {
+            technicalSupportCopyMessage = ""
+            activeSettingsEditor = .technicalSupport
+        } label: {
+            HStack {
+                Text("Technical Support")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var messagesView: some View {
+        ZStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                messagesTab = .incoming
+                            }
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Incoming")
+                                    .font(messagesTab == .incoming ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(messagesTab == .incoming ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(messagesTab == .incoming ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                messagesTab = .sent
+                            }
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Sent")
+                                    .font(messagesTab == .sent ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(messagesTab == .sent ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(messagesTab == .sent ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                messagesTab = .searchUsers
+                            }
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text("Search users")
+                                    .font(messagesTab == .searchUsers ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
+                                    .foregroundStyle(messagesTab == .searchUsers ? Color.white : Color.white.opacity(0.55))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+
+                                Capsule()
+                                    .fill(messagesTab == .searchUsers ? Color.white : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 18)
+                }
+                .background(Color.black.ignoresSafeArea(edges: .top))
+
+                Spacer().frame(height: 14)
+
+                if messagesTab == .searchUsers {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.secondary)
+
+                            TextField("Search users", text: $userSearchText)
+                                .font(.subheadline)
+                                .textInputAutocapitalization(.words)
+                                .disableAutocorrection(true)
+
+                            if !userSearchText.isEmpty {
+                                Button {
+                                    userSearchText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
+
+                        let results = directMessageSuggestions
+                        if results.isEmpty {
+                            if !userSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("No users found")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.top, 4)
+                            }
+                        } else {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(results, id: \ .username) { user in
+                                        Button {
+                                            openDM(with: user)
+                                        } label: {
+                                            HStack(alignment: .center, spacing: 10) {
+                                                Circle()
+                                                    .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                                    .frame(width: 34, height: 34)
+                                                    .overlay(Text(user.profilePhotoText).font(.caption.weight(.bold)).foregroundStyle(.black))
+                                                    .overlay(avatarGoldRing(lineWidth: 1.2))
+
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(user.name.isEmpty ? user.username : user.name)
+                                                        .font(.subheadline.weight(.semibold))
+                                                        .foregroundStyle(.primary)
+                                                    Text(displayUsername(user.username))
+                                                        .font(.caption)
+                                                        .foregroundStyle(usernameGoldTextColor)
+                                                }
+
+                                                Spacer()
+                                                Image(systemName: "arrow.up.right")
+                                                    .font(.caption.weight(.bold))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 10)
+                                            .background(Color(.secondarySystemBackground))
+                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.bottom, 100)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 22) {
+                            let visibleThreads = (messagesTab == .incoming
+                                ? messages.filter { isThreadIncoming($0) }
+                                : messages.filter { !isThreadIncoming($0) })
+                                .filter { !isUserBlocked(username: $0.username, userID: $0.participantUserID) && !isUserBlocked(username: $0.participant, userID: $0.participantUserID) }
+                                .sorted { lhs, rhs in
+                                    if lhs.isPinned != rhs.isPinned {
+                                        return lhs.isPinned && !rhs.isPinned
+                                    }
+                                    let lhsLatest = latestChatMessage(for: lhs)?.id ?? 0
+                                    let rhsLatest = latestChatMessage(for: rhs)?.id ?? 0
+                                    return lhsLatest > rhsLatest
+                                }
+
+                            ForEach(visibleThreads) { thread in
+                                messageThreadRow(for: thread)
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.top, 16)
+                        .padding(.bottom, 100)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onAppear {
+                listenToUserChatsFromFirestore()
+            }
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                HStack {
+                    backButton(destination: .home)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 12)
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+
+            floatingHomeActions
+                .padding(.bottom, 0)
+        }
+    }
+
+    private func latestChatMessage(for thread: DirectMessageThread) -> ChatMessage? {
+        let messagesForThread = chatMessages[thread.id] ?? []
+        return messagesForThread.max { $0.id < $1.id }
+    }
+
+    private func threadPreviewText(for thread: DirectMessageThread) -> String {
+        if let message = latestChatMessage(for: thread) {
+            if !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return message.text
+            }
+            if message.sharedPost != nil {
+                return "Shared post"
+            }
+        }
+
+        let trimmedPreview = thread.preview.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPreview.isEmpty && trimmedPreview != "No messages yet" {
+            return trimmedPreview
+        }
+
+        return "No messages yet"
+    }
+
+    private func refreshThreadPreview(for threadID: Int) {
+        guard let index = messages.firstIndex(where: { $0.id == threadID }) else { return }
+
+        let latest = latestChatMessage(for: messages[index])
+        let preview = latest?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? latest!.text
+            : (latest?.sharedPost != nil ? "Shared post" : "No messages yet")
+
+        messages[index].preview = preview
+        messages[index].time = latest?.time ?? messages[index].time
+    }
+
+    private func isThreadIncoming(_ thread: DirectMessageThread) -> Bool {
+        if let latest = latestChatMessage(for: thread) {
+            return !latest.isMine
+        }
+        return thread.isIncoming
+    }
+
+    private func resolveProfileForThread(_ thread: DirectMessageThread, resolvedUsername: String, fallbackProfile: FakeUserProfile) -> FakeUserProfile {
+        let isThreadAuthorCurrent = {
+            let activeUID = activeUserID()
+            let activeHandle = FirebaseSpotService.normalizeUsername(profileUsername)
+            if !thread.participantUserID.isEmpty && !activeUID.isEmpty && thread.participantUserID == activeUID {
+                return true
+            }
+            let normalizedThreadUser = FirebaseSpotService.normalizeUsername(resolvedUsername)
+            if !normalizedThreadUser.isEmpty && !activeHandle.isEmpty && normalizedThreadUser == activeHandle {
+                return true
+            }
+            return false
+        }()
+
+        if isThreadAuthorCurrent {
+            let currentRemotePhoto = profilePhotoRemoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !currentRemotePhoto.isEmpty {
+                return FakeUserProfile(
+                    id: fallbackProfile.id,
+                    userID: activeUserID(),
+                    username: profileUsername,
+                    name: profileName,
+                    city: fallbackProfile.city,
+                    bio: fallbackProfile.bio,
+                    followerCount: fallbackProfile.followerCount,
+                    followingCount: fallbackProfile.followingCount,
+                    profilePhotoText: fallbackProfile.profilePhotoText,
+                    profilePhotoURL: currentRemotePhoto
+                )
+            }
+        }
+
+        if let cached = cachedProfile(userID: thread.participantUserID, username: resolvedUsername) {
+            return cached
+        }
+        let targetUID = thread.participantUserID
+        let targetUser = thread.username.lowercased()
+        let targetPart = thread.participant.lowercased()
+        if let existing = fakeUserProfiles.first(where: {
+            (!targetUID.isEmpty && $0.userID == targetUID) ||
+            (!targetUser.isEmpty && $0.username.lowercased() == targetUser && targetUser != "user") ||
+            (!targetPart.isEmpty && $0.name.lowercased() == targetPart && targetPart != "user")
+        }) {
+            return existing
+        }
+        let matchingPost = posts.first(where: {
+            (!targetUID.isEmpty && $0.authorUserID == targetUID) ||
+            (!resolvedUsername.isEmpty && $0.handle.lowercased() == resolvedUsername.lowercased())
+        })
+        if let postPhotoURL = matchingPost?.authorProfilePhotoURL, !postPhotoURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return FakeUserProfile(
+                id: fallbackProfile.id,
+                userID: fallbackProfile.userID,
+                username: fallbackProfile.username,
+                name: fallbackProfile.name,
+                city: fallbackProfile.city,
+                bio: fallbackProfile.bio,
+                followerCount: fallbackProfile.followerCount,
+                followingCount: fallbackProfile.followingCount,
+                profilePhotoText: fallbackProfile.profilePhotoText,
+                profilePhotoURL: postPhotoURL
+            )
+        }
+        return fallbackProfile
+    }
+
+    private func messageThreadRow(for thread: DirectMessageThread) -> some View {
+        let previewText = threadPreviewText(for: thread)
+        let previewTime = latestChatMessage(for: thread)?.time ?? thread.time
+        let rawUsername = thread.username.isEmpty ? thread.participant : thread.username
+        let cleanedHandle = FirebaseSpotService.normalizeUsername(rawUsername)
+        let rowUsernameToDisplay = (cleanedHandle.isEmpty || cleanedHandle == "user")
+            ? (thread.participant.hasPrefix("@") ? thread.participant : (thread.participant.isEmpty ? "@user" : thread.participant))
+            : "@\(cleanedHandle)"
+
+        let resolvedUsername = thread.username.isEmpty ? "user" : (thread.username.hasPrefix("@") ? String(thread.username.dropFirst()) : thread.username)
+        let fallbackProfile = FakeUserProfile(userID: thread.participantUserID, username: resolvedUsername, name: thread.participant, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: thread.initials)
+        let profileForThread: FakeUserProfile = resolveProfileForThread(thread, resolvedUsername: resolvedUsername, fallbackProfile: fallbackProfile)
+
+        let effectiveIsIncoming = isThreadIncoming(thread)
+
+        let isUnread = effectiveIsIncoming && !isChatThreadRead(thread) && (selectedChatThread?.id != thread.id || currentScreen != .chatDetail)
+
+        return Button {
+            markChatThreadAsRead(thread)
             selectedChatThread = thread
             if let post = pendingSharePost {
                 addSharedPostToThread(thread, post: post, isMine: true)
@@ -2858,29 +5794,47 @@ struct ContentView: View {
                 chatComposerText = ""
             }
             currentScreen = .chatDetail
+            recalculateUnreadDirectMessageCount()
         } label: {
             HStack(alignment: .center, spacing: 12) {
-                Circle()
-                    .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 42, height: 42)
-                    .overlay(Text(thread.initials).font(.caption.weight(.bold)).foregroundStyle(.black))
+                if thread.isAnonymousConversation {
+                    Circle()
+                        .fill(Color.black)
+                        .frame(width: 42, height: 42)
+                        .overlay(
+                            Image(systemName: "theatermasks.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.95))
+                        )
+                } else {
+                    userProfileAvatarView(for: profileForThread, size: 42)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(thread.participant)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        if thread.isAnonymousConversation && effectiveIsIncoming {
+                            Text("Anonymous")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                        } else {
+                            Text(rowUsernameToDisplay)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(usernameGoldTextColor)
+                        }
+
+                        if thread.isPinned {
+                            Image(systemName: "pin.fill")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.primary)
+                        }
+
                         Spacer()
-                        Text(thread.time)
+                        Text(previewTime)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
 
-                    Text(displayUsername(thread.username))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Text(thread.preview)
+                    Text(previewText)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -2889,11 +5843,11 @@ struct ContentView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
+            .background(thread.isPinned ? Color.yellow.opacity(0.08) : Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.black, lineWidth: 0.5)
+                    .stroke(Color.black, lineWidth: isUnread ? 2.5 : 0.5)
             )
             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
         }
@@ -2926,32 +5880,52 @@ struct ContentView: View {
         }
 
         let messagesForThread = chatMessages[thread.id] ?? []
-        let resolvedUsername = thread.username.isEmpty ? "you" : (thread.username.hasPrefix("@") ? String(thread.username.dropFirst()) : thread.username)
-        let fallbackProfile = FakeUserProfile(username: resolvedUsername, name: thread.participant, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: thread.initials)
+        let backDestination: Screen = .messages
+        let rawThreadUsername = thread.username.isEmpty ? thread.participant : thread.username
+        let resolvedUsername = rawThreadUsername.isEmpty ? "you" : (rawThreadUsername.hasPrefix("@") ? String(rawThreadUsername.dropFirst()) : rawThreadUsername)
+        let fallbackProfile = FakeUserProfile(userID: thread.participantUserID, username: resolvedUsername, name: thread.participant, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: thread.initials)
         let profileForThread = fakeUserProfiles.first(where: {
-            $0.username.lowercased() == thread.username.lowercased() || $0.name.lowercased() == thread.participant.lowercased()
+            (!thread.participantUserID.isEmpty && $0.userID == thread.participantUserID) ||
+            (!thread.username.isEmpty && $0.username.lowercased() == thread.username.lowercased() && $0.username.lowercased() != "user") ||
+            (!thread.participant.isEmpty && $0.name.lowercased() == thread.participant.lowercased() && $0.name.lowercased() != "user")
         }) ?? fallbackProfile
+
+        let headerUsernameToDisplay: String = {
+            if thread.isAnonymousConversation && isThreadIncoming(thread) {
+                return "Anonymous Chat"
+            }
+            if !profileForThread.username.isEmpty && profileForThread.username.lowercased() != "user" {
+                return profileForThread.username
+            }
+            if !thread.username.isEmpty && thread.username.lowercased() != "user" {
+                return thread.username
+            }
+            if !thread.participant.isEmpty && thread.participant.lowercased() != "user" {
+                return thread.participant
+            }
+            return resolvedUsername
+        }()
+
+        let isAnonIncoming = thread.isAnonymousConversation && isThreadIncoming(thread)
 
         return AnyView(VStack(spacing: 0) {
             HStack {
-                backButton(destination: .messages)
+                backButton(destination: backDestination)
                 Spacer()
 
                 Button {
+                    guard !thread.isAnonymousConversation else { return }
                     openUserProfileScreen(with: profileForThread)
                 } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 32, height: 32)
-                            .overlay(Text(profileForThread.profilePhotoText).font(.caption.weight(.bold)).foregroundStyle(.black))
-
-                        Text(profileForThread.username.isEmpty ? thread.participant : displayUsername(profileForThread.username))
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                    }
+                    Text(isAnonIncoming ? "Anonymous Chat" : displayUsername(headerUsernameToDisplay))
+                        .font(.headline)
+                        .foregroundStyle(isAnonIncoming ? Color.black : usernameGoldTextColor)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .buttonStyle(.plain)
+                .disabled(isAnonIncoming)
+                .opacity(1)
 
                 Spacer()
 
@@ -2962,8 +5936,6 @@ struct ContentView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 32, height: 32)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
 
@@ -2974,8 +5946,6 @@ struct ContentView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .frame(width: 32, height: 32)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
@@ -2992,7 +5962,8 @@ struct ContentView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.vertical, 16)
+                .padding(.top, 21)
+                .padding(.bottom, 16)
             }
 
             HStack(spacing: 10) {
@@ -3003,20 +5974,13 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 Button {
-                    guard !chatComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    var updatedMessages = chatMessages[thread.id] ?? []
-                    updatedMessages.append(
-                        ChatMessage(id: (updatedMessages.last?.id ?? 0) + 1, text: chatComposerText, isMine: true, time: "now")
-                    )
-                    chatMessages[thread.id] = updatedMessages
-                    chatComposerText = ""
+                    Task {
+                        await sendCurrentDirectMessage(thread, text: chatComposerText)
+                    }
                 } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .frame(width: 42, height: 42)
-                        .background(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .leading, endPoint: .trailing))
-                        .clipShape(Circle())
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundStyle(.black)
                 }
                 .buttonStyle(.plain)
             }
@@ -3024,7 +5988,248 @@ struct ContentView: View {
             .padding(.bottom, 18)
         }
         .background(Color(.systemBackground).opacity(0.98))
+        .onAppear {
+            Task {
+                await fetchDirectMessagesForThread(thread)
+            }
+        }
         )
+    }
+
+    private func resolveDirectMessageThreadUserID(_ thread: DirectMessageThread) async -> String {
+        let trimmedThreadUserID = thread.participantUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedThreadUserID.isEmpty && !FirebaseSpotService.isDeviceFallbackUserID(trimmedThreadUserID) {
+            return trimmedThreadUserID
+        }
+
+        let rawName = thread.username.isEmpty ? thread.participant : thread.username
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(rawName)
+        if !normalizedUsername.isEmpty,
+           let resolved = try? await FirebaseSpotService.shared.resolveUserID(username: normalizedUsername),
+           !resolved.isEmpty,
+           !FirebaseSpotService.isDeviceFallbackUserID(resolved) {
+            return resolved
+        }
+
+        return ""
+    }
+
+    private func fetchDirectMessagesForThread(_ thread: DirectMessageThread) async {
+        let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !chatID.isEmpty else { return }
+
+        do {
+            let fetched = try await FirebaseSpotService.shared.fetchChatMessages(chatID: chatID, limit: 200)
+            let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
+            let localMessages = fetched.enumerated().map { offset, message in
+                let isMine = !currentUID.isEmpty && message.senderID == currentUID
+                return ChatMessage(
+                    id: offset + 1,
+                    text: message.text,
+                    isMine: isMine,
+                    time: "now"
+                )
+            }
+
+            await MainActor.run {
+                chatMessages[thread.id] = localMessages
+                refreshThreadPreview(for: thread.id)
+            }
+        } catch {
+            print("Spot chat fetch failed for chatID \(chatID): \(error)")
+        }
+
+        _ = FirebaseSpotService.shared.listenToChatMessages(chatID: chatID) { fetched in
+            let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
+            let updatedLocalMessages = fetched.enumerated().map { offset, message in
+                let isMine = !currentUID.isEmpty && message.senderID == currentUID
+                return ChatMessage(
+                    id: offset + 1,
+                    text: message.text,
+                    isMine: isMine,
+                    time: "now"
+                )
+            }
+            Task { @MainActor in
+                self.chatMessages[thread.id] = updatedLocalMessages
+                self.refreshThreadPreview(for: thread.id)
+            }
+        }
+    }
+
+    private func listenToUserChatsFromFirestore() {
+        guard let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty else { return }
+        guard userChatsListenerRegistration == nil else { return }
+
+        userChatsListenerRegistration = FirebaseSpotService.shared.listenToUserChats(userID: currentUID) { chatData in
+            guard let chatID = chatData["id"] as? String,
+                  let participantIDs = chatData["participantIDs"] as? [String],
+                  let lastMessage = chatData["lastMessage"] as? String else {
+                return
+            }
+
+            let isAnon = (chatData["isAnonymous"] as? Bool) ?? chatID.hasPrefix("anon_")
+            let otherUID = participantIDs.first { $0 != currentUID } ?? ""
+            guard !otherUID.isEmpty else { return }
+
+            if self.deletedChatIDs.contains(chatID) {
+                return
+            }
+
+            Task {
+                let fetchedAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: otherUID)
+                var resolvedUsername = fetchedAccount?.username ?? ""
+
+                if self.isUserBlocked(username: resolvedUsername, userID: otherUID) {
+                    return
+                }
+
+                if let fetchedAccount, let photoURL = fetchedAccount.profilePhotoURL, !photoURL.isEmpty {
+                    let accountProfile = FakeUserProfile(
+                        userID: otherUID,
+                        username: fetchedAccount.username,
+                        name: fetchedAccount.displayName,
+                        city: "",
+                        bio: "",
+                        followerCount: 0,
+                        followingCount: 0,
+                        profilePhotoText: String((fetchedAccount.displayName.isEmpty ? fetchedAccount.username : fetchedAccount.displayName).prefix(2)),
+                        profilePhotoURL: photoURL
+                    )
+                    await MainActor.run {
+                        self.cachePrefetchedProfile(accountProfile)
+                    }
+                }
+
+                if resolvedUsername.isEmpty || resolvedUsername.lowercased() == "user" || resolvedUsername.lowercased() == "@user" {
+                    let authorPost = posts.first { $0.authorUserID == otherUID && !$0.handle.isEmpty }
+                    if let authorPost {
+                        resolvedUsername = authorPost.handle
+                    }
+                }
+
+                if resolvedUsername.lowercased() == "user" || resolvedUsername.lowercased() == "@user" {
+                    resolvedUsername = ""
+                }
+
+                let displayName = isAnon ? "Anonymous" : (resolvedUsername.isEmpty ? (fetchedAccount?.displayName.isEmpty == false ? fetchedAccount!.displayName : "User") : "@\(resolvedUsername)")
+
+                await MainActor.run {
+                    if let existingIndex = messages.firstIndex(where: {
+                        ($0.chatID == chatID) ||
+                        (!chatID.isEmpty && $0.chatID.isEmpty && $0.participantUserID == otherUID && $0.isAnonymousConversation == isAnon) ||
+                        ($0.chatID.isEmpty && $0.participantUserID.isEmpty && $0.isAnonymousConversation == isAnon && ($0.username.lowercased() == resolvedUsername.lowercased() || $0.participant.lowercased() == displayName.lowercased()))
+                    }) {
+                        messages[existingIndex].chatID = chatID
+                        messages[existingIndex].preview = lastMessage.isEmpty ? messages[existingIndex].preview : lastMessage
+                        messages[existingIndex].participantUserID = otherUID
+                        if !isAnon && !resolvedUsername.isEmpty {
+                            messages[existingIndex].username = resolvedUsername
+                            messages[existingIndex].participant = displayName
+                            if selectedChatThread?.id == messages[existingIndex].id {
+                                selectedChatThread?.username = resolvedUsername
+                                selectedChatThread?.participant = displayName
+                            }
+                        }
+                    } else {
+                        let newThread = DirectMessageThread(
+                            id: Int.random(in: 10000...99999),
+                            participant: displayName,
+                            username: resolvedUsername,
+                            preview: lastMessage.isEmpty ? "New message" : lastMessage,
+                            time: "now",
+                            unread: 1,
+                            isIncoming: true,
+                            isAnonymousConversation: isAnon,
+                            participantUserID: otherUID,
+                            chatID: chatID
+                        )
+                        messages.insert(newThread, at: 0)
+                        Task {
+                            await fetchDirectMessagesForThread(newThread)
+                        }
+                    }
+                    recalculateUnreadDirectMessageCount()
+                }
+            }
+        }
+    }
+
+    private func sendCurrentDirectMessage(_ thread: DirectMessageThread, text: String) async {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        print("💬 [DM DEBUG] Starting sendCurrentDirectMessage: '\(trimmedText)'")
+        print("💬 [DM DEBUG] Thread state -> id: \(thread.id), username: '\(thread.username)', participant: '\(thread.participant)', participantUserID: '\(thread.participantUserID)', chatID: '\(thread.chatID)'")
+
+        guard !trimmedText.isEmpty else {
+            print("💬 [DM DEBUG] ⚠️ Aborted send: message text was empty")
+            return
+        }
+
+        do {
+            let senderID = try FirebaseSpotService.shared.currentUserID()
+            print("💬 [DM DEBUG] Current Sender Auth UID: '\(senderID)'")
+
+            guard !senderID.isEmpty else {
+                print("💬 [DM DEBUG] ❌ Aborted send: No authenticated senderID")
+                await MainActor.run {
+                    accountAuthMessage = "Sign in to send a direct message."
+                }
+                return
+            }
+
+            let recipientID = await resolveDirectMessageThreadUserID(thread)
+            print("💬 [DM DEBUG] Resolved Recipient UID: '\(recipientID)'")
+
+            if isUserBlocked(username: thread.username, userID: recipientID) || isUserBlocked(username: thread.participant, userID: recipientID) {
+                print("💬 [DM DEBUG] 🚫 Aborted send: Recipient is blocked")
+                await MainActor.run {
+                    accountAuthMessage = "You cannot send messages to a blocked user."
+                }
+                return
+            }
+
+            let effectiveRecipientID = recipientID.isEmpty ? "local_recipient_\(thread.username.lowercased())" : recipientID
+            let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? FirebaseSpotService.chatID(for: [senderID, effectiveRecipientID], isAnonymous: thread.isAnonymousConversation)
+                : thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            print("💬 [DM DEBUG] Final Chat Document ID: '\(chatID)' (effective recipient: '\(effectiveRecipientID)')")
+
+            if recipientID.isEmpty {
+                print("💬 [DM DEBUG] ⚠️ WARNING: Recipient UID is EMPTY! Message will remain local-only until recipient UID is resolved.")
+            } else if recipientID == senderID {
+                print("💬 [DM DEBUG] ⚠️ WARNING: Sender UID and Recipient UID are identical ('\(senderID)'). Messaging self.")
+            } else {
+                print("💬 [DM DEBUG] Creating/fetching cloud chat document for participants [\(senderID), \(recipientID)]...")
+                let cloudChatID = try await FirebaseSpotService.shared.createOrGetChat(participantIDs: [senderID, recipientID], isAnonymous: thread.isAnonymousConversation)
+                print("💬 [DM DEBUG] ✅ Firestore chat document ready: '\(cloudChatID)'")
+
+                print("💬 [DM DEBUG] Sending message to Firestore collection chats/\(cloudChatID)/messages...")
+                try await FirebaseSpotService.shared.sendChatMessage(chatID: cloudChatID, senderID: senderID, text: trimmedText)
+                print("💬 [DM DEBUG] ✅ Successfully saved message to Firestore!")
+            }
+
+            await MainActor.run {
+                if let index = messages.firstIndex(where: { $0.id == thread.id }) {
+                    messages[index].chatID = chatID
+                    messages[index].participantUserID = recipientID
+                }
+
+                var updatedMessages = chatMessages[thread.id] ?? []
+                updatedMessages.append(ChatMessage(id: (updatedMessages.last?.id ?? 0) + 1, text: trimmedText, isMine: true, time: "now"))
+                chatMessages[thread.id] = updatedMessages
+                refreshThreadPreview(for: thread.id)
+                chatComposerText = ""
+            }
+
+            print("💬 [DM DEBUG] Fetching latest messages for thread chatID: '\(chatID)'...")
+            await fetchDirectMessagesForThread(thread)
+        } catch {
+            print("💬 [DM DEBUG] ❌ Direct message send FAILED with error: \(error)")
+            await MainActor.run {
+                accountAuthMessage = "Could not send this message right now."
+            }
+        }
     }
 
     private func messageRow(for message: ChatMessage) -> some View {
@@ -3032,72 +6237,76 @@ struct ContentView: View {
             if message.isMine { Spacer() }
 
             if let post = message.sharedPost {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: message.isMine ? .trailing : .leading, spacing: 6) {
                     HStack {
-                        Text("Shared post")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
                         Spacer()
                         Text(message.time)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: 320)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .center, spacing: 8) {
-                            Circle()
-                                .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 28, height: 28)
-                                .overlay(Text(post.author.prefix(2).uppercased()).font(.caption2.weight(.bold)).foregroundStyle(.white))
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(post.author)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text(displayUsername(post.handle))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                    let binding = Binding<MockPost>(
+                        get: {
+                            posts.first(where: { $0.id == post.id }) ?? post
+                        },
+                        set: { updatedPost in
+                            if let index = posts.firstIndex(where: { $0.id == post.id }) {
+                                posts[index] = updatedPost
                             }
                         }
+                    )
+                    let isOwnPost = Self.isPostOwnedByUser(
+                        post,
+                        currentUserID: currentUserID,
+                        currentUsername: profileUsername
+                    )
 
-                        Text(post.title.isEmpty ? "Shared post" : post.title)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-
-                        if !post.body.isEmpty {
-                            Text(post.body)
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
-                                .fixedSize(horizontal: false, vertical: true)
+                    PostCardView(
+                        post: binding,
+                        isOwnPost: isOwnPost,
+                        tracksViewEngagement: true,
+                        currentUserProfilePhotoImage: displayProfilePhotoImage,
+                        showsAuthorLine: true,
+                        prefersDeleteAction: false,
+                        showProfileLocationBadge: false,
+                        isReported: isPostReported(post),
+                        onSend: {
+                            sharePostToFriends(post)
+                        },
+                        onSave: { savedPost in
+                            toggleSavedState(for: savedPost)
+                        },
+                        onDelete: {
+                            deletePost(post)
+                        },
+                        onAdminForceDelete: { adminCode in
+                            deletePost(post, adminDeleteCode: adminCode)
+                        },
+                        onReport: {
+                            reportPost(post)
+                        },
+                        onProfileTap: {
+                            openUserProfile(from: post)
+                        },
+                        onMessageTap: {
+                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
+                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
+                            openDM(with: matchingUser)
+                        },
+                        onMapFocusTap: { tappedPost in
+                            openMapFocusedOnPost(tappedPost)
+                        },
+                        onViewTracked: { updatedPost in
+                            applyTrackedPostViewUpdate(updatedPost)
                         }
-
-                        if !post.location.isEmpty {
-                            HStack(spacing: 6) {
-                                Image(systemName: "location.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(post.location)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        if post.type != "Text" {
-                            HStack(spacing: 6) {
-                                Image(systemName: post.type == "Video" ? "video.fill" : post.type == "Photo" ? "photo.fill" : post.type == "Audio" ? "waveform" : post.type == "Song" ? "music.note.list" : post.type == "Poll" ? "chart.bar.fill" : post.type == "Live Route" ? "point.topleft.down.curvedto.point.bottomright.up" : post.type == "Guide" ? "list.number" : post.type == "Work" ? "briefcase.fill" : post.type == "For Sale" ? "tag.fill" : "link")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(post.type)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
+                    )
+                    .frame(maxWidth: 320)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: message.isMine ? .trailing : .leading)
             } else {
@@ -3135,9 +6344,34 @@ struct ContentView: View {
         }
     }
 
+    private func recenterFeedToNearestPOI() {
+        locationService.requestPermission()
+        let location = locationService.lastKnownLocation ?? CLLocation(latitude: NearbyPlaceLoader.defaultCenter.latitude, longitude: NearbyPlaceLoader.defaultCenter.longitude)
+        let localNearby = NearbyPlaceLoader.loadNearbyPlaces(from: location, limit: 10)
+
+        guard let nearestPOI = localNearby.first?.name ?? nearbyPlaces.first?.name else { return }
+
+        let activeContext: LocationContext = currentScreen == .locationFeed ? .video : .feed
+
+        isFeedSearchFieldFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            applyLocationSelection(nearestPOI, context: activeContext)
+            persistLocationSelection(nearestPOI, context: activeContext)
+            rememberRecentLocation(nearestPOI)
+            if currentScreen != .home && currentScreen != .locationFeed {
+                currentScreen = (activeContext == .video) ? .locationFeed : .home
+            }
+            lastSentMessage = "Recentered to \(nearestPOI)"
+        }
+    }
+
     private func persistLocationSelection(_ value: String, context: LocationContext) {
         let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
+        guard !Self.isMapAreaRealm(cleaned) else { return }
+        guard !Self.isCoordinateLocationLabel(cleaned) else { return }
 
         switch context {
         case .feed:
@@ -3150,15 +6384,28 @@ struct ContentView: View {
     }
 
     private func applyLocationSelection(_ value: String, context: LocationContext) {
+        let allowsMapAreaSelection = context == .post
+        let sanitizedValue = (!allowsMapAreaSelection && Self.isMapAreaRealm(value)) ? "Metric" : value
+        let isMapAreaSelection = Self.isMapAreaRealm(sanitizedValue)
+
         switch context {
         case .feed:
-            fromLocation = value
+            fromLocation = sanitizedValue
+            if !isMapAreaSelection {
+                mapAreaCenterCoordinate = nil
+                mapAreaSourcePostID = nil
+            }
         case .video:
-            videoLocation = value
+            videoLocation = sanitizedValue
+            if !isMapAreaSelection {
+                mapAreaCenterCoordinate = nil
+                mapAreaSourcePostID = nil
+            }
         case .post:
-            postLocation = value
+            postLocation = sanitizedValue
         }
-        persistLocationSelection(value, context: context)
+        persistLocationSelection(sanitizedValue, context: context)
+        persistLastUsedLocationSelection(sanitizedValue, context: context)
     }
 
     private func persistSavedLocations() {
@@ -3210,7 +6457,7 @@ struct ContentView: View {
         UserDefaults.standard.set(locationPostCooldownHistory, forKey: Self.locationPostCooldownDefaultsKey)
     }
 
-    static func cooldownKeyForLocation(_ raw: String) -> String {
+    nonisolated static func cooldownKeyForLocation(_ raw: String) -> String {
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return "" }
 
@@ -3249,8 +6496,8 @@ struct ContentView: View {
     private func showLocationCooldownMessage(for location: String) {
         let remainingSeconds = cooldownSecondsRemaining(for: location)
         let remainingMinutes = max(1, Int(ceil(Double(remainingSeconds) / 60.0)))
-        let baseMessage = "Cool off! You only get five posts per hour in each location."
-        let detail = " Try this location again in about \(remainingMinutes)m."
+        let baseMessage = "You reached the limit of five posts per hour in this location."
+        let detail = " Try again in about \(remainingMinutes)m."
         postLocationCooldownMessage = baseMessage + detail
         lastSentMessage = baseMessage
         accountAuthMessage = baseMessage
@@ -3264,11 +6511,85 @@ struct ContentView: View {
         persistLocationPostCooldownHistory()
     }
 
+    private static func shouldExcludeFromLocationHistory(_ value: String) -> Bool {
+        let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return true }
+
+        let normalized = Self.normalizedLocationRealm(cleaned)
+        if normalized.isEmpty || normalized == Self.normalizedLocationRealm("Metric") || Self.isDeprecatedLocationOption(cleaned) {
+            return true
+        }
+
+        if Self.isMapAreaRealm(cleaned) {
+            return true
+        }
+
+        if Self.isCoordinateLocationLabel(cleaned) {
+            return true
+        }
+
+        return false
+    }
+
+    private static func isDeprecatedLocationOption(_ value: String) -> Bool {
+        let normalized = Self.normalizedLocationRealm(value)
+        return normalized == Self.normalizedLocationRealm("Friends")
+            || normalized == Self.normalizedLocationRealm("Following")
+    }
+
+    private static func deduplicatedLocationNames(_ values: [String], limit: Int? = nil) -> [String] {
+        var seen: Set<String> = []
+        var unique: [String] = []
+        unique.reserveCapacity(values.count)
+
+        for raw in values {
+            let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { continue }
+            guard !Self.shouldExcludeFromLocationHistory(cleaned) else { continue }
+
+            let key = Self.normalizedLocationRealm(cleaned)
+            guard !key.isEmpty else { continue }
+            guard seen.insert(key).inserted else { continue }
+
+            unique.append(cleaned)
+            if let limit, unique.count >= limit {
+                break
+            }
+        }
+
+        return unique
+    }
+
+    private static func deduplicatedNearbyPlaces(_ values: [NearbyPlace]) -> [NearbyPlace] {
+        var seen: Set<String> = []
+        var unique: [NearbyPlace] = []
+        unique.reserveCapacity(values.count)
+
+        for place in values {
+            let cleaned = place.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { continue }
+            guard !Self.shouldExcludeFromLocationHistory(cleaned) else { continue }
+
+            let key = Self.normalizedLocationRealm(cleaned)
+            guard !key.isEmpty else { continue }
+            guard seen.insert(key).inserted else { continue }
+
+            unique.append(place)
+        }
+
+        return unique
+    }
+
     private func rememberRecentLocation(_ value: String) {
         let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
+        guard !Self.shouldExcludeFromLocationHistory(cleaned) else {
+            recentLocations.removeAll { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(cleaned) }
+            persistRecentLocations()
+            return
+        }
 
-        if let index = recentLocations.firstIndex(of: cleaned) {
+        if let index = recentLocations.firstIndex(where: { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(cleaned) }) {
             recentLocations.remove(at: index)
         }
 
@@ -3277,23 +6598,26 @@ struct ContentView: View {
             recentLocations.removeLast()
         }
 
+        recentLocations = Self.deduplicatedLocationNames(recentLocations, limit: 3)
         persistRecentLocations()
     }
 
     static func orderedSavedLocations(_ current: [String], adding value: String, limit: Int = 8) -> [String] {
         let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty, cleaned.lowercased() != "metric" else { return current }
-
-        var next = current.filter { $0.lowercased() != cleaned.lowercased() }
-        next.insert(cleaned, at: 0)
-        if next.count > limit {
-            next = Array(next.prefix(limit))
+        guard !cleaned.isEmpty, !Self.shouldExcludeFromLocationHistory(cleaned) else {
+            return Self.deduplicatedLocationNames(current, limit: limit)
         }
-        return next
+
+        var next = Self.deduplicatedLocationNames(current).filter {
+            Self.normalizedLocationRealm($0) != Self.normalizedLocationRealm(cleaned)
+        }
+        next.insert(cleaned, at: 0)
+        return Self.deduplicatedLocationNames(next, limit: limit)
     }
 
     private func rememberSavedLocation(_ value: String) {
         savedLocations = Self.orderedSavedLocations(savedLocations, adding: value, limit: 8)
+        savedLocations = Self.deduplicatedLocationNames(savedLocations, limit: 8)
         persistSavedLocations()
     }
 
@@ -3312,18 +6636,15 @@ struct ContentView: View {
         let chosen = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !chosen.isEmpty else { return }
 
-        if context == .post, isLocationOnCooldownForPosting(chosen) {
-            showLocationCooldownMessage(for: chosen)
-            return
-        }
-
         if context == .post {
             postLocationCooldownMessage = ""
         }
 
         applyLocationSelection(chosen, context: context)
 
-        if saveToRecent {
+        let isNearbyPOI = nearbyPlaces.contains { Self.normalizedLocationRealm($0.name) == Self.normalizedLocationRealm(chosen) }
+        let shouldRecordHistory = saveToRecent && !Self.shouldExcludeFromLocationHistory(chosen) && !isNearbyPOI
+        if shouldRecordHistory {
             rememberRecentLocation(chosen)
         }
 
@@ -3343,12 +6664,72 @@ struct ContentView: View {
         guard let matchedPOI = firestorePOISearchResults.first(where: { poi in
             Self.normalizedLocationRealm(poi.name) == Self.normalizedLocationRealm(chosen)
         }) else {
-            // Fallback suggestions can be city/country text; still allow selecting them.
+            // Check if selected value matches a known city/region to load its nearby neighborhoods
+            let targetCoord = MajorCityRecord.knownWorldCities.first(where: {
+                Self.normalizedLocationRealm($0.name) == Self.normalizedLocationRealm(chosen)
+            }).map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+
+            updateNearbyPlacesForSelectedCoordinate(targetCoord)
             handleLocationSelection(chosen, context: context, closeScreen: closeScreen, saveToRecent: true, saveToFavorites: false)
             return
         }
 
+        let poiCoord = CLLocationCoordinate2D(latitude: matchedPOI.latitude, longitude: matchedPOI.longitude)
+        updateNearbyPlacesForSelectedCoordinate(poiCoord)
+
         handleLocationSelection(matchedPOI.name, context: context, closeScreen: closeScreen, saveToRecent: true, saveToFavorites: false)
+    }
+
+    private func updateNearbyPlacesForSelectedCoordinate(_ targetCoordinate: CLLocationCoordinate2D?) {
+        guard let coord = targetCoordinate else { return }
+        let location = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        isLoadingNearbyPlaces = true
+
+        Task {
+            let localNearby = NearbyPlaceLoader.loadNearbyPlaces(from: location, limit: 30)
+
+            var resolvedNearby: [NearbyPlace] = []
+            do {
+                let remotePOIs = try await FirebaseSpotService.shared.fetchNearbyPOIs(
+                    around: coord,
+                    limit: 40
+                )
+                let remotePlaces = remotePOIs.map { poi in
+                    NearbyPlace(
+                        id: poi.id,
+                        name: poi.name,
+                        category: poi.category,
+                        latitude: poi.latitude,
+                        longitude: poi.longitude
+                    )
+                }
+
+                var mergedMap: [String: NearbyPlace] = [:]
+                for p in remotePlaces + localNearby {
+                    let key = "\(Self.normalizedLocationRealm(p.name))|\(p.latitude)|\(p.longitude)"
+                    if mergedMap[key] == nil {
+                        mergedMap[key] = p
+                    }
+                }
+
+                let sortedCandidates = Array(mergedMap.values).sorted { lhs, rhs in
+                    let lhsDist = NearbyPlaceLoader.haversineMiles(from: coord, to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude))
+                    let rhsDist = NearbyPlaceLoader.haversineMiles(from: coord, to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude))
+                    return lhsDist < rhsDist
+                }
+
+                resolvedNearby = Array(sortedCandidates.prefix(25))
+            } catch {
+                resolvedNearby = localNearby
+            }
+
+            await MainActor.run {
+                if !resolvedNearby.isEmpty {
+                    self.nearbyPlaces = resolvedNearby
+                }
+                self.isLoadingNearbyPlaces = false
+            }
+        }
     }
 
     private func nearestNearbyLocation(for context: LocationContext) -> String {
@@ -3387,19 +6768,19 @@ struct ContentView: View {
                 switch context {
                 case .feed:
                     let current = fromLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if current.isEmpty || current == "Metric" {
+                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                         fromLocation = nearest
                         persistLocationSelection(nearest, context: .feed)
                     }
                 case .video:
                     let current = videoLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if current.isEmpty || current == "Metric" {
+                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                         videoLocation = nearest
                         persistLocationSelection(nearest, context: .video)
                     }
                 case .post:
                     let current = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if current.isEmpty {
+                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                         postLocation = nearest
                         persistLocationSelection(nearest, context: .post)
                     }
@@ -3414,25 +6795,41 @@ struct ContentView: View {
         isLoadingNearbyPlaces = true
 
         Task {
-            var resolvedNearby = localNearby
+            var resolvedNearby: [NearbyPlace] = []
 
             do {
                 let remotePOIs = try await FirebaseSpotService.shared.fetchNearbyPOIs(
                     around: location.coordinate,
-                    limit: 12
+                    limit: 30
                 )
-                if !remotePOIs.isEmpty {
-                    resolvedNearby = remotePOIs.map { poi in
-                        NearbyPlace(
-                            id: poi.id,
-                            name: poi.name,
-                            category: poi.category,
-                            latitude: poi.latitude,
-                            longitude: poi.longitude
-                        )
+                let remotePlaces = remotePOIs.map { poi in
+                    NearbyPlace(
+                        id: poi.id,
+                        name: poi.name,
+                        category: poi.category,
+                        latitude: poi.latitude,
+                        longitude: poi.longitude
+                    )
+                }
+
+                // Interleave local cities/locations with remote/local POIs for a rich mix of closest locations + POIs.
+                var mergedMap: [String: NearbyPlace] = [:]
+                for p in remotePlaces + localNearby {
+                    let key = "\(Self.normalizedLocationRealm(p.name))|\(p.latitude)|\(p.longitude)"
+                    if mergedMap[key] == nil {
+                        mergedMap[key] = p
                     }
-                } else {
-                    resolvedNearby = localNearby
+                }
+
+                let allCandidates = Array(mergedMap.values).sorted { lhs, rhs in
+                    let lhsDist = NearbyPlaceLoader.haversineMiles(from: location.coordinate, to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude))
+                    let rhsDist = NearbyPlaceLoader.haversineMiles(from: location.coordinate, to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude))
+                    return lhsDist < rhsDist
+                }
+
+                resolvedNearby = Array(allCandidates.prefix(25))
+
+                if remotePOIs.isEmpty {
                     let firestorePOIs = localNearby.map { poi in
                         FirebasePOIRecord(
                             id: poi.id,
@@ -3459,19 +6856,19 @@ struct ContentView: View {
                     switch context {
                     case .feed:
                         let current = fromLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if current.isEmpty || current == "Metric" {
+                        if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                             fromLocation = nearest
                             persistLocationSelection(nearest, context: .feed)
                         }
                     case .video:
                         let current = videoLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if current.isEmpty || current == "Metric" {
+                        if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                             videoLocation = nearest
                             persistLocationSelection(nearest, context: .video)
                         }
                     case .post:
                         let current = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if current.isEmpty {
+                        if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
                             postLocation = nearest
                             persistLocationSelection(nearest, context: .post)
                         }
@@ -3484,47 +6881,186 @@ struct ContentView: View {
     private func selectedLocationBackground(_ isSelected: Bool) -> AnyView {
         AnyView(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: isSelected
-                            ? [Color(red: 0.84, green: 0.95, blue: 1.0), Color(red: 0.78, green: 0.92, blue: 0.99)]
-                            : [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(isSelected ? Color.black : Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(
-                            isSelected ? Color(red: 0.22, green: 0.52, blue: 0.73).opacity(0.42) : Color.black.opacity(0.12),
-                            lineWidth: 0.9
-                        )
+                        .stroke(isSelected ? Color.white : Color.black, lineWidth: 1.2)
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(isSelected ? 0.62 : 0.78), lineWidth: 0.55)
-                        .padding(0.65)
-                )
-                .shadow(
-                    color: isSelected ? Color(red: 0.35, green: 0.67, blue: 0.85).opacity(0.2) : Color.black.opacity(0.055),
-                    radius: isSelected ? 10 : 7,
-                    x: 0,
-                    y: isSelected ? 4 : 3
-                )
+                .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
         )
     }
 
-    private func locationRegionChips(for context: LocationContext) -> [String] {
-        let currentValue: String = {
-            switch context {
-            case .feed:
-                return fromLocation
-            case .video:
-                return videoLocation
-            case .post:
-                return postLocation
+    private func locationOptionLabel(
+        _ title: String,
+        subtitle: String = "",
+        distanceText: String = "",
+        isSelected: Bool,
+        showsMetricIcon: Bool = false
+    ) -> some View {
+        return HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                }
             }
-        }()
+
+            Spacer(minLength: 2)
+
+            if !distanceText.isEmpty {
+                Text(distanceText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.6))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            if isSelected {
+                flatChevronUpIcon(size: 26, thickness: 2.8, color: Color.black)
+                    .frame(width: 26, height: 18)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(minHeight: 58)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    isSelected
+                        ? LinearGradient(
+                            colors: [Color(red: 0.945, green: 0.955, blue: 0.968), Color(red: 0.915, green: 0.93, blue: 0.95)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [Color.white, Color(red: 0.972, green: 0.976, blue: 0.982)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(isSelected ? Color.black.opacity(0.7) : Color.black.opacity(0.1), lineWidth: isSelected ? 1.4 : 1)
+        )
+        .shadow(color: Color.black.opacity(isSelected ? 0.1 : 0.05), radius: 10, x: 0, y: 6)
+    }
+
+    private func locationSectionHeader(_ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.black.opacity(0.72))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.black.opacity(0.08))
+                .clipShape(Capsule())
+        }
+    }
+
+    static func shouldAutoApplyNearbyFallback(currentValue: String) -> Bool {
+        let cleaned = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty
+    }
+
+    static func effectiveSelectedLocationValue(currentValue: String, persistedValue: String?, context: LocationContext) -> String {
+        let cleanedCurrent = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedPersisted = (persistedValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !cleanedCurrent.isEmpty,
+           !Self.isMapAreaRealm(cleanedCurrent),
+           !Self.isCoordinateLocationLabel(cleanedCurrent),
+           !Self.isDeprecatedLocationOption(cleanedCurrent),
+           !Self.normalizedLocationRealm(cleanedCurrent).isEmpty {
+            return cleanedCurrent
+        }
+
+        if !cleanedPersisted.isEmpty,
+           !Self.isMapAreaRealm(cleanedPersisted),
+           !Self.isCoordinateLocationLabel(cleanedPersisted),
+           !Self.isDeprecatedLocationOption(cleanedPersisted),
+           !Self.normalizedLocationRealm(cleanedPersisted).isEmpty {
+            return cleanedPersisted
+        }
+
+        // Preserve the current context semantics for metric-style defaults.
+        switch context {
+        case .feed:
+            return "Metric"
+        case .video:
+            return "Metric"
+        case .post:
+            return "Metric"
+        }
+    }
+
+    private func currentLocationValue(for context: LocationContext) -> String {
+        switch context {
+        case .feed:
+            return fromLocation.isEmpty ? "Metric" : fromLocation
+        case .video:
+            return videoLocation.isEmpty ? "Metric" : videoLocation
+        case .post:
+            return postLocation.isEmpty ? "Metric" : postLocation
+        }
+    }
+
+    private func lastUsedLocationValue(for context: LocationContext) -> String {
+        let key: String
+        switch context {
+        case .feed:
+            key = "spot_last_selected_feed_location"
+        case .video:
+            key = "spot_last_selected_video_location"
+        case .post:
+            key = "spot_last_selected_post_location"
+        }
+
+        let raw = UserDefaults.standard.string(forKey: key) ?? ""
+        return Self.effectiveSelectedLocationValue(
+            currentValue: currentLocationValue(for: context),
+            persistedValue: raw,
+            context: context
+        )
+    }
+
+    private func persistLastUsedLocationSelection(_ value: String, context: LocationContext) {
+        let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
+        guard !Self.isMapAreaRealm(cleaned) else { return }
+        guard !Self.isCoordinateLocationLabel(cleaned) else { return }
+        guard !Self.isDeprecatedLocationOption(cleaned) else { return }
+
+        let key: String
+        switch context {
+        case .feed:
+            key = "spot_last_selected_feed_location"
+        case .video:
+            key = "spot_last_selected_video_location"
+        case .post:
+            key = "spot_last_selected_post_location"
+        }
+
+        UserDefaults.standard.set(cleaned, forKey: key)
+    }
+
+    private func isLocationSelected(_ candidate: String, for context: LocationContext) -> Bool {
+        let selected = Self.normalizedLocationRealm(lastUsedLocationValue(for: context))
+        let target = Self.normalizedLocationRealm(candidate)
+        return selected == target
+    }
+
+    private func locationRegionChips(for context: LocationContext) -> [String] {
+        let currentValue = currentLocationValue(for: context)
 
         var candidates: [String] = []
 
@@ -3544,7 +7080,7 @@ struct ContentView: View {
         })
 
         let active = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !active.isEmpty, active != "Metric" {
+        if !active.isEmpty, active != "Metric", !Self.isMapAreaRealm(active) {
             candidates.append(active)
         }
 
@@ -3553,7 +7089,7 @@ struct ContentView: View {
 
         for candidate in candidates {
             let cleaned = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !cleaned.isEmpty, cleaned != "Metric" else { continue }
+            guard !cleaned.isEmpty, cleaned != "Metric", !Self.isMapAreaRealm(cleaned) else { continue }
             let key = Self.normalizedLocationRealm(cleaned)
             if seen.contains(key) { continue }
             seen.insert(key)
@@ -3563,83 +7099,544 @@ struct ContentView: View {
         return Array(unique.prefix(6))
     }
 
+
+    private var allUsersPostsForMap: [MockPost] {
+        // Keep map rendering bounded: the map does not need to render every historical post,
+        // and the per-marker pulsing animation is far more expensive than the value it adds.
+        let mapCutoff = Date().addingTimeInterval(-Self.mapIconLifetimeSeconds)
+        let recent = posts.filter { post in
+            !isPostReported(post)
+                && post.createdAt >= mapCutoff
+        }
+        .sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+
+        return Array(recent.prefix(450))
+    }
+
+    private var mapPostMarkers: [MapPostMarker] {
+        let center = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+        let nearbyPool = NearbyPlaceLoader.loadAllPlaces(from: center, limit: 400)
+
+        return allUsersPostsForMap.map { post in
+            let locationName = resolvedMapLocationName(for: post)
+            let resolvedCoordinate = resolvedMapCoordinate(
+                for: locationName,
+                postID: post.id,
+                center: center,
+                nearbyPool: nearbyPool
+            )
+            return MapPostMarker(
+                id: "\(post.id)-\(Self.normalizedLocationRealm(locationName))",
+                postID: post.id,
+                type: post.type,
+                locationName: locationName,
+                coordinate: resolvedCoordinate.coordinate,
+                createdAt: post.createdAt,
+                hasPreciseCoordinate: resolvedCoordinate.isPrecise
+            )
+        }
+    }
+
+    private func resolvedMapLocationName(for post: MockPost) -> String {
+        let preferred = post.postedInLocations.first(where: {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        })
+        let raw = (preferred ?? post.location).trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? "Metric" : raw
+    }
+
+    private func resolvedMapCoordinate(
+        for locationName: String,
+        postID: Int,
+        center: CLLocationCoordinate2D,
+        nearbyPool: [NearbyPlace]
+    ) -> (coordinate: CLLocationCoordinate2D, isPrecise: Bool) {
+        let cleaned = locationName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = Self.normalizedLocationRealm(cleaned)
+
+        if let explicitCoordinate = Self.extractCoordinateFromLocationName(cleaned) {
+            return (explicitCoordinate, true)
+        }
+
+        if normalized.isEmpty || normalized == Self.normalizedLocationRealm("Metric") || normalized == Self.normalizedLocationRealm("Friends") {
+            return (offsetCoordinate(base: center, seed: postID), false)
+        }
+
+        if let nearbyMatch = nearbyPlaces.first(where: {
+            Self.normalizedLocationRealm($0.name) == normalized
+        }) {
+            return (CLLocationCoordinate2D(latitude: nearbyMatch.latitude, longitude: nearbyMatch.longitude), true)
+        }
+
+        if let poolMatch = nearbyPool.first(where: {
+            Self.normalizedLocationRealm($0.name) == normalized
+        }) {
+            return (CLLocationCoordinate2D(latitude: poolMatch.latitude, longitude: poolMatch.longitude), true)
+        }
+
+        if let cityFragment = cleaned.split(separator: ",").first {
+            let city = String(cityFragment).trimmingCharacters(in: .whitespacesAndNewlines)
+            let cityNorm = Self.normalizedLocationRealm(city)
+            if let cityMatch = nearbyPool.first(where: {
+                Self.normalizedLocationRealm($0.name) == cityNorm
+            }) {
+                return (CLLocationCoordinate2D(latitude: cityMatch.latitude, longitude: cityMatch.longitude), true)
+            }
+        }
+
+        return (offsetCoordinate(base: center, seed: postID + abs(cleaned.hashValue % 997)), false)
+    }
+
+    private static func extractCoordinateFromLocationName(_ raw: String) -> CLLocationCoordinate2D? {
+        let pattern = "(-?\\d{1,3}\\.\\d+),\\s*(-?\\d{1,3}\\.\\d+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(raw.startIndex..<raw.endIndex, in: raw)
+        guard let match = regex.firstMatch(in: raw, options: [], range: range), match.numberOfRanges == 3 else {
+            return nil
+        }
+
+        guard
+            let latRange = Range(match.range(at: 1), in: raw),
+            let lonRange = Range(match.range(at: 2), in: raw),
+            let latitude = Double(raw[latRange]),
+            let longitude = Double(raw[lonRange]),
+            (-90.0...90.0).contains(latitude),
+            (-180.0...180.0).contains(longitude)
+        else {
+            return nil
+        }
+
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    private static func mapPinnedLocationLabel(for coordinate: CLLocationCoordinate2D) -> String {
+        let lat = String(format: "%.5f", coordinate.latitude)
+        let lon = String(format: "%.5f", coordinate.longitude)
+        return "Map Pin \(lat), \(lon)"
+    }
+
+    private func offsetCoordinate(base: CLLocationCoordinate2D, seed: Int) -> CLLocationCoordinate2D {
+        let normalizedSeed = abs(seed % 10_000)
+        let latOffset = Double((normalizedSeed % 39) - 19) / 1300.0
+        let lonOffset = Double(((normalizedSeed / 7) % 39) - 19) / 1300.0
+        return CLLocationCoordinate2D(
+            latitude: base.latitude + latOffset,
+            longitude: base.longitude + lonOffset
+        )
+    }
+
+    private func openPostFlowFromMapTap(at coordinate: CLLocationCoordinate2D) {
+        isCreatingPostFromMap = true
+        mapFocusedPostID = nil
+        mapDraftCoordinate = coordinate
+        mapAreaCenterCoordinate = coordinate
+        mapAreaSourcePostID = nil
+        postLocation = Self.mapPinnedLocationLabel(for: coordinate)
+        isFeedSearchFieldFocused = false
+        currentScreen = .contentTypePicker
+    }
+
+    private func openMapFocusedOnPost(_ post: MockPost) {
+        MetricFeedMLEngine.shared.recordInteraction(post: post, signal: .mapFocus, allPosts: posts)
+        prepareFreshMapExplorerState()
+        if let marker = mapPostMarkers.first(where: { $0.postID == post.id }) {
+            mapAreaCenterCoordinate = marker.coordinate
+        } else {
+            mapAreaCenterCoordinate = Self.resolvedMapAreaCenterCoordinate(
+                mapAreaCenterCoordinate,
+                userCoordinate: locationService.lastKnownLocation?.coordinate,
+                markers: mapPostMarkers
+            )
+        }
+        mapAreaSourcePostID = nil
+        showFollowingOnly = false
+        showFollowingVideoOnly = false
+        isMainSearchFeedActive = false
+        isVideoSearchFeedActive = false
+        isFeedSearchExpanded = false
+        isFeedSearchFieldFocused = false
+        feedContentSearchText = ""
+        mapFocusedPostID = post.id
+        pendingHomeFeedRestorePostID = post.id
+        mapFocusTrigger += 1
+        currentScreen = .home
+    }
+
+    private func openPostFromMapMarker(_ postID: Int) {
+        guard let tappedPost = posts.first(where: { $0.id == postID }) else { return }
+
+        if let marker = mapPostMarkers.first(where: { $0.postID == postID }) {
+            mapAreaCenterCoordinate = marker.coordinate
+        } else {
+            mapAreaCenterCoordinate = Self.resolvedMapAreaCenterCoordinate(
+                mapAreaCenterCoordinate,
+                userCoordinate: locationService.lastKnownLocation?.coordinate,
+                markers: mapPostMarkers
+            )
+        }
+        mapAreaSourcePostID = nil
+        showFollowingOnly = false
+        showFollowingVideoOnly = false
+        isMainSearchFeedActive = false
+        isVideoSearchFeedActive = false
+        isFeedSearchExpanded = false
+        feedContentSearchText = ""
+
+        isFeedSearchFieldFocused = false
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+
+        if tappedPost.type == "Video" {
+            pendingVideoFeedRestorePostID = tappedPost.id
+            currentScreen = .locationFeed
+        } else {
+            pendingHomeFeedRestorePostID = tappedPost.id
+            currentScreen = .home
+        }
+    }
+
+    private func nearestMapPostMarkerToUser() -> MapPostMarker? {
+        guard !mapPostMarkers.isEmpty else { return nil }
+        guard let userCoordinate = locationService.lastKnownLocation?.coordinate else {
+            return mapPostMarkers.max(by: { $0.createdAt < $1.createdAt })
+        }
+
+        return mapPostMarkers.min(by: {
+            NearbyPlaceLoader.haversineMiles(from: userCoordinate, to: $0.coordinate)
+            < NearbyPlaceLoader.haversineMiles(from: userCoordinate, to: $1.coordinate)
+        })
+    }
+
+    static func shouldAutoFocusMapOnOpen(shouldAutoFocus: Bool, hasViewportCenter: Bool, hasFocusedPost: Bool) -> Bool {
+        guard shouldAutoFocus else { return false }
+        guard !hasViewportCenter else { return false }
+        guard !hasFocusedPost else { return false }
+        return true
+    }
+
+    private func focusMapOnNearestPostAfterResumeIfNeeded() {
+        guard currentScreen == .mapExplorer else { return }
+        guard Self.shouldAutoFocusMapOnOpen(
+            shouldAutoFocus: shouldAutoFocusNearestPostOnMapOpen,
+            hasViewportCenter: mapAreaCenterCoordinate != nil,
+            hasFocusedPost: mapFocusedPostID != nil
+        ) else { return }
+        guard let marker = nearestMapPostMarkerToUser() else { return }
+
+        mapFocusedPostID = marker.postID
+        mapFocusMode = .nearbyRecent
+        mapFocusTrigger += 1
+        shouldAutoFocusNearestPostOnMapOpen = false
+    }
+    private func liveExplorerMapView() -> some View {
+        let handleMapLongPress: (CLLocationCoordinate2D) -> Void = { coordinate in
+            openPostFlowFromMapTap(at: coordinate)
+        }
+        let handleMapMarkerTap: (Int) -> Void = { postID in
+            openPostFromMapMarker(postID)
+        }
+        let handleCameraChanged: (CLLocationCoordinate2D, CGFloat) -> Void = { center, zoom in
+            guard currentScreen == .mapExplorer else { return }
+            mapAreaCenterCoordinate = center
+            mapAreaZoomLevel = zoom
+        }
+
+        return PostsMapView(
+            markers: mapPostMarkers,
+            focusedPostID: mapFocusedPostID,
+            focusMode: mapFocusMode,
+            focusTrigger: mapFocusTrigger,
+            userCoordinate: locationService.lastKnownLocation?.coordinate,
+            hideAttributionButton: false,
+            mapTapEnabled: false,
+            mapLongPressEnabled: true,
+            onMapTap: { _ in },
+            onMapLongPress: handleMapLongPress,
+            onMarkerTap: handleMapMarkerTap,
+            onCameraCenterZoomChanged: handleCameraChanged
+        )
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private var mapExplorerView: some View {
+        let realmMap = adminPinnedRealmMap()
+        let mapScreenPinnedPost = prioritizeAdminMapTopPinnedPosts(
+            posts.filter { post in
+                !isPostReported(post) && isMapTopPinned(post, realmMap: realmMap)
+            }
+        ).first
+
+        return ZStack(alignment: .bottom) {
+            Group {
+                liveExplorerMapView()
+            }
+
+            if let pinnedPost = mapScreenPinnedPost {
+                VStack(spacing: 0) {
+                    PostCardView(
+                        post: Binding(
+                            get: {
+                                posts.first(where: { $0.id == pinnedPost.id }) ?? pinnedPost
+                            },
+                            set: { updatedPost in
+                                if let postIndex = posts.firstIndex(where: { $0.id == updatedPost.id }) {
+                                    posts[postIndex] = updatedPost
+                                }
+                            }
+                        ),
+                        isOwnPost: Self.isPostOwnedByUser(pinnedPost, currentUserID: currentUserID, currentUsername: profileUsername),
+                        currentUserProfilePhotoImage: displayProfilePhotoImage,
+                        isReported: isPostReported(pinnedPost),
+                        onSend: {
+                            sharePostToFriends(pinnedPost)
+                        },
+                        onSave: { savedPost in
+                            toggleSavedState(for: savedPost)
+                        },
+                        onDelete: {
+                            deletePost(pinnedPost)
+                        },
+                        onAdminForceDelete: { adminCode in
+                            deletePost(pinnedPost, adminDeleteCode: adminCode)
+                        },
+                        onReport: {
+                            reportPost(pinnedPost)
+                        },
+                        onProfileTap: {
+                            openUserProfile(from: pinnedPost)
+                        },
+                        onMessageTap: {
+                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == pinnedPost.handle.lowercased() })
+                                ?? fallbackProfile(for: pinnedPost.handle, displayName: pinnedPost.author, userID: pinnedPost.authorUserID, profilePhotoURL: pinnedPost.authorProfilePhotoURL)
+                            openDM(with: matchingUser)
+                        },
+                        onMapFocusTap: { tappedPost in
+                            openMapFocusedOnPost(tappedPost)
+                        },
+                        onViewTracked: { updatedPost in
+                            applyTrackedPostViewUpdate(updatedPost)
+                        }
+                    )
+                    .padding(.top, 5)
+                    .padding(.horizontal, 10)
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+
+                floatingHomeActions
+            }
+
+            if showMiniMapOverlay {
+                VStack {
+                    HStack {
+                        Spacer()
+
+                        VStack(spacing: 8) {
+                            Text("Mini Map")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.black)
+
+                            PostsMapView(
+                                markers: mapPostMarkers,
+                                focusedPostID: mapFocusedPostID,
+                                focusMode: mapFocusMode,
+                                focusTrigger: mapFocusTrigger,
+                                userCoordinate: locationService.lastKnownLocation?.coordinate,
+                                hideAttributionButton: true,
+                                mapTapEnabled: false,
+                                mapLongPressEnabled: false,
+                                onMapTap: { _ in },
+                                onMapLongPress: { _ in },
+                                onMarkerTap: { _ in },
+                                onCameraCenterZoomChanged: nil
+                            )
+                            .allowsHitTesting(false)
+                            .frame(width: 168, height: 132)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .padding(10)
+                    }
+                    .padding(.top, 14)
+                    .padding(.trailing, 14)
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            VStack {
+                HStack {
+                    Button {
+                        isFeedSearchExpanded = isMainSearchFeedActive
+                        isFeedSearchFieldFocused = false
+                        if selectedUserProfile != nil {
+                            selectedUserProfile = nil
+                            userProfileReturnScreen = nil
+                            userProfileReturnSettingsEditor = nil
+                        }
+                        currentScreen = .home
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                                .font(.caption.weight(.bold))
+                            Text("Back")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(width: 96, height: 34)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 12)
+                    .padding(.top, 12)
+
+                    Spacer(minLength: 0)
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .onAppear {
+            focusMapOnNearestPostAfterResumeIfNeeded()
+        }
+        .onChange(of: mapPostMarkers.map(\.id)) { _, _ in
+            focusMapOnNearestPostAfterResumeIfNeeded()
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+            focusMapOnNearestPostAfterResumeIfNeeded()
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+            focusMapOnNearestPostAfterResumeIfNeeded()
+        }
+        .sheet(isPresented: $showMapToolsMiniPage) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Map Tools")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.black)
+
+                Text("This mini page is ready for additional map controls.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Button("Refresh Marker Focus") {
+                    mapFocusTrigger += 1
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Show Newest Post") {
+                    mapFocusMode = .newestOnly
+                    mapFocusTrigger += 1
+                }
+                .buttonStyle(.bordered)
+
+                Button("Close") {
+                    showMapToolsMiniPage = false
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+            }
+            .padding(20)
+            .presentationDetents([.height(260)])
+        }
+    }
+
     private var locationPickerView: some View {
         let context = locationContext
-        let currentValue: String = {
-            switch context {
-            case .feed:
-                return fromLocation
-            case .video:
-                return videoLocation
-            case .post:
-                return postLocation
-            }
-        }()
+        let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
+        let recentSearchOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
+        let currentValue = currentLocationValue(for: context)
+        let selectedDisplayLocation = lastUsedLocationValue(for: context)
         let normalizedCurrentValue = Self.normalizedLocationRealm(currentValue)
         let normalizedMetric = Self.normalizedLocationRealm("Metric")
         let isMetricSelected = normalizedCurrentValue == normalizedMetric
-        let closeScreenAfterSelection = Self.closeScreenAfterLocationSelection(context: context, currentScreen: currentScreen)
-        let shouldCloseAfterSingleSelection: (String) -> Bool = { selectedValue in
-            Self.normalizedLocationRealm(selectedValue) != normalizedCurrentValue
+        let primaryLocationOption = "Metric"
+        let recommendedOptions = Self.deduplicatedLocationNames(
+            nearbyOptions.map(\.name) + recommendedLocations + locationSuggestions,
+            limit: 8
+        ).filter { option in
+            let normalized = Self.normalizedLocationRealm(option)
+            return normalized != normalizedMetric
         }
+        let nearbyShowcase = Array(recommendedOptions.prefix(6))
+        let recentShowcase = recentSearchOptions.filter { option in
+            !nearbyShowcase.contains(where: { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(option) })
+        }
+        let closeScreenAfterSelection = Self.closeScreenAfterLocationSelection(context: context, currentScreen: currentScreen)
 
         return ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            Button {
-                                handleLocationSelection(
-                                    "Metric",
-                                    context: context,
-                                    closeScreen: shouldCloseAfterSingleSelection("Metric") ? closeScreenAfterSelection : nil,
-                                    saveToRecent: false,
-                                    saveToFavorites: false
-                                )
-                            } label: {
-                                HStack(spacing: 7) {
-                                    TrendLineView()
-                                        .frame(width: 18, height: 10)
-                                    Text("Metric")
-                                        .font(.subheadline.weight(.medium))
-                                }
-                                .foregroundStyle(.primary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(selectedLocationBackground(isMetricSelected))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 18)
-                    }
+            Color.white
+                .ignoresSafeArea()
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            if isLoadingNearbyPlaces {
-                                ProgressView()
-                                    .padding(.horizontal, 18)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    // Search Header (Top Priority)
+                    VStack(alignment: .leading, spacing: 10) {
+                        locationSectionHeader("DISCOVER")
+
+                        LocationField(
+                            title: "",
+                            placeholder: "Search places or cities",
+                            text: $locationSearchText,
+                            suggestions: visibleLocationSuggestions,
+                            onSuggestionSelected: { chosen in
+                                handleFirestorePOISearchSelection(chosen, context: context, closeScreen: closeScreenAfterSelection)
+                                locationSearchText = ""
+                            }
+                        )
+                        .onSubmit {
+                            // Free text should not auto-select; selection must come from Firestore POI suggestions.
+                        }
+                        .onChange(of: locationSearchText) { _, newValue in
+                            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                locationSearchTask?.cancel()
+                                locationSearchTask = nil
+                                firestorePOISearchResults = []
                             } else {
-                                ForEach(nearbyPlaces) { place in
-                                    let isSelected = normalizedCurrentValue == Self.normalizedLocationRealm(place.name)
+                                scheduleLocationSearchDebounce()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+
+                    if !locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        VStack(alignment: .leading, spacing: 9) {
+                            locationSectionHeader("SEARCH RESULTS")
+
+                            if visibleLocationSuggestions.isEmpty {
+                                Text("No locations found")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                                    )
+                            } else {
+                                ForEach(visibleLocationSuggestions.prefix(12), id: \.id) { suggestion in
                                     Button {
-                                        handleLocationSelection(
-                                            place.name,
-                                            context: context,
-                                            closeScreen: shouldCloseAfterSingleSelection(place.name) ? closeScreenAfterSelection : nil,
-                                            saveToRecent: false,
-                                            saveToFavorites: false
-                                        )
+                                        handleFirestorePOISearchSelection(suggestion.value, context: context, closeScreen: closeScreenAfterSelection)
+                                        locationSearchText = ""
                                     } label: {
-                                        Text(place.name)
-                                            .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(.primary)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 12)
-                                            .background(selectedLocationBackground(isSelected))
-                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                        locationOptionLabel(
+                                            suggestion.title,
+                                            subtitle: suggestion.subtitle,
+                                            distanceText: suggestion.distanceText,
+                                            isSelected: isLocationSelected(suggestion.value, for: context)
+                                        )
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -3648,58 +7645,201 @@ struct ContentView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    LocationField(
-                        title: "",
-                        placeholder: "Search places or cities",
-                        text: $locationSearchText,
-                        suggestions: visibleLocationSuggestions,
-                        onSuggestionSelected: { chosen in
-                            let closeScreen = shouldCloseAfterSingleSelection(chosen) ? closeScreenAfterSelection : nil
-                            handleFirestorePOISearchSelection(chosen, context: context, closeScreen: closeScreen)
-                            locationSearchText = ""
-                        }
-                    )
-                    .padding(.horizontal, 18)
-                    .onSubmit {
-                        // Free text should not auto-select; selection must come from Firestore POI suggestions.
-                    }
-                    .task(id: locationSearchText) {
-                        await refreshFirestorePOISearchResults()
-                    }
+                    // Active & Base Section (Side-by-Side Hero Row)
+                    HStack(alignment: .top, spacing: 12) {
+                        // Left Column: ACTIVE Section & NEARBY Section (Directly under Active)
+                        VStack(alignment: .leading, spacing: 18) {
+                            // ACTIVE Section
+                            VStack(alignment: .leading, spacing: 8) {
+                                locationSectionHeader("ACTIVE")
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach((recentLocations.isEmpty ? savedLocations : recentLocations).prefix(8), id: \.self) { recent in
-                            Button {
-                                handleLocationSelection(
-                                    recent,
-                                    context: context,
-                                    closeScreen: shouldCloseAfterSingleSelection(recent) ? closeScreenAfterSelection : nil,
-                                    saveToRecent: true,
-                                    saveToFavorites: false
-                                )
-                            } label: {
-                                Text(recent)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                    .padding(.horizontal, 14)
+                                Button {
+                                    if context == .video {
+                                        showFollowingVideoOnly = false
+                                    } else {
+                                        showFollowingOnly = false
+                                    }
+                                    handleLocationSelection(
+                                        currentValue,
+                                        context: context,
+                                        closeScreen: closeScreenAfterSelection,
+                                        saveToRecent: false,
+                                        saveToFavorites: false
+                                    )
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Text(selectedDisplayLocation)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(.black)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.85)
+
+                                        Spacer(minLength: 0)
+
+                                        flatChevronUpIcon(size: 22, thickness: 2.6, color: Color.black)
+                                            .frame(width: 22, height: 16)
+                                    }
+                                    .padding(.horizontal, 12)
                                     .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .center)
-                                    .background(selectedLocationBackground(normalizedCurrentValue == Self.normalizedLocationRealm(recent)))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                                    .frame(minHeight: 58)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color(red: 0.945, green: 0.955, blue: 0.968), Color(red: 0.915, green: 0.93, blue: 0.95)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(Color.black.opacity(0.7), lineWidth: 1.4)
+                                    )
+                                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity)
+
+                            // NEARBY Section (Directly under ACTIVE)
+                            VStack(alignment: .leading, spacing: 9) {
+                                HStack {
+                                    locationSectionHeader("NEARBY")
+                                    Spacer()
+                                    if isLoadingNearbyPlaces && nearbyShowcase.isEmpty {
+                                        ProgressView()
+                                            .scaleEffect(0.85)
+                                    }
+                                }
+
+                                if !nearbyShowcase.isEmpty {
+                                    ForEach(nearbyShowcase, id: \.self) { location in
+                                        Button {
+                                            if context == .video {
+                                                showFollowingVideoOnly = false
+                                            } else {
+                                                showFollowingOnly = false
+                                            }
+                                            handleLocationSelection(
+                                                location,
+                                                context: context,
+                                                closeScreen: closeScreenAfterSelection,
+                                                saveToRecent: true,
+                                                saveToFavorites: false
+                                            )
+                                        } label: {
+                                            locationOptionLabel(
+                                                location,
+                                                isSelected: isLocationSelected(location, for: context)
+                                            )
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
+                        .frame(maxWidth: .infinity)
+
+                        // Right Column: BASE Section & HISTORY Section
+                        VStack(alignment: .leading, spacing: 18) {
+                            // BASE Section
+                            VStack(alignment: .leading, spacing: 8) {
+                                locationSectionHeader("BASE")
+
+                                VStack(spacing: 8) {
+                                    Button {
+                                        if context == .video {
+                                            showFollowingVideoOnly = false
+                                        } else {
+                                            showFollowingOnly = false
+                                        }
+                                        handleLocationSelection(
+                                            primaryLocationOption,
+                                            context: context,
+                                            closeScreen: closeScreenAfterSelection,
+                                            saveToRecent: false,
+                                            saveToFavorites: false
+                                        )
+                                    } label: {
+                                        locationOptionLabel(primaryLocationOption, isSelected: isMetricSelected, showsMetricIcon: true)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    let isFollowingLocationSelected = Self.normalizedLocationRealm(currentValue) == Self.normalizedLocationRealm("Following")
+                                    if !followedUserIDs.isEmpty || isFollowingLocationSelected {
+                                        Button {
+                                            if context == .video {
+                                                showFollowingVideoOnly = false
+                                            } else {
+                                                showFollowingOnly = false
+                                            }
+                                            handleLocationSelection(
+                                                "Following",
+                                                context: context,
+                                                closeScreen: closeScreenAfterSelection,
+                                                saveToRecent: false,
+                                                saveToFavorites: false
+                                            )
+                                        } label: {
+                                            locationOptionLabel("Following", isSelected: isFollowingLocationSelected)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+
+                            // HISTORY Section (Directly under BASE)
+                            if !recentShowcase.isEmpty {
+                                VStack(alignment: .leading, spacing: 9) {
+                                    locationSectionHeader("HISTORY")
+
+                                    ForEach(recentShowcase, id: \.self) { recent in
+                                        Button {
+                                            if context == .video {
+                                                showFollowingVideoOnly = false
+                                            } else {
+                                                showFollowingOnly = false
+                                            }
+                                            handleLocationSelection(
+                                                recent,
+                                                context: context,
+                                                closeScreen: closeScreenAfterSelection,
+                                                saveToRecent: true,
+                                                saveToFavorites: false
+                                            )
+                                        } label: {
+                                            locationOptionLabel(
+                                                recent,
+                                                isSelected: isLocationSelected(recent, for: context)
+                                            )
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 132)
+
+                    Color.clear
+                        .frame(height: 132)
                 }
-                .padding(.top, 12)
+                .padding(.top, 14)
             }
 
             expandedLocationHomeActions
                 .padding(.horizontal, 18)
-                .padding(.bottom, 12)
+                .padding(.bottom, 0)
         }
         .onAppear {
             requestNearbyLocationsIfNeeded(context: context)
@@ -3707,84 +7847,89 @@ struct ContentView: View {
     }
 
     private var postLocationPickerView: some View {
-        let normalizedPostLocation = Self.normalizedLocationRealm(postLocation)
+        let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
+        let recentOrSavedOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
+        let selectedDisplayLocation = lastUsedLocationValue(for: .post)
+        let currentPostValue = currentLocationValue(for: .post)
+        let normalizedPostLocation = Self.normalizedLocationRealm(currentPostValue)
         let normalizedMetric = Self.normalizedLocationRealm("Metric")
         let isMetricSelected = normalizedPostLocation == normalizedMetric
         let metricOnCooldown = isLocationOnCooldownForPosting("Metric")
+        let recommendedOptions = Self.deduplicatedLocationNames(
+            nearbyOptions.map(\.name) + recommendedLocations + locationSuggestions,
+            limit: 8
+        ).filter { option in
+            Self.normalizedLocationRealm(option) != normalizedMetric
+        }
+        let nearbyShowcase = Array(recommendedOptions.prefix(6))
+        let recentShowcase = recentOrSavedOptions.filter { option in
+            !nearbyShowcase.contains(where: { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(option) })
+        }
 
         return ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if !postLocationCooldownMessage.isEmpty {
-                        HStack(alignment: .top, spacing: 10) {
-                            Text(postLocationCooldownMessage)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.black)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(red: 0.98, green: 0.87, blue: 0.45), Color(red: 0.95, green: 0.76, blue: 0.24)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.black.opacity(0.2), lineWidth: 1)
-                        )
-                        .padding(.horizontal, 18)
-                    }
+            Color.white
+                .ignoresSafeArea()
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            Button {
-                                handleLocationSelection("Metric", context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
-                            } label: {
-                                HStack(spacing: 7) {
-                                    TrendLineView()
-                                        .frame(width: 18, height: 10)
-                                    Text("Metric")
-                                        .font(.subheadline.weight(.medium))
-                                }
-                                .foregroundStyle(.primary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(selectedLocationBackground(isMetricSelected))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                                .opacity(metricOnCooldown ? 0.58 : 1)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    // Search Header (Top Priority)
+                    VStack(alignment: .leading, spacing: 10) {
+                        locationSectionHeader("DISCOVER")
+
+                        LocationField(
+                            title: "",
+                            placeholder: "Search places or cities",
+                            text: $locationSearchText,
+                            suggestions: visibleLocationSuggestions,
+                            onSuggestionSelected: { chosen in
+                                handleFirestorePOISearchSelection(chosen, context: .post, closeScreen: nil)
+                                locationSearchText = ""
                             }
-                            .buttonStyle(.plain)
+                        )
+                        .onSubmit {
+                            // Free text should not auto-select; selection must come from Firestore POI suggestions.
                         }
-                        .padding(.horizontal, 18)
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            if isLoadingNearbyPlaces {
-                                ProgressView()
-                                    .padding(.horizontal, 18)
+                        .onChange(of: locationSearchText) { _, newValue in
+                            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                locationSearchTask?.cancel()
+                                locationSearchTask = nil
+                                firestorePOISearchResults = []
                             } else {
-                                ForEach(nearbyPlaces) { place in
-                                    let isPlaceSelected = normalizedPostLocation == Self.normalizedLocationRealm(place.name)
-                                    let isPlaceOnCooldown = isLocationOnCooldownForPosting(place.name)
+                                scheduleLocationSearchDebounce()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+
+                    if !locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        VStack(alignment: .leading, spacing: 9) {
+                            locationSectionHeader("SEARCH RESULTS")
+
+                            if visibleLocationSuggestions.isEmpty {
+                                Text("No locations found")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                                    )
+                            } else {
+                                ForEach(visibleLocationSuggestions.prefix(12), id: \.id) { suggestion in
+                                    let isOnCooldown = isLocationOnCooldownForPosting(suggestion.value)
                                     Button {
-                                        handleLocationSelection(place.name, context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
+                                        handleFirestorePOISearchSelection(suggestion.value, context: .post, closeScreen: nil)
+                                        locationSearchText = ""
                                     } label: {
-                                        Text(place.name)
-                                            .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(.primary)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 12)
-                                            .frame(minWidth: 92)
-                                            .background(selectedLocationBackground(isPlaceSelected))
-                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                                            .opacity(isPlaceOnCooldown ? 0.58 : 1)
+                                        locationOptionLabel(
+                                            suggestion.title,
+                                            isSelected: isLocationSelected(suggestion.value, for: .post)
+                                        )
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .opacity(isOnCooldown ? 0.58 : 1)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -3793,80 +7938,166 @@ struct ContentView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    LocationField(
-                        title: "",
-                        placeholder: "Search places or cities",
-                        text: $locationSearchText,
-                        suggestions: visibleLocationSuggestions,
-                        onSuggestionSelected: { chosen in
-                            handleFirestorePOISearchSelection(chosen, context: .post, closeScreen: nil)
-                            locationSearchText = ""
-                        }
-                    )
-                    .padding(.horizontal, 18)
-                    .onSubmit {
-                        // Free text should not auto-select; selection must come from Firestore POI suggestions.
-                    }
-                    .task(id: locationSearchText) {
-                        await refreshFirestorePOISearchResults()
-                    }
+                    // Active & Base Section (Side-by-Side Hero Row)
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            locationSectionHeader("ACTIVE")
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        ForEach((recentLocations.isEmpty ? savedLocations : recentLocations).prefix(8), id: \.self) { recent in
-                            let isRecentOnCooldown = isLocationOnCooldownForPosting(recent)
                             Button {
-                                handleLocationSelection(recent, context: .post, closeScreen: nil, saveToRecent: true, saveToFavorites: false)
+                                handleLocationSelection(currentPostValue, context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
                             } label: {
-                                Text(recent)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .center)
-                                    .background(selectedLocationBackground(normalizedPostLocation == Self.normalizedLocationRealm(recent)))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                                    .opacity(isRecentOnCooldown ? 0.58 : 1)
+                                HStack(spacing: 8) {
+                                    Text(selectedDisplayLocation)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.black)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
+
+                                    Spacer(minLength: 0)
+
+                                    flatChevronUpIcon(size: 22, thickness: 2.6, color: Color.black)
+                                        .frame(width: 22, height: 16)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .frame(minHeight: 58)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color(red: 0.945, green: 0.955, blue: 0.968), Color(red: 0.915, green: 0.93, blue: 0.95)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.black.opacity(0.7), lineWidth: 1.4)
+                                )
+                                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                             }
                             .buttonStyle(.plain)
                         }
+                        .frame(maxWidth: .infinity)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            locationSectionHeader("BASE")
+
+                            Button {
+                                handleLocationSelection("Metric", context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
+                            } label: {
+                                locationOptionLabel("Metric", isSelected: isMetricSelected, showsMetricIcon: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .opacity(metricOnCooldown ? 0.58 : 1)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 120)
-                }
-                .padding(.top, 12)
-            }
 
-            VStack(spacing: 12) {
-                Button {
-                    submitDraftPost()
-                } label: {
-                    Text(isSubmittingPost ? "Posting..." : "Post")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(red: 0.99, green: 0.94, blue: 0.74), Color(red: 0.96, green: 0.78, blue: 0.44)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.black, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(isSubmittingPost)
-                .padding(.horizontal, 18)
+                    if !postLocationCooldownMessage.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            locationSectionHeader("LIMIT")
 
-                floatingHomeActions
+                            Text(postLocationCooldownMessage)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.black)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                                )
+                        }
+                        .padding(.horizontal, 18)
+                    }
+
+                    // Side-by-Side Dynamic Grid for NEARBY and HISTORY
+                    HStack(alignment: .top, spacing: 12) {
+                        // NEARBY Column
+                        VStack(alignment: .leading, spacing: 9) {
+                            HStack {
+                                locationSectionHeader("NEARBY")
+                                Spacer()
+                                if isLoadingNearbyPlaces && nearbyShowcase.isEmpty {
+                                    ProgressView()
+                                        .scaleEffect(0.85)
+                                }
+                            }
+
+                            if !nearbyShowcase.isEmpty {
+                                ForEach(nearbyShowcase, id: \.self) { location in
+                                    let isLocationOnCooldown = isLocationOnCooldownForPosting(location)
+                                    Button {
+                                        handleLocationSelection(location, context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
+                                    } label: {
+                                        locationOptionLabel(location, isSelected: isLocationSelected(location, for: .post))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .opacity(isLocationOnCooldown ? 0.58 : 1)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                        // HISTORY Column
+                        if !recentShowcase.isEmpty {
+                            VStack(alignment: .leading, spacing: 9) {
+                                locationSectionHeader("HISTORY")
+
+                                ForEach(recentShowcase, id: \.self) { recent in
+                                    let isRecentOnCooldown = isLocationOnCooldownForPosting(recent)
+                                    Button {
+                                        handleLocationSelection(recent, context: .post, closeScreen: nil, saveToRecent: true, saveToFavorites: false)
+                                    } label: {
+                                        locationOptionLabel(
+                                            recent,
+                                            isSelected: isLocationSelected(recent, for: .post)
+                                        )
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .opacity(isRecentOnCooldown ? 0.58 : 1)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        }
+                    }
                     .padding(.horizontal, 18)
+
+                    Color.clear
+                        .frame(height: 152)
+                }
+                .padding(.top, 14)
             }
-            .padding(.bottom, 12)
+
+            Button {
+                submitDraftPost()
+            } label: {
+                Text(isSubmittingPost ? "Posting..." : "Post")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.black)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isSubmittingPost)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 10)
+            .ignoresSafeArea(edges: .bottom)
         }
         .onAppear {
             requestNearbyLocationsIfNeeded(context: .post)
@@ -3877,20 +8108,47 @@ struct ContentView: View {
         let activeLocation = videoLocation.isEmpty ? "Tokyo, Japan" : videoLocation
         let isSearchFeedActive = isVideoSearchFeedActive
         let isFriendsFeed = isFriendsRealm(activeLocation)
-        let scopedVideoPosts = (isFriendsFeed
-            ? posts
-            : Self.postsForLocationRealm(posts, activeLocation: activeLocation))
+        let isFollowingFeed = isFollowingRealm(activeLocation)
+        let isMapAreaFeed = Self.isMapAreaRealm(activeLocation)
+        let isMetricVideoFeed = !isFriendsFeed
+            && !isFollowingFeed
+            && !isMapAreaFeed
+            && Self.normalizedLocationRealm(activeLocation) == Self.normalizedLocationRealm("Metric")
+        let boostedScopedSource = postsWithSmartBoostDistribution(includeVideos: true)
+        let scopedVideoPosts = (isFriendsFeed || isFollowingFeed
+            ? boostedScopedSource
+            : (isMapAreaFeed
+                ? postsForActiveMapArea(includeVideos: true)
+                : Self.postsForLocationRealm(boostedScopedSource, activeLocation: activeLocation)))
+        let videoMetricPinnedKeys = Set(adminVideoMetricPinnedTimestampMap().keys)
+        let metricPinnedVideoPosts = isMetricVideoFeed
+            ? posts.filter { post in
+                post.type == "Video"
+                    && videoMetricPinnedKeys.contains(postAdminPinStorageKey(post))
+                    && !isPostReported(post)
+            }
+            : []
         let globalPinnedKeys = Set(
             adminPinnedRealmMap()
                 .filter { $0.value == Self.adminPinAllNonMetricMarker }
                 .map { $0.key }
         )
-        let includeGlobalPinnedForLocation = !isFriendsFeed && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
+        let includeGlobalPinnedForLocation = !isFriendsFeed
+            && !isFollowingFeed
+            && !isMapAreaFeed
+            && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
         let globalPinnedVideoPostsForLocation = includeGlobalPinnedForLocation
-            ? posts.filter { globalPinnedKeys.contains(postAdminPinStorageKey($0)) }
+            ? posts.filter { isGlobalPinnedActiveForLocation($0, location: activeLocation) }
+            : []
+        let realmMap = adminPinnedRealmMap()
+        let mapPinnedKeys = mapPinnedPostKeys(realmMap: realmMap)
+        let activeRealmPinnedVideoPosts = (!isFriendsFeed && !isFollowingFeed && !isMapAreaFeed)
+            ? posts.filter { post in
+                post.type == "Video" && isAdminPinned(post, for: activeLocation, realmMap: realmMap)
+            }
             : []
         var seenVideoPostIDs: Set<Int> = []
-        let locationVideoPosts = (scopedVideoPosts + globalPinnedVideoPostsForLocation).filter { post in
+        let locationVideoPosts = (scopedVideoPosts + globalPinnedVideoPostsForLocation + metricPinnedVideoPosts + activeRealmPinnedVideoPosts).filter { post in
             if seenVideoPostIDs.contains(post.id) {
                 return false
             }
@@ -3898,55 +8156,58 @@ struct ContentView: View {
             return true
         }
             .filter { $0.type == "Video" }
+            .filter { isMapAreaFeed || !mapPinnedKeys.contains(postAdminPinStorageKey($0)) }
             .filter { postMatchesFeedSearch($0) }
         let visibleVideoPosts = (isFriendsFeed
             ? locationVideoPosts.filter {
                 isUserMutualFollowed(authorUserID: $0.authorUserID, username: $0.handle)
                     || Self.isPostOwnedByUser($0, currentUserID: currentUserID, currentUsername: profileUsername)
             }
-            : (showFollowingVideoOnly ? locationVideoPosts.filter {
-                isUserFollowed(authorUserID: $0.authorUserID, username: $0.handle)
-                    || Self.isPostOwnedByUser($0, currentUserID: currentUserID, currentUsername: profileUsername)
-            } : locationVideoPosts))
+            : (isFollowingFeed
+                ? (locationVideoPosts.filter {
+                    isUserFollowed(authorUserID: $0.authorUserID, username: $0.handle)
+                } + [MockPost.followingPinnedPost])
+                : (showFollowingVideoOnly ? locationVideoPosts.filter {
+                    isUserMutualFollowed(authorUserID: $0.authorUserID, username: $0.handle)
+                        || Self.isPostOwnedByUser($0, currentUserID: currentUserID, currentUsername: profileUsername)
+                } : locationVideoPosts)))
         let videoCandidates = isSearchFeedActive ? [] : visibleVideoPosts
-        let rankedVideoPosts = prioritizeAdminPinnedPosts(
-            orderedPosts(videoCandidates, using: videoFeedRankedPostIDs),
-            activeLocation: activeLocation
-        )
-        let fallbackRankedVideoPosts = rankedVideoPosts.isEmpty
-            ? prioritizeAdminPinnedPosts(
-                rankedPostsForFeed(videoCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed),
-                activeLocation: activeLocation
-            )
-            : rankedVideoPosts
-        let loadedVideoPosts = Array(fallbackRankedVideoPosts.prefix(lazyVideoLoadedCount))
+        let isNonMetricVideoFeed = !isFriendsFeed
+            && !isMapAreaFeed
+            && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
+        let videoCandidatesByRealmPin = prioritizeAdminPinnedPosts(videoCandidates, activeLocation: activeLocation)
+        let sortedVideoPosts = isMetricVideoFeed
+            ? prioritizeAdminVideoMetricPinnedPosts(videoCandidatesByRealmPin)
+            : (isNonMetricVideoFeed ? prioritizeAdminVideoNonMetricPinnedPosts(videoCandidatesByRealmPin) : videoCandidatesByRealmPin)
+        let restoreVideoTargetIndex = pendingVideoFeedRestorePostID.flatMap { targetID in
+            sortedVideoPosts.firstIndex(where: { $0.id == targetID })
+        }
+        let minimumVideoLoadedCountForRestore = restoreVideoTargetIndex.map { min(sortedVideoPosts.count, $0 + 3) } ?? lazyVideoLoadedCount
+        let effectiveVideoLoadedCount = max(lazyVideoLoadedCount, minimumVideoLoadedCountForRestore)
+        let loadedVideoPosts = Array(sortedVideoPosts.prefix(effectiveVideoLoadedCount))
 
         return GeometryReader { container in
             let feedBodyMinHeight = max(320, container.size.height - 300)
+            let topCapHeight = max(220, container.safeAreaInsets.top + 140)
+            let videoFeedTopInset = max(0, container.safeAreaInsets.top - 42)
 
             ZStack(alignment: .bottom) {
-                Color(red: 0.93, green: 0.93, blue: 0.93)
+                Color.white
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            feedModeToggle
-                                .padding(.horizontal, 18)
-                        }
-                        .padding(.top, 8)
-                        .padding(.bottom, 14)
-                        .background(Color(red: 0.93, green: 0.93, blue: 0.93))
-                        .overlay(alignment: .bottom) {
-                            Rectangle()
-                                .fill(Color.black.opacity(0.09))
-                                .frame(height: 0.6)
-                                .padding(.horizontal, 8)
-                        }
+                VStack(spacing: 0) {
+                    Color.white
+                        .frame(height: topCapHeight)
+                    Spacer(minLength: 0)
+                }
+                .ignoresSafeArea(edges: .top)
 
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            VStack(spacing: 16) {
-                                ForEach(Array(loadedVideoPosts.enumerated()), id: \.element.id) { index, post in
+                            VStack(alignment: .leading, spacing: 0) {
+                                VStack(spacing: 4) {
+                                    ForEach(Array(loadedVideoPosts.enumerated()), id: \.element.id) { index, post in
                                     let livePostBinding = Binding<MockPost>(
                                         get: {
                                             posts.first(where: { $0.id == post.id }) ?? post
@@ -3964,7 +8225,7 @@ struct ContentView: View {
                                         currentUserProfilePhotoImage: displayProfilePhotoImage,
                                         showsAuthorLine: true,
                                         videoPlaybackEnabled: activeVideoID == post.id,
-                                        isReported: reportedPostIds.contains(post.id),
+                                        isReported: isPostReported(post),
                                         onSend: {
                                             sharePostToFriends(post)
                                         },
@@ -3975,6 +8236,10 @@ struct ContentView: View {
                                         onDelete: {
                                             let currentPost = posts.first(where: { $0.id == post.id }) ?? post
                                             deletePost(currentPost)
+                                        },
+                                        onAdminForceDelete: { adminCode in
+                                            let currentPost = posts.first(where: { $0.id == post.id }) ?? post
+                                            deletePost(currentPost, adminDeleteCode: adminCode)
                                         },
                                         onReport: {
                                             reportPost(post)
@@ -3987,42 +8252,50 @@ struct ContentView: View {
                                                 ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
                                             openDM(with: matchingUser)
                                         },
+                                        onMapFocusTap: { tappedPost in
+                                            openMapFocusedOnPost(tappedPost)
+                                        },
                                         onViewTracked: { updatedPost in
                                             applyTrackedPostViewUpdate(updatedPost)
                                         }
                                     )
                                     .frame(maxWidth: .infinity)
                                     .padding(.horizontal, 0)
+                                    .padding(.top, index == 0 && isMapAreaFeed && isMapTopPinned(post, realmMap: realmMap) ? 5 : 0)
+                                    .id(videoFeedPostScrollID(post.id))
                                     .onAppear {
                                         activeVideoID = post.id
-                                        if index >= max(0, loadedVideoPosts.count - 2) && lazyVideoLoadedCount < fallbackRankedVideoPosts.count {
-                                            lazyVideoLoadedCount = min(lazyVideoLoadedCount + lazyVideoWindowSize, fallbackRankedVideoPosts.count)
+                                        if index >= max(0, loadedVideoPosts.count - 2) && lazyVideoLoadedCount < sortedVideoPosts.count {
+                                            lazyVideoLoadedCount = min(lazyVideoLoadedCount + lazyVideoWindowSize, sortedVideoPosts.count)
                                         }
                                     }
                                 }
+                                }
+                                .padding(.top, videoFeedTopInset)
+                                .padding(.bottom, 28)
                             }
-                            .padding(.top, 14)
-                            .padding(.bottom, 28)
-
-                            Spacer(minLength: 0)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .frame(minHeight: feedBodyMinHeight, alignment: .top)
+                            .background(Color.white)
                         }
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .frame(minHeight: feedBodyMinHeight, alignment: .top)
-                        .background(Color.white)
-
-                        Rectangle()
-                            .fill(Color(red: 0.93, green: 0.93, blue: 0.93))
-                            .frame(height: Self.bottomSilverEndCapHeight)
+                        .padding(.bottom, 110)
                     }
-                    .padding(.bottom, 110)
+                    .onAppear {
+                        applyVideoFeedRestoreIfNeeded(scrollProxy)
+                    }
+                    .onChange(of: pendingVideoFeedRestorePostID) { _, _ in
+                        applyVideoFeedRestoreIfNeeded(scrollProxy)
+                    }
                 }
 
                 floatingHomeActions
-                    .padding(.bottom, 12)
-                    .padding(.horizontal, 18)
+                    .padding(.bottom, 0)
             }
         }
         .onAppear {
+            if lazyVideoLoadedCount < effectiveVideoLoadedCount {
+                lazyVideoLoadedCount = effectiveVideoLoadedCount
+            }
             rebuildVideoFeedRanking(
                 candidates: visibleVideoPosts,
                 activeLocation: activeLocation,
@@ -4032,6 +8305,11 @@ struct ContentView: View {
             )
             if activeVideoID == nil {
                 activeVideoID = loadedVideoPosts.first?.id
+            }
+        }
+        .onChange(of: pendingVideoFeedRestorePostID) { _, _ in
+            if lazyVideoLoadedCount < effectiveVideoLoadedCount {
+                lazyVideoLoadedCount = effectiveVideoLoadedCount
             }
         }
         .onChange(of: videoLocation) { _, _ in
@@ -4084,9 +8362,22 @@ struct ContentView: View {
         }
     }
 
+    private func localQueryMatchesForSearch(_ query: String, limit: Int = 80) -> [FirebasePOIRecord] {
+        let userCoord = locationService.lastKnownLocation?.coordinate
+        return NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: userCoord, limit: limit)
+    }
+
     private var allLocationSuggestions: [String] {
         let center = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
         let trimmedQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmedQuery.isEmpty && trimmedQuery.count < 3 {
+            return []
+        }
+
+        let localQueryMatches = firestorePOISearchResults.isEmpty
+            ? localQueryMatchesForSearch(trimmedQuery, limit: 200)
+            : []
         let firestoreNames = firestorePOISearchResults.flatMap { poi -> [String] in
             var values: [String] = [poi.name]
 
@@ -4108,7 +8399,8 @@ struct ContentView: View {
             return values
         }
 
-        let fallbackSuggestions = savedLocations + recentLocations + recommendedLocations + randomLocations + locationSuggestions + firestoreNames
+        let queryNames = localQueryMatches.map(\ .name)
+        let fallbackSuggestions = savedLocations + recentLocations + recommendedLocations + randomLocations + locationSuggestions + firestoreNames + queryNames
         let mergedNearbyPlaces = mergedSearchNearbyPlaces(userCoordinate: center)
         let rankedLocalSuggestions = LocationSuggestionRanker.rankedSuggestions(
             query: locationSearchText,
@@ -4117,30 +8409,22 @@ struct ContentView: View {
             userCoordinate: center
         )
 
-        if !trimmedQuery.isEmpty {
-            // For active search, prefer Firestore matches but keep local ranked fallback visible.
-            var ordered: [String] = []
-            var seenNormalized = Set<String>()
-            for value in firestoreNames {
-                let key = Self.normalizedLocationRealm(value)
-                if !key.isEmpty && !seenNormalized.contains(key) {
-                    seenNormalized.insert(key)
-                    ordered.append(value)
-                }
-            }
-
-            for value in rankedLocalSuggestions {
-                let key = Self.normalizedLocationRealm(value)
-                if !key.isEmpty && !seenNormalized.contains(key) {
-                    seenNormalized.insert(key)
-                    ordered.append(value)
-                }
-            }
-
-            return ordered
+        if trimmedQuery.isEmpty {
+            return rankedLocalSuggestions
         }
 
-        return rankedLocalSuggestions
+        let combinedNames = rankedLocalSuggestions + queryNames + firestoreNames
+        var ordered: [String] = []
+        var seenNormalized = Set<String>()
+
+        for name in combinedNames {
+            let key = Self.normalizedLocationRealm(name)
+            guard !key.isEmpty, !seenNormalized.contains(key) else { continue }
+            seenNormalized.insert(key)
+            ordered.append(name)
+        }
+
+        return ordered
     }
 
     private func locationSuggestionSubtitle(for value: String) -> String {
@@ -4152,63 +8436,71 @@ struct ContentView: View {
             return ""
         }
 
-        let city = (matchingPOI.city ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let country = (matchingPOI.country ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return locationSubtitle(for: matchingPOI)
+    }
 
-        if !city.isEmpty && !country.isEmpty {
-            return "\(city), \(country)"
-        }
+    private func locationSubtitle(for poi: FirebasePOIRecord) -> String {
+        let city = (poi.city ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let subregion = (poi.subregion ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let neighborhood = (poi.neighborhood ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let country = (poi.country ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var parts: [String] = []
+
         if !city.isEmpty {
-            return city
+            parts.append(city)
+        } else if !subregion.isEmpty {
+            parts.append(subregion)
+        } else if !neighborhood.isEmpty {
+            parts.append(neighborhood)
         }
-        if !country.isEmpty {
-            return country
+
+        if !country.isEmpty && !parts.contains(where: { $0.lowercased() == country.lowercased() }) {
+            parts.append(country)
         }
-        return ""
+
+        return parts.joined(separator: ", ")
     }
 
     private var visibleLocationSuggestions: [LocationSearchSuggestion] {
         let query = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return [] }
+        guard query.count >= 2 else { return [] }
 
-        if !firestorePOISearchResults.isEmpty {
-            // Keep search results tied to Firestore global matches when the user is actively searching.
-            var seen = Set<String>()
-            let suggestions = firestorePOISearchResults.compactMap { poi -> LocationSearchSuggestion? in
-                let normalized = Self.normalizedLocationRealm(poi.name)
-                guard !normalized.isEmpty, !seen.contains(normalized) else { return nil }
-                seen.insert(normalized)
+        let combinedMatches = firestorePOISearchResults
+        guard !combinedMatches.isEmpty else { return [] }
 
-                let city = (poi.city ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                let country = (poi.country ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                let subtitle: String
-                if !city.isEmpty && !country.isEmpty {
-                    subtitle = "\(city), \(country)"
-                } else if !city.isEmpty {
-                    subtitle = city
-                } else if !country.isEmpty {
-                    subtitle = country
-                } else {
-                    subtitle = ""
-                }
+        let center = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+        var seen = Set<String>()
+        let suggestions = combinedMatches.compactMap { poi -> LocationSearchSuggestion? in
+            let normalized = Self.normalizedLocationRealm(poi.name)
+            guard !normalized.isEmpty, !seen.contains(normalized) else { return nil }
+            seen.insert(normalized)
 
-                return LocationSearchSuggestion(
-                    title: poi.name,
-                    subtitle: subtitle,
-                    value: poi.name
-                )
+            let distance = NearbyPlaceLoader.haversineMiles(
+                from: center,
+                to: CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
+            )
+
+            let distanceText: String
+            if distance < 0.1 {
+                distanceText = "Nearby"
+            } else if distance < 100 {
+                distanceText = String(format: "%.1f mi", distance)
+            } else {
+                distanceText = String(format: "%.0f mi", distance)
             }
 
-            return Array(suggestions.prefix(24))
+            let subtitle = locationSubtitle(for: poi)
+
+            return LocationSearchSuggestion(
+                title: poi.name,
+                subtitle: subtitle,
+                distanceText: distanceText,
+                value: poi.name
+            )
         }
 
-        return Array(allLocationSuggestions.prefix(18).map { title in
-            LocationSearchSuggestion(
-                title: title,
-                subtitle: locationSuggestionSubtitle(for: title),
-                value: title
-            )
-        })
+        return Array(suggestions.prefix(24))
     }
 
     private func mergedSearchNearbyPlaces(userCoordinate: CLLocationCoordinate2D) -> [NearbyPlace] {
@@ -4247,19 +8539,28 @@ struct ContentView: View {
         }
 
         let scored = deduped.map { place -> (place: NearbyPlace, score: Double) in
-            let lowerName = place.name.lowercased()
-            let lowerCategory = place.category.lowercased()
             let distance = NearbyPlaceLoader.haversineMiles(
                 from: userCoordinate,
                 to: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
             )
 
+            let poiRecord = FirebasePOIRecord(
+                id: place.id,
+                name: place.name,
+                category: place.category,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                city: nil,
+                country: nil,
+                geohash: nil,
+                updatedAt: 0
+            )
+
             var score = 0.0
-            if lowerName == query { score += 1000 }
-            if lowerName.hasPrefix(query) { score += 300 }
-            if lowerName.contains(query) { score += 160 }
-            if lowerCategory.contains(query) { score += 60 }
-            score += max(0, 240 - distance * 16)
+            if FirebaseSpotService.poiSearchMatches(query: query, poi: poiRecord) {
+                score += FirebaseSpotService.poiSearchScore(query: query, poi: poiRecord)
+            }
+            score += max(0, 240 - distance * 16) * 0.08
             return (place, score)
         }
         .filter { $0.score > 0 }
@@ -4321,68 +8622,95 @@ struct ContentView: View {
         let resolvedProfile: FakeUserProfile
         if let selected = selectedUserProfile {
             resolvedProfile = selected
-        } else if let firstProfile = fakeUserProfiles.first {
-            resolvedProfile = firstProfile
         } else {
             resolvedProfile = fallbackProfile(for: profileUsername.isEmpty ? "you" : profileUsername, displayName: profileName.isEmpty ? "You" : profileName)
         }
 
         let profile = resolvedProfile
         let resolvedCurrentUserID = currentUserID.isEmpty ? (try? FirebaseSpotService.shared.currentUserID()) ?? "" : currentUserID
-        let profilePosts = posts.filter {
+        let profilePosts = newestFirstProfilePosts(posts.filter {
             let include = Self.shouldIncludePostInViewedProfile(
                 $0,
                 viewedUsername: profile.username,
+                viewedUserID: profile.userID,
                 signedInUsername: profileUsername,
                 currentUserID: resolvedCurrentUserID
             )
-            return include && !reportedPostIds.contains($0.id)
-        }
-        let showUserProfileSparseState = profilePosts.count <= 1
+            return include && !isPostReported($0)
+        })
+        let showUserProfileSparseState = profilePosts.isEmpty
 
         return GeometryReader { container in
-            let userProfileBodyMinHeight = max(320, container.size.height - Self.sparseProfileBottomInset)
+            let userProfileBodyMinHeight = max(320, container.size.height - 16)
+            let profileHeaderHeight: CGFloat = 125
+            let topGrayHeight = container.safeAreaInsets.top + profileHeaderHeight
+            let profileChromeColor = Color.white
 
             ZStack(alignment: .bottom) {
-                Color(red: 0.93, green: 0.93, blue: 0.93)
+                Color.white
                     .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    profileChromeColor
+                        .frame(height: topGrayHeight)
+                    Spacer(minLength: 0)
+                }
+                .ignoresSafeArea(edges: .top)
+                .zIndex(1)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        userProfileHeaderView(profile: profile)
-
-                        VStack(alignment: .leading, spacing: 14) {
+                        Color.clear.frame(height: profileHeaderHeight + 2)
+                        VStack(alignment: .leading, spacing: 0) {
                             userProfilePostsView(profile: profile, profilePosts: profilePosts)
-
-                            if showUserProfileSparseState {
-                                Spacer(minLength: 0)
-                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .frame(minHeight: showUserProfileSparseState ? userProfileBodyMinHeight : 0, alignment: .top)
                         .background(Color.white)
-
-                        if showUserProfileSparseState {
-                            Rectangle()
-                                .fill(Color(red: 0.93, green: 0.93, blue: 0.93))
-                                .frame(height: Self.bottomSilverEndCapHeight)
-                        }
                     }
-                    .padding(.bottom, 120)
+                    .padding(.bottom, 128)
                 }
 
-                floatingHomeActions
-                    .padding(.bottom, 12)
+                VStack(spacing: 0) {
+                    floatingHomeActions
+                        .padding(.bottom, 0)
+
+                    HStack {
+                        Button {
+                            closeUserProfileScreen()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.left")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Back")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundStyle(.black)
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
                     .padding(.horizontal, 18)
+                    .padding(.top, 10)
+                    .padding(.bottom, max(12, container.safeAreaInsets.bottom))
+                }
             }
+            .overlay(alignment: .top) {
+                userProfileHeaderView(profile: profile, profilePosts: profilePosts, topSafeArea: container.safeAreaInsets.top)
+                    .ignoresSafeArea(edges: .top)
+            }
+            .zIndex(2)
         }
         .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
+            DragGesture(minimumDistance: Self.pageSwipeMinimumDistance)
                 .onEnded { value in
                     let horizontal = value.translation.width
-                    let vertical = value.translation.height
-                    let isHorizontalSwipe = abs(horizontal) > abs(vertical)
-                    if isHorizontalSwipe && horizontal > 70 {
+                    let projectedHorizontal = value.predictedEndTranslation.width
+                    let effectiveHorizontal = max(horizontal, projectedHorizontal)
+                    let vertical = max(abs(value.translation.height), abs(value.predictedEndTranslation.height))
+                    let isHorizontalSwipe = effectiveHorizontal > (vertical * Self.pageSwipeHorizontalDominanceRatio)
+                    if isHorizontalSwipe && effectiveHorizontal > Self.pageSwipeDismissThreshold {
                         closeUserProfileScreen()
                     }
                 }
@@ -4408,155 +8736,171 @@ struct ContentView: View {
         }
     }
 
-    private func userProfileHeaderView(profile: FakeUserProfile) -> some View {
-        let isFollowingProfile = isUserFollowed(authorUserID: profile.userID, username: profile.username)
+    private func userProfileHeaderView(profile: FakeUserProfile, profilePosts: [MockPost], topSafeArea: CGFloat) -> some View {
         let isOwnViewedProfile = isOwnProfile(profile)
+        let profileChromeColor = Color.white
 
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 16) {
-                ZStack {
-                    if let remoteURL = URL(string: profile.profilePhotoURL ?? ""),
-                       !(profile.profilePhotoURL ?? "").isEmpty {
-                        AsyncImage(url: remoteURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 78, height: 78)
-                                    .clipShape(Circle())
-                            default:
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 78, height: 78)
+        let samplePostWithAge = profilePosts.first(where: { !$0.isAnonymous && !($0.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })
+        let samplePostWithPosition = profilePosts.first(where: { !$0.isAnonymous && !($0.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })
+        let samplePostAny = profilePosts.first(where: { !$0.isAnonymous && !$0.handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
 
-                                profileAvatarText(profile.profilePhotoText, size: 22, circleSize: 78)
-                                    .frame(width: 78, height: 78)
-                            }
+        let resolvedRawUsername: String = {
+            if !profile.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && profile.username.lowercased() != "user" {
+                return profile.username
+            }
+            if let postHandle = samplePostAny?.handle, !postHandle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return postHandle
+            }
+            if !profile.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && profile.name.lowercased() != "user" {
+                return profile.name
+            }
+            return profile.username
+        }()
+        let resolvedUsername = resolvedRawUsername
+        let userAgeText = (isOwnViewedProfile ? postDetailAgeValue : (samplePostWithAge?.authorAge ?? "")).trimmingCharacters(in: .whitespacesAndNewlines)
+        let userPositionText = (isOwnViewedProfile ? postDetailPositionValue : (samplePostWithPosition?.authorPosition ?? "")).trimmingCharacters(in: .whitespacesAndNewlines)
+        let shouldShowAge = !userAgeText.isEmpty
+        let shouldShowPosition = !userPositionText.isEmpty
+
+        return VStack(spacing: 0) {
+            VStack(alignment: .center, spacing: 6) {
+                userProfileAvatarView(for: profile, size: 56, samplePosts: profilePosts)
+
+                HStack(alignment: .center, spacing: 6) {
+                    /* Follow button temporarily hidden for public profiles. Flag set to false below.
+                       To re-enable the Follow / Following button on public profiles in the future,
+                       simply change `let showPublicFollowButton = false` to `true`. */
+                    let showPublicFollowButton = false
+                    if !isOwnViewedProfile && showPublicFollowButton {
+                        let isFollowing = isUserFollowed(authorUserID: profile.userID, username: resolvedUsername)
+                        Button {
+                            toggleFollowState(for: profile)
+                        } label: {
+                            Text(isFollowing ? "Following" : "Follow")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(isFollowing ? Color.black : Color.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(isFollowing ? Color(.systemGray5) : Color.black)
+                                .clipShape(Capsule())
                         }
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 78, height: 78)
-
-                        profileAvatarText(profile.profilePhotoText, size: 22, circleSize: 78)
-                            .frame(width: 78, height: 78)
+                        .buttonStyle(.plain)
                     }
-                }
-                .frame(width: 78, height: 78)
-                .overlay(
-                    Circle()
-                        .stroke(Color.black.opacity(0.13), lineWidth: 0.9)
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.75), lineWidth: 0.55)
-                        .padding(0.8)
-                )
-                .shadow(color: Color.black.opacity(0.07), radius: 7, x: 0, y: 3)
-                .padding(.leading, 15)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(profile.name.isEmpty ? "User" : profile.name)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.primary)
+                    Text(displayUsername(resolvedUsername))
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(usernameGoldTextColor)
                         .lineLimit(1)
-                    usernameText(profile.username)
-                }
+                        .minimumScaleFactor(0.85)
 
-                Spacer()
-            }
-            .padding(.top, -4)
-
-            HStack(alignment: .center, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "person.2.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.black)
-                    Text(formatFollowerCount(profile.followerCount))
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.black)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(minWidth: 120, alignment: .leading)
-                .background(profileControlChrome(cornerRadius: 16))
-
-                Button {
-                    openDM(with: profile)
-                } label: {
-                    Image(systemName: "message")
-                        .font(.title3.weight(.heavy))
-                        .foregroundStyle(.black)
-                        .frame(width: 52, height: 52)
-                        .background(profileControlChrome(cornerRadius: 16))
-                }
-                .buttonStyle(.plain)
-
-                if !isOwnViewedProfile {
-                    Button {
-                        toggleFollowState(for: profile)
-                    } label: {
-                        ZStack {
-                            if isFollowingProfile {
-                                Text("Following")
-                                    .transition(.asymmetric(
-                                        insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                        removal: .scale(scale: 1.08).combined(with: .opacity)
-                                    ))
-                            } else {
-                                Text("Follow")
-                                    .transition(.asymmetric(
-                                        insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                        removal: .scale(scale: 1.08).combined(with: .opacity)
-                                    ))
-                            }
+                    if !isOwnViewedProfile {
+                        Button {
+                            let profileForDM = FakeUserProfile(
+                                id: profile.id,
+                                userID: profile.userID,
+                                username: resolvedUsername,
+                                name: profile.name,
+                                city: profile.city,
+                                bio: profile.bio,
+                                followerCount: profile.followerCount,
+                                followingCount: profile.followingCount,
+                                profilePhotoText: profile.profilePhotoText,
+                                profilePhotoURL: profile.profilePhotoURL
+                            )
+                            openDM(with: profileForDM)
+                        } label: {
+                            Image(systemName: "message.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .padding(7)
+                                .background(Color(.systemGray6))
+                                .clipShape(Circle())
                         }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(width: 108, height: 52)
-                        .foregroundStyle(.black)
-                        .background(profileControlChrome(cornerRadius: 16))
-                        .animation(.spring(response: 0.24, dampingFraction: 0.8), value: isFollowingProfile)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .animation(.spring(response: 0.18, dampingFraction: 0.85), value: isFollowingProfile)
+                }
+
+                if shouldShowAge || shouldShowPosition {
+                    HStack(alignment: .center, spacing: 6) {
+                        if shouldShowAge {
+                            Text(userAgeText)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(.systemGray))
+                        }
+
+                        if shouldShowAge && shouldShowPosition {
+                            Rectangle()
+                                .fill(Color.black)
+                                .frame(width: 1, height: 10)
+                        }
+
+                        if shouldShowPosition {
+                            Text(userPositionText)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(.systemGray))
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, topSafeArea + 4)
             .padding(.horizontal, 18)
+            .padding(.bottom, 8)
+            .background(profileChromeColor)
         }
         .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, -2)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 8)
-        .background(Color(red: 0.93, green: 0.93, blue: 0.93))
-        .overlay(
-            Rectangle()
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
-        )
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.09))
-                .frame(height: 0.6)
-                .padding(.horizontal, 8)
-        }
+        .background(profileChromeColor)
         .clipShape(Rectangle())
     }
 
+    @ViewBuilder
+    private func userProfileAvatarView(for profile: FakeUserProfile, size: CGFloat, samplePosts: [MockPost] = []) -> some View {
+        let samplePhotoURL = samplePosts.first(where: { !$0.isAnonymous && !($0.authorProfilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })?.authorProfilePhotoURL ?? ""
+        let remotePhotoURL = (profile.profilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? profile.profilePhotoURL! : samplePhotoURL).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+
+            if isOwnProfile(profile), let localImage = displayProfilePhotoImage {
+                Image(uiImage: localImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
+                AsyncImage(url: avatarURL) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable()
+                           .scaledToFill()
+                           .frame(width: size, height: size)
+                           .clipShape(Circle())
+                    default:
+                        emptyProfilePersonAvatar(size: size)
+                    }
+                }
+            } else {
+                emptyProfilePersonAvatar(size: size)
+            }
+
+            avatarGoldRing(lineWidth: 1.35)
+                .frame(width: size, height: size)
+        }
+    }
+
     private func userProfilePostsView(profile: FakeUserProfile, profilePosts: [MockPost]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(spacing: 12) {
+        let isOwn = isOwnProfile(profile)
+        return VStack(alignment: .leading, spacing: 4) {
+            VStack(spacing: 4) {
                     ForEach(profilePosts, id: \.id) { post in
                         let binding = Binding<MockPost>(
                             get: { 
@@ -4571,10 +8915,11 @@ struct ContentView: View {
                         PostCardView(
                             post: binding,
                             isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
+                            tracksViewEngagement: false,
                             currentUserProfilePhotoImage: displayProfilePhotoImage,
-                            showsAuthorLine: false,
+                            showsAuthorLine: !isOwn,
                             showProfileLocationBadge: false,
-                            isReported: reportedPostIds.contains(post.id),
+                            isReported: isPostReported(post),
                             onSend: {
                                 selectedSendRecipient = nil
                                 currentScreen = .messages
@@ -4584,6 +8929,9 @@ struct ContentView: View {
                             },
                             onDelete: {
                                 deletePost(post)
+                            },
+                            onAdminForceDelete: { adminCode in
+                                deletePost(post, adminDeleteCode: adminCode)
                             },
                             onReport: {
                                 reportPost(post)
@@ -4595,6 +8943,9 @@ struct ContentView: View {
                                 let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
                                     ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
                                 openDM(with: matchingUser)
+                            },
+                            onMapFocusTap: { tappedPost in
+                                openMapFocusedOnPost(tappedPost)
                             },
                             onViewTracked: { updatedPost in
                                 applyTrackedPostViewUpdate(updatedPost)
@@ -4609,11 +8960,117 @@ struct ContentView: View {
     }
 
     private var savedFeedForCurrentUser: [MockPost] {
-        posts.filter { $0.isSaved && !reportedPostIds.contains($0.id) }
+        let sorted = posts
+            .filter { $0.isSaved && !isPostReported($0) }
+            .sorted { lhs, rhs in
+                let lhsSavedAt = savedPostTimestampsByPostID[lhs.id] ?? lhs.createdAt.timeIntervalSince1970
+                let rhsSavedAt = savedPostTimestampsByPostID[rhs.id] ?? rhs.createdAt.timeIntervalSince1970
+                if lhsSavedAt != rhsSavedAt {
+                    return lhsSavedAt > rhsSavedAt
+                }
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+
+        var seenKeys = Set<String>()
+        return sorted.filter { post in
+            let key = postAdminPinStorageKey(post)
+            guard !seenKeys.contains(key) else { return false }
+            seenKeys.insert(key)
+            return true
+        }
+    }
+
+    private var signedInAccountUserIDs: Set<String> {
+        guard resolvedSignedInState else {
+            return []
+        }
+
+        var ids: Set<String> = []
+        let stateUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stateUserID.isEmpty {
+            ids.insert(stateUserID)
+        }
+
+        let persistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !persistedUserID.isEmpty {
+            ids.insert(persistedUserID)
+        }
+
+        let authUserID = (Auth.auth().currentUser?.uid ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !authUserID.isEmpty {
+            ids.insert(authUserID)
+        }
+
+        return ids
     }
 
     private var anonymousPostsFeedForCurrentUser: [MockPost] {
-        posts.filter { $0.isAnonymous && !reportedPostIds.contains($0.id) }
+        let ownerIDs = signedInAccountUserIDs
+        guard !ownerIDs.isEmpty else {
+            return []
+        }
+
+        return posts
+            .filter {
+                let authorID = $0.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+                return $0.isAnonymous && !authorID.isEmpty && ownerIDs.contains(authorID) && !isPostReported($0)
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+    }
+
+    private func anonymousPostRow(for post: MockPost) -> some View {
+        let binding = Binding<MockPost>(
+            get: { post },
+            set: { _ in }
+        )
+
+        return PostCardView(
+            post: binding,
+            isOwnPost: true,
+            currentUserProfilePhotoImage: displayProfilePhotoImage,
+            prefersDeleteAction: true,
+            isReported: isPostReported(post),
+            onSend: {
+                sharePostToFriends(post)
+            },
+            onSave: { savedPost in
+                toggleSavedState(for: savedPost)
+            },
+            onDelete: {
+                deletePost(post)
+            },
+            onAdminForceDelete: { adminCode in
+                deletePost(post, adminDeleteCode: adminCode)
+            },
+            onReport: {
+                reportPost(post)
+            },
+            onProfileTap: {
+                openUserProfile(from: post)
+            },
+            onMessageTap: {
+                let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
+                    ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
+                openDM(with: matchingUser)
+            },
+            onMapFocusTap: { tappedPost in
+                openMapFocusedOnPost(tappedPost)
+            },
+            onViewTracked: { updatedPost in
+                applyTrackedPostViewUpdate(updatedPost)
+            }
+        )
+        .frame(maxWidth: .infinity)
     }
 
     private var anonymousPostsView: some View {
@@ -4630,50 +9087,10 @@ struct ContentView: View {
 
                     let items = anonymousPostsFeedForCurrentUser
 
-                    if items.isEmpty {
-                        Text("No anonymous posts yet")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 40)
-                    } else {
-                        VStack(alignment: .leading, spacing: 12) {
+                    if !items.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
                             ForEach(items, id: \ .id) { post in
-                                let binding = Binding<MockPost>(
-                                    get: { post },
-                                    set: { _ in }
-                                )
-
-                                PostCardView(
-                                    post: binding,
-                                    isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
-                                    currentUserProfilePhotoImage: displayProfilePhotoImage,
-                                    isReported: reportedPostIds.contains(post.id),
-                                    onSend: {
-                                        sharePostToFriends(post)
-                                    },
-                                    onSave: { savedPost in
-                                        toggleSavedState(for: savedPost)
-                                    },
-                                    onDelete: {
-                                        deletePost(post)
-                                    },
-                                    onReport: {
-                                        reportPost(post)
-                                    },
-                                    onProfileTap: {
-                                        openUserProfile(from: post)
-                                    },
-                                    onMessageTap: {
-                                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                        openDM(with: matchingUser)
-                                    },
-                                    onViewTracked: { updatedPost in
-                                        applyTrackedPostViewUpdate(updatedPost)
-                                    }
-                                )
-                                .frame(maxWidth: .infinity)
+                                anonymousPostRow(for: post)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -4684,8 +9101,7 @@ struct ContentView: View {
             }
 
             floatingHomeActions
-                .padding(.bottom, 12)
-                .padding(.horizontal, 18)
+                .padding(.bottom, 0)
         }
     }
 
@@ -4703,14 +9119,8 @@ struct ContentView: View {
 
                     let items = savedFeedForCurrentUser
 
-                    if items.isEmpty {
-                        Text("No saved posts yet")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 40)
-                    } else {
-                        VStack(alignment: .leading, spacing: 12) {
+                    if !items.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
                             ForEach(items, id: \.id) { post in
                                 let binding = Binding<MockPost>(
                                     get: { post },
@@ -4721,7 +9131,7 @@ struct ContentView: View {
                                     post: binding,
                                     isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
                                     currentUserProfilePhotoImage: displayProfilePhotoImage,
-                                    isReported: reportedPostIds.contains(post.id),
+                                    isReported: isPostReported(post),
                                     onSend: {
                                         sharePostToFriends(post)
                                     },
@@ -4730,6 +9140,9 @@ struct ContentView: View {
                                     },
                                     onDelete: {
                                         deletePost(post)
+                                    },
+                                    onAdminForceDelete: { adminCode in
+                                        deletePost(post, adminDeleteCode: adminCode)
                                     },
                                     onReport: {
                                         reportPost(post)
@@ -4741,6 +9154,9 @@ struct ContentView: View {
                                         let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
                                             ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
                                         openDM(with: matchingUser)
+                                    },
+                                    onMapFocusTap: { tappedPost in
+                                        openMapFocusedOnPost(tappedPost)
                                     },
                                     onViewTracked: { updatedPost in
                                         applyTrackedPostViewUpdate(updatedPost)
@@ -4757,185 +9173,329 @@ struct ContentView: View {
             }
 
             floatingHomeActions
-                .padding(.bottom, 12)
-                .padding(.horizontal, 18)
+                .padding(.bottom, 0)
         }
     }
 
     private var profileView: some View {
-        let cachedProfile = fakeUserProfiles.first(where: { $0.username.lowercased() == profileUsername.lowercased() })
-        let currentProfile = FakeUserProfile(
-            id: cachedProfile?.id ?? UUID(),
-            userID: cachedProfile?.userID ?? currentUserID,
-            username: cachedProfile?.username ?? (profileUsername.isEmpty ? "you" : (profileUsername.hasPrefix("@") ? String(profileUsername.dropFirst()) : profileUsername)),
-            name: cachedProfile?.name ?? (profileUsername.isEmpty ? "You" : profileUsername),
-            city: cachedProfile?.city ?? "Tokyo, Japan",
-            bio: cachedProfile?.bio ?? "",
-            followerCount: currentUserFollowerCount,
-            followingCount: currentUserFollowingCount,
-            profilePhotoText: cachedProfile?.profilePhotoText ?? profilePhotoText,
-            profilePhotoURL: cachedProfile?.profilePhotoURL
-        )
         let resolvedCurrentUserID = currentUserID.isEmpty ? (try? FirebaseSpotService.shared.currentUserID()) ?? "" : currentUserID
-        let yourPosts = posts.filter {
+        let yourPosts = newestFirstProfilePosts(posts.filter {
             let include = Self.shouldIncludePostInViewedProfile(
                 $0,
                 viewedUsername: profileUsername,
+                viewedUserID: resolvedCurrentUserID,
                 signedInUsername: profileUsername,
-                currentUserID: resolvedCurrentUserID
+                currentUserID: resolvedCurrentUserID,
+                isAnonymousModeActive: isAnonymousModeEnabled
             )
-            return include && !reportedPostIds.contains($0.id)
-        }
-        let showOwnProfileSparseState = yourPosts.count <= 1
+            return include && !isPostReported($0)
+        })
+        let showOwnProfileSparseState = yourPosts.isEmpty
 
         return GeometryReader { container in
-            let ownProfileBodyMinHeight = max(320, container.size.height - Self.sparseProfileBottomInset)
+            let ownProfileBodyMinHeight = max(320, container.size.height - 16)
+            let profileHeaderHeight: CGFloat = 125
+            let topGrayHeight = container.safeAreaInsets.top + profileHeaderHeight
+            let profileChromeColor = Color.white
 
             ZStack(alignment: .bottom) {
-                Color(red: 0.93, green: 0.93, blue: 0.93)
+                Color.white
                     .ignoresSafeArea()
 
-                ScrollView {
+                VStack(spacing: 0) {
+                    profileChromeColor
+                        .frame(height: topGrayHeight)
+                    Spacer(minLength: 0)
+                }
+                .ignoresSafeArea(edges: .top)
+                .zIndex(1)
+
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .center, spacing: 16) {
+                        Color.clear.frame(height: profileHeaderHeight - 2)
+                        VStack(alignment: .leading, spacing: 0) {
+                            VStack(spacing: 4) {
+                                ForEach(yourPosts, id: \.id) { post in
+                                    ownProfilePostCard(for: post)
+                                }
+                            }
+                            .padding(.top, 0)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .frame(minHeight: showOwnProfileSparseState ? ownProfileBodyMinHeight : 0, alignment: .top)
+                            .background(Color.white)
+                        }
+                        .padding(.bottom, 128)
+                    }
+                }
+
+                VStack(spacing: 0) {
+                    floatingHomeActions
+                        .padding(.bottom, 0)
+
+                    HStack {
+                        backButton(destination: .home, foregroundColor: .black)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 10)
+                    .padding(.bottom, max(12, container.safeAreaInsets.bottom))
+                }
+            }
+            .overlay(alignment: .top) {
+                let profileChromeColor = Color.white
+                let ownAgeText = postDetailAgeValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                let ownPositionText = postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                let shouldShowOwnAge = !isAnonymousModeEnabled && !ownAgeText.isEmpty
+                let shouldShowOwnPosition = !isAnonymousModeEnabled && !ownPositionText.isEmpty
+
+                VStack(spacing: 0) {
+                    VStack(alignment: .center, spacing: 4) {
+                        Button {
+                            currentScreen = .settings
+                        } label: {
+                            profileAvatarView(size: 56)
+                        }
+                        .buttonStyle(.plain)
+
+                        HStack(alignment: .center, spacing: 8) {
                             Button {
                                 currentScreen = .settings
                             } label: {
-                                profileAvatarView(size: 78, textSize: 24)
+                                Text(isAnonymousModeEnabled ? "Anonymous" : displayUsername(profileUsername))
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(isAnonymousModeEnabled ? Color.primary : usernameGoldTextColor)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+                                    .multilineTextAlignment(.center)
                             }
                             .buttonStyle(.plain)
-                            .padding(.leading, 15)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(profileName.isEmpty ? "You" : profileName)
-                                    .font(.title3.weight(.semibold))
-                                Text(displayUsername(profileUsername))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-
-                            Spacer()
-                        }
-                        .padding(.top, -4)
-
-                        HStack(alignment: .center, spacing: 12) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "person.2.fill")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.black)
-                                Text(formatFollowerCount(currentProfile.followerCount))
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(.black)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .frame(minWidth: 120, alignment: .leading)
-                            .background(profileControlChrome(cornerRadius: 16))
 
                             Button {
-                                currentScreen = .messages
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isAnonymousModeEnabled.toggle()
+                                }
                             } label: {
-                                Image(systemName: "message")
-                                    .font(.title3.weight(.heavy))
-                                    .foregroundStyle(.black)
-                                    .frame(width: 52, height: 52)
-                                    .background(profileControlChrome(cornerRadius: 16))
+                                Image(systemName: isAnonymousModeEnabled ? "theatermasks.fill" : "theatermasks")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(isAnonymousModeEnabled ? Color.purple : Color.secondary)
+                                    .padding(6)
+                                    .background(isAnonymousModeEnabled ? Color.purple.opacity(0.12) : Color(.systemGray6))
+                                    .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 18)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, -2)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 8)
-                    .background(Color(red: 0.93, green: 0.93, blue: 0.93))
-                    .overlay(
-                        Rectangle()
-                            .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
-                    )
-                    .overlay(alignment: .bottom) {
-                        Rectangle()
-                            .fill(Color.black.opacity(0.09))
-                            .frame(height: 0.6)
-                            .padding(.horizontal, 8)
-                    }
-                    .clipShape(Rectangle())
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        VStack(spacing: 12) {
-                            ForEach(yourPosts, id: \.id) { post in
-                                let binding = Binding<MockPost>(
-                                    get: {
-                                        posts.first(where: { $0.id == post.id }) ?? post
-                                    },
-                                    set: { updatedPost in
-                                        if let index = posts.firstIndex(where: { $0.id == post.id }) {
-                                            posts[index] = updatedPost
-                                        }
-                                    }
-                                )
+                        if shouldShowOwnAge || shouldShowOwnPosition {
+                            HStack(alignment: .center, spacing: 6) {
+                                if shouldShowOwnAge {
+                                    Text(ownAgeText)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color(.systemGray))
+                                }
 
-                                PostCardView(
-                                    post: binding,
-                                    isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
-                                    currentUserProfilePhotoImage: displayProfilePhotoImage,
-                                    showsAuthorLine: false,
-                                    showProfileLocationBadge: false,
-                                    isReported: reportedPostIds.contains(post.id),
-                                    onSend: {
-                                        sharePostToFriends(post)
-                                    },
-                                    onSave: { savedPost in
-                                        toggleSavedState(for: savedPost)
-                                    },
-                                    onDelete: {
-                                        deletePost(post)
-                                    },
-                                    onReport: {
-                                        reportPost(post)
-                                    },
-                                    onProfileTap: {
-                                        openUserProfile(from: post)
-                                    },
-                                    onMessageTap: {
-                                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                        openDM(with: matchingUser)
-                                    },
-                                    onViewTracked: { updatedPost in
-                                        applyTrackedPostViewUpdate(updatedPost)
-                                    }
-                                )
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 0)
+                                if shouldShowOwnAge && shouldShowOwnPosition {
+                                    Rectangle()
+                                        .fill(Color.black)
+                                        .frame(width: 1, height: 10)
+                                }
+
+                                if shouldShowOwnPosition {
+                                    Text(ownPositionText)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color(.systemGray))
+                                        .lineLimit(1)
+                                }
                             }
                         }
-
-                        if showOwnProfileSparseState {
-                            Spacer(minLength: 0)
-                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .frame(minHeight: showOwnProfileSparseState ? ownProfileBodyMinHeight : 0, alignment: .top)
-                    .background(Color.white)
-
-                    if showOwnProfileSparseState {
-                        Rectangle()
-                            .fill(Color(red: 0.93, green: 0.93, blue: 0.93))
-                            .frame(height: Self.bottomSilverEndCapHeight)
-                    }
-                    }
-                    .padding(.bottom, 120)
-                }
-
-                floatingHomeActions
-                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, container.safeAreaInsets.top + 4)
                     .padding(.horizontal, 18)
+                    .padding(.bottom, 8)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .background(profileChromeColor)
+                .clipShape(Rectangle())
+                .ignoresSafeArea(edges: .top)
             }
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    isCreatingPostFromMap = false
+                    mapDraftCoordinate = nil
+                    isFeedSearchFieldFocused = false
+                    currentScreen = .contentTypePicker
+                } label: {
+                    ZStack {
+                        // Outer glowing gradient ring giving depth
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.35),
+                                        Color.black.opacity(0.12)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 68, height: 68)
+
+                        // Main bold black button body with 3D gradient highlight
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(white: 0.22),
+                                        Color.black
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 62, height: 62)
+
+                        // Inner subtle top bevel highlight line
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.55),
+                                        Color.white.opacity(0.05)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1.8
+                            )
+                            .frame(width: 60, height: 60)
+
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                            .shadow(color: Color.black.opacity(0.4), radius: 1, x: 0, y: 1)
+                    }
+                }
+                .buttonStyle(NoPressedStateButtonStyle())
+                .shadow(color: Color.black.opacity(0.30), radius: 12, x: 0, y: 6)
+                .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
+                .padding(.trailing, 18)
+                .padding(.bottom, max(18, container.safeAreaInsets.bottom + 6))
+            }
+            .zIndex(2)
         }
+    }
+
+    private var shouldShowProfileAvatarSetupNudge: Bool {
+        let resolvedUsername = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
+        let cleanedName = profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !hasActiveProfilePhoto && resolvedUsername.isEmpty && cleanedName.isEmpty
+    }
+
+    private var profileAvatarPressHereHint: some View {
+        VStack(spacing: 2) {
+            Text("Press here")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(Color.black.opacity(0.14), lineWidth: 1)
+                )
+        }
+    }
+
+    private var ownProfileBoostPackCounter: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "bolt.fill")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 16, height: 16)
+                .background(Color.black)
+                .clipShape(Circle())
+
+            Text("\(max(remainingBoosts, 0)) boosts")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.white)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+        )
+    }
+
+    private func ownProfilePostCard(for post: MockPost) -> some View {
+        let binding = Binding<MockPost>(
+            get: {
+                posts.first(where: { $0.id == post.id }) ?? post
+            },
+            set: { updatedPost in
+                if let index = posts.firstIndex(where: { $0.id == post.id }) {
+                    posts[index] = updatedPost
+                }
+            }
+        )
+        let isOwnPost = Self.isPostOwnedByUser(
+            post,
+            currentUserID: currentUserID,
+            currentUsername: profileUsername
+        )
+        let isReportedPost = isPostReported(post)
+        let messageRecipient = fakeUserProfiles.first(where: {
+            $0.username.lowercased() == post.handle.lowercased()
+        }) ?? fallbackProfile(
+            for: post.handle,
+            displayName: post.author,
+            userID: post.authorUserID,
+            profilePhotoURL: post.authorProfilePhotoURL
+        )
+
+        return PostCardView(
+            post: binding,
+            isOwnPost: isOwnPost,
+            tracksViewEngagement: false,
+            currentUserProfilePhotoImage: displayProfilePhotoImage,
+            showsAuthorLine: false,
+            prefersDeleteAction: true,
+            showProfileLocationBadge: false,
+            isReported: isReportedPost,
+            onSend: {
+                sharePostToFriends(post)
+            },
+            onSave: { savedPost in
+                toggleSavedState(for: savedPost)
+            },
+            onDelete: {
+                deletePost(post)
+            },
+            onAdminForceDelete: { adminCode in
+                deletePost(post, adminDeleteCode: adminCode)
+            },
+            onReport: {
+                reportPost(post)
+            },
+            onProfileTap: {
+                openUserProfile(from: post)
+            },
+            onMessageTap: {
+                openDM(with: messageRecipient)
+            },
+            onMapFocusTap: { tappedPost in
+                openMapFocusedOnPost(tappedPost)
+            },
+            onViewTracked: { updatedPost in
+                applyTrackedPostViewUpdate(updatedPost)
+            }
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 0)
     }
 
     private var selectedPostDetailView: some View {
@@ -4981,10 +9541,11 @@ struct ContentView: View {
                         set: { _ in }
                     ),
                     isOwnPost: Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername),
+                    tracksViewEngagement: backDestination != .profile,
                     currentUserProfilePhotoImage: displayProfilePhotoImage,
                     showsAuthorLine: !hidesAuthorForOwnProfilePost,
                     showProfileLocationBadge: hidesAuthorForOwnProfilePost,
-                    isReported: reportedPostIds.contains(post.id),
+                    isReported: isPostReported(post),
                     onSend: {
                         sharePostToFriends(post)
                     },
@@ -4993,6 +9554,9 @@ struct ContentView: View {
                     },
                     onDelete: {
                         deletePost(post)
+                    },
+                    onAdminForceDelete: { adminCode in
+                        deletePost(post, adminDeleteCode: adminCode)
                     },
                     onReport: {
                         reportPost(post)
@@ -5003,8 +9567,12 @@ struct ContentView: View {
                         openUserProfileScreen(with: resolvedProfile)
                     },
                     onMessageTap: {
-                        let resolvedProfile = selectedUserProfile ?? fakeUserProfiles.first ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                        openDM(with: resolvedProfile)
+                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
+                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
+                        openDM(with: matchingUser)
+                    },
+                    onMapFocusTap: { tappedPost in
+                        openMapFocusedOnPost(tappedPost)
                     },
                     onViewTracked: { updatedPost in
                         applyTrackedPostViewUpdate(updatedPost)
@@ -5017,46 +9585,87 @@ struct ContentView: View {
             }
 
             floatingHomeActions
-                .padding(.bottom, 12)
-                .padding(.horizontal, 18)
+                .padding(.bottom, 0)
         }
     }
 
-    private func settingsRow(title: String, value: String, action: @escaping () -> Void) -> some View {
+    private func settingsRow(title: String, value: String, valueColor: Color = .secondary, action: @escaping () -> Void) -> some View {
         Button {
             action()
         } label: {
             HStack {
                 Text(title)
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text(value)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(valueColor)
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                    )
+            )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NoPressedStateButtonStyle())
+    }
+
+    static func effectiveBoostAutoApplyState(remainingBoosts: Int, isEnabled: Bool) -> Bool {
+        return remainingBoosts > 0 && isEnabled
     }
 
     private func purchaseBoostPack(_ pack: (posts: Int, price: Double, label: String)) {
-        remainingBoosts = min(3, remainingBoosts + pack.posts)
-        UserDefaults.standard.set(remainingBoosts, forKey: "spot_remaining_boosts")
-        activeSettingsEditor = nil
+        remainingBoosts = max(0, remainingBoosts) + pack.posts
+        isBoostAutoApplyEnabled = true
+        UserDefaults.standard.set(remainingBoosts, forKey: remainingBoostsDefaultsKey)
+        UserDefaults.standard.set(true, forKey: Self.boostAutoApplyDefaultsKey)
+        boostPurchaseStatusMessage = "Purchase successful. You now own \(remainingBoosts) boosts."
+
+        let updatedBalance = remainingBoosts
+        Task {
+            await syncRemainingBoostsToAccount(updatedBalance)
+        }
+
+        Task {
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
+            await MainActor.run {
+                if boostPurchaseStatusMessage.hasPrefix("Purchase successful") {
+                    boostPurchaseStatusMessage = ""
+                }
+            }
+        }
     }
 
     private func consumeBoostIfAvailable() -> Bool {
+        guard isBoostAutoApplyEnabled else { return false }
         guard remainingBoosts > 0 else { return false }
         remainingBoosts -= 1
-        UserDefaults.standard.set(max(0, remainingBoosts), forKey: "spot_remaining_boosts")
+        UserDefaults.standard.set(max(0, remainingBoosts), forKey: remainingBoostsDefaultsKey)
+        let updatedBalance = max(0, remainingBoosts)
+        Task {
+            await syncRemainingBoostsToAccount(updatedBalance)
+        }
         return true
+    }
+
+    private func syncRemainingBoostsToAccount(_ value: Int) async {
+        guard resolvedSignedInState else { return }
+        guard let userID = await requireSavedAuthenticatedUserID() else { return }
+
+        do {
+            try await FirebaseSpotService.shared.saveUserBoostBalance(userID: userID, remainingBoosts: max(0, value))
+        } catch {
+            print("Spot boost balance sync failed: \(error)")
+        }
     }
 
     private func settingsActionRow(icon: String, title: String) -> some View {
@@ -5079,7 +9688,9 @@ struct ContentView: View {
 
     private var blockUsersSearchResults: [String] {
         let query = blockedUserSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let candidateNames = (fakeUserProfiles.map { $0.username } + communityUsers.map { $0.username } + [profileUsername])
+        let firestoreUsernames = firestoreUserSearchResults.map { $0.username }
+        let postUsernames = posts.map { $0.handle }
+        let candidateNames = (firestoreUsernames + postUsernames + fakeUserProfiles.map { $0.username } + communityUsers.map { $0.username } + [profileUsername])
             .filter { !$0.isEmpty }
             .map { $0.hasPrefix("@") ? String($0.dropFirst()) : $0 }
             .filter { candidate in
@@ -5120,10 +9731,6 @@ struct ContentView: View {
                 Text("Block Users")
                     .font(.title3.weight(.semibold))
 
-                Text("Search for users and block them from your feed and interactions.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
                 TextField("Search by username", text: $blockedUserSearchText)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
@@ -5143,22 +9750,29 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(blockUsersSearchResults, id: \ .self) { user in
+                                let targetProfile = fakeUserProfiles.first(where: { FirebaseSpotService.normalizeUsername($0.username) == FirebaseSpotService.normalizeUsername(user) })
+                                    ?? FakeUserProfile(
+                                        userID: "",
+                                        username: user,
+                                        name: user,
+                                        city: "",
+                                        bio: "",
+                                        followerCount: 0,
+                                        followingCount: 0,
+                                        profilePhotoText: String(user.prefix(2)).uppercased(),
+                                        profilePhotoURL: prefetchedProfilesByUsername[FirebaseSpotService.normalizeUsername(user)]?.profilePhotoURL
+                                    )
+
                                 Button {
                                     blockUser(user)
                                 } label: {
                                     HStack(alignment: .center, spacing: 12) {
-                                        Circle()
-                                            .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                            .frame(width: 34, height: 34)
-                                            .overlay(Text(String(user.prefix(2)).uppercased()).font(.caption.weight(.bold)).foregroundStyle(.black))
+                                        userProfileAvatarView(for: targetProfile, size: 34, samplePosts: posts)
 
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(displayUsername(user))
                                                 .font(.subheadline.weight(.semibold))
-                                                .foregroundStyle(.primary)
-                                            Text(displayUsername(user))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                                .foregroundStyle(usernameGoldTextColor)
                                         }
 
                                         Spacer()
@@ -5178,29 +9792,31 @@ struct ContentView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Blocked users")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    if blockedUsers.isEmpty {
-                        Text("No users blocked yet.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    } else {
+                    if !blockedUsers.isEmpty {
                         ForEach(blockedUsers, id: \ .self) { user in
+                            let targetProfile = fakeUserProfiles.first(where: { FirebaseSpotService.normalizeUsername($0.username) == FirebaseSpotService.normalizeUsername(user) })
+                                ?? FakeUserProfile(
+                                    userID: "",
+                                    username: user,
+                                    name: user,
+                                    city: "",
+                                    bio: "",
+                                    followerCount: 0,
+                                    followingCount: 0,
+                                    profilePhotoText: String(user.prefix(2)).uppercased(),
+                                    profilePhotoURL: prefetchedProfilesByUsername[FirebaseSpotService.normalizeUsername(user)]?.profilePhotoURL
+                                )
+
                             HStack(alignment: .center, spacing: 12) {
-                                Circle()
-                                    .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .frame(width: 34, height: 34)
-                                    .overlay(Text(String(user.prefix(2)).uppercased()).font(.caption.weight(.bold)).foregroundStyle(.black))
+                                userProfileAvatarView(for: targetProfile, size: 34, samplePosts: posts)
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(displayUsername(user))
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(usernameGoldTextColor)
                                     Text(displayUsername(user))
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(usernameGoldTextColor)
                                 }
 
                                 Spacer()
@@ -5229,19 +9845,56 @@ struct ContentView: View {
 
     private func boostNextPostsEditorView() -> some View {
         let boostPacks = [
-            (posts: 1, price: 0.99, label: "Single post"),
-            (posts: 2, price: 1.49, label: "Two-post pack"),
-            (posts: 3, price: 1.99, label: "Three-post pack")
+            (posts: 1, price: 1.99, label: "Single post"),
+            (posts: 2, price: 3.49, label: "Two-post pack"),
+            (posts: 3, price: 4.99, label: "Three-post pack"),
+            (posts: 40, price: 39.99, label: "Free Spirit bundle")
         ]
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Boost Next Posts")
-                    .font(.title3.weight(.semibold))
+                HStack(spacing: 10) {
+                    Toggle("", isOn: Binding(
+                        get: { Self.effectiveBoostAutoApplyState(remainingBoosts: remainingBoosts, isEnabled: isBoostAutoApplyEnabled) },
+                        set: { newValue in
+                            guard remainingBoosts > 0 else {
+                                isBoostAutoApplyEnabled = false
+                                UserDefaults.standard.set(false, forKey: Self.boostAutoApplyDefaultsKey)
+                                return
+                            }
+                            isBoostAutoApplyEnabled = newValue
+                            UserDefaults.standard.set(newValue, forKey: Self.boostAutoApplyDefaultsKey)
+                        }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(SwitchToggleStyle(tint: .black))
+                    .disabled(remainingBoosts <= 0)
 
-                Text("Give your next posts a bigger push with affordable boost packs.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    Text("Boost Next Posts")
+                        .font(.title3.weight(.semibold))
+
+                    Spacer(minLength: 0)
+                }
+
+                if !boostPurchaseStatusMessage.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.green)
+                        Text(boostPurchaseStatusMessage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.06, green: 0.40, blue: 0.18))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.green.opacity(0.32), lineWidth: 1)
+                    )
+                }
 
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(boostPacks, id: \ .posts) { pack in
@@ -5253,9 +9906,6 @@ struct ContentView: View {
                                     Text("\(pack.posts) post\(pack.posts == 1 ? "" : "s")")
                                         .font(.title3.weight(.semibold))
                                         .foregroundStyle(.primary)
-                                    Text(pack.label)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
                                 }
 
                                 Spacer()
@@ -5292,7 +9942,7 @@ struct ContentView: View {
                     Text("Why boost?")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text("Boosted posts rise higher in the feed and get more visibility for the next posts you publish.")
+                    Text("Boosted posts rise higher in the feed and are shown in more places, helping your next posts reach more people.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -5301,6 +9951,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 12)
         }
+        .scrollIndicators(.hidden)
     }
 
     private func bulkDeletePostsEditorView() -> some View {
@@ -5329,6 +9980,8 @@ struct ContentView: View {
                             selectedProfilePost = nil
                             pendingSharePost = nil
                             reportedPostIds.removeAll()
+                            reportedPostKeys.removeAll()
+                            persistReportedPostKeys()
                             activeSettingsEditor = nil
                         } catch {
                             platformBulkDeleteError = "Reset failed: \(error.localizedDescription)"
@@ -5354,7 +10007,12 @@ struct ContentView: View {
 
     private func refreshUsernameAvailabilityStatus() {
         let cleaned = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = FirebaseSpotService.normalizeUsername(cleaned)
+        let normalized = capUsernameInput(cleaned)
+
+        if normalized != profileUsername {
+            profileUsername = normalized
+            return
+        }
 
         guard !cleaned.isEmpty else {
             usernameAvailabilityMessage = "Choose a username"
@@ -5363,7 +10021,8 @@ struct ContentView: View {
             return
         }
 
-        guard FirebaseSpotService.isValidUsername(normalized) else {
+        let currentSaved = capUsernameInput(accountUsername)
+        guard FirebaseSpotService.isAllowedUsername(normalized, reservedAgainst: currentSaved) else {
             usernameAvailabilityMessage = "Taken or invalid"
             usernameAvailabilityIsAvailable = false
             isCheckingUsernameAvailability = false
@@ -5374,8 +10033,12 @@ struct ContentView: View {
         usernameAvailabilityMessage = "Checking…"
 
         Task {
+            let activeUserID = try? FirebaseSpotService.shared.currentUserID()
             do {
-                let available = try await FirebaseSpotService.shared.checkUsernameAvailability(username: cleaned)
+                let available = try await FirebaseSpotService.shared.checkUsernameAvailability(
+                    username: normalized,
+                    currentUserID: activeUserID
+                )
                 await MainActor.run {
                     usernameAvailabilityIsAvailable = available
                     usernameAvailabilityMessage = available ? "Available" : "Taken or invalid"
@@ -5393,6 +10056,17 @@ struct ContentView: View {
 
     private func settingsDetailSheet(for editor: SettingsEditor) -> some View {
         GeometryReader { geometry in
+            let compactEditorHeight: CGFloat = {
+                switch editor {
+                case .technicalSupport:
+                    return 160
+                case .boostNextPosts:
+                    return min(geometry.size.height * 0.68, 620)
+                default:
+                    return min(geometry.size.height * 0.92, 820)
+                }
+            }()
+
             ZStack(alignment: .top) {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
@@ -5408,37 +10082,39 @@ struct ContentView: View {
                                 activeSettingsEditor = nil
                             } label: {
                                 Circle()
-                                    .fill(Color.black.opacity(0.08))
+                                    .fill(Color.black)
                                     .frame(width: 32, height: 32)
-                                    .overlay(Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.primary))
+                                    .overlay(Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white))
                             }
                         }
 
                         Group {
                             switch editor {
-                            case .username:
-                                usernameEditorView()
+                            case .accountPassword:
+                                accountPasswordEditorView()
                             case .searchUsers:
                                 searchUsersEditorView()
-                            case .name:
-                                nameEditorView()
                             case .photo:
                                 profileTextEditorView()
-                            case .accountInfo:
-                                accountInfoEditorView()
+                            case .technicalSupport:
+                                technicalSupportEditorView()
                             case .locationAlerts:
                                 locationAlertsEditorView()
+                            case .postNotifications:
+                                postNotificationsEditorView()
                             case .blockUsers:
                                 blockUsersEditorView()
                             case .boostNextPosts:
                                 boostNextPostsEditorView()
                             case .bulkDeletePosts:
                                 bulkDeletePostsEditorView()
+                            case .positionPicker:
+                                settingsPostDetailOptionsCard
                             }
                         }
                     }
                     .padding(20)
-                    .frame(maxWidth: 380, maxHeight: min(geometry.size.height * 0.92, 820), alignment: .topLeading)
+                    .frame(maxWidth: 380, maxHeight: compactEditorHeight, alignment: .topLeading)
                     .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .shadow(color: .black.opacity(0.18), radius: 21, x: 0, y: 12)
@@ -5451,58 +10127,721 @@ struct ContentView: View {
     }
 
     private func usernameEditorView() -> some View {
-        let normalizedInput = FirebaseSpotService.normalizeUsername(profileUsername)
-        let normalizedSaved = FirebaseSpotService.normalizeUsername(accountUsername)
-        let canSaveUsername = isSignedInToAccount
-            && FirebaseSpotService.isAllowedUsername(normalizedInput, reservedAgainst: normalizedSaved)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Username")
-                .font(.title3.weight(.semibold))
-            Text("Choose a unique handle people will see in your profile and posts.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            if !isSignedInToAccount {
-                Text("Sign up first to claim a username.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.orange)
+        let normalizedInput = capUsernameInput(profileUsername)
+        let normalizedSaved = capUsernameInput(accountUsername)
+        let canSaveUsername = FirebaseSpotService.isAllowedUsername(normalizedInput, reservedAgainst: normalizedSaved)
+        let rejectionMessage: String = {
+            let trimmed = normalizedInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || isCheckingUsernameAvailability {
+                return ""
             }
 
+            if usernameAvailabilityMessage == "Taken or invalid" {
+                return "Username rejected"
+            }
+
+            if usernameAvailabilityMessage == "Check failed" {
+                return "Username check failed"
+            }
+
+            if !canSaveUsername {
+                return "Username rejected"
+            }
+
+            return ""
+        }()
+
+        return VStack(alignment: .leading, spacing: 10) {
             TextField("@username", text: Binding(
                 get: { profileUsername },
                 set: { profileUsername = capUsernameInput($0) }
             ))
             .textInputAutocapitalization(.never)
             .disableAutocorrection(true)
+            .submitLabel(.done)
             .padding(12)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .onChange(of: profileUsername) { _, _ in
                 refreshUsernameAvailabilityStatus()
             }
-
-            Text(usernameAvailabilityMessage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(usernameAvailabilityIsAvailable && !isCheckingUsernameAvailability ? .green : .red)
-
-            Button {
+            .onSubmit {
+                guard canSaveUsername else { return }
                 Task { await persistCurrentUsername() }
-            } label: {
-                Text(isSignedInToAccount ? "Save username" : "Sign up to save username")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        canSaveUsername
-                            ? Color.black
-                            : Color.gray.opacity(0.35)
-                    )
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .disabled(!canSaveUsername)
+            .onAppear {
+                let cappedProfile = capUsernameInput(profileUsername)
+                if cappedProfile != profileUsername {
+                    profileUsername = cappedProfile
+                }
+
+                let cappedSaved = capUsernameInput(accountUsername)
+                if cappedSaved != accountUsername {
+                    accountUsername = cappedSaved
+                }
+            }
+            .onDisappear {
+                guard canSaveUsername, normalizedInput != normalizedSaved else { return }
+                Task { await persistCurrentUsername() }
+            }
+
+            if !rejectionMessage.isEmpty {
+                Text(rejectionMessage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private func openPasswordSettingsEditor() {
+        if isPasswordFaceIDProtectionEnabled {
+            Task { @MainActor in
+                let unlocked = await authenticateForSensitivePasswordAction(
+                    failureMessage: "Face ID is required to open Password settings."
+                )
+                guard unlocked else { return }
+                accountAuthMessage = ""
+                accountPassword = ""
+                signInUsername = capUsernameInput(profileUsername.isEmpty ? accountUsername : profileUsername)
+                activeSettingsEditor = .accountPassword
+            }
+            return
+        }
+        accountAuthMessage = ""
+        accountPassword = ""
+        signInUsername = capUsernameInput(profileUsername.isEmpty ? accountUsername : profileUsername)
+        activeSettingsEditor = .accountPassword
+    }
+
+    private func authenticateForPasswordSettings() async -> Bool {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        var authError: NSError?
+        let reason = "Unlock Password settings"
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) {
+            return await withCheckedContinuation { continuation in
+                context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) {
+            return await withCheckedContinuation { continuation in
+                context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+
+        return false
+    }
+
+    private func accountPasswordEditorView() -> some View {
+        let savedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasSavedPassword = !savedPassword.isEmpty
+        let hasDraftPassword = !accountPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasDraftUsername = !capUsernameInput(signInUsername).isEmpty
+        let isResolvedSignedIn = resolvedSignedInState
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $isPasswordFaceIDProtectionEnabled) {
+                Text("Protect with Face ID")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .black))
+
+            if !isResolvedSignedIn {
+                Text(isSigningUpUser ? "Sign up" : "Sign in")
+                    .font(.title3.weight(.semibold))
+
+                Text(isSigningUpUser ? "Create your account with a username and password to get started." : "Welcome back! Enter your username and password to sign in.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                TextField("Username", text: Binding(
+                    get: { signInUsername },
+                    set: {
+                        let capped = capUsernameInput($0)
+                        signInUsername = capped
+                        accountUsername = capped
+                        profileUsername = capped
+                    }
+                ))
+                .textContentType(.oneTimeCode)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .padding(12)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                TextField("Password", text: $accountPassword)
+                    .textContentType(.oneTimeCode)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .padding(12)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Button {
+                    Task {
+                        if isSigningUpUser {
+                            await signUpFromPasswordSettings()
+                        } else {
+                            await signInFromPasswordSettings()
+                        }
+                    }
+                } label: {
+                    Text(isSigningUpUser ? "Sign Up" : "Sign In")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(hasDraftPassword ? Color.black : Color.gray.opacity(0.35))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                    .disabled(!hasDraftUsername || !hasDraftPassword)
+
+                Button {
+                    withAnimation {
+                        explicitSignUpModeOverride = !isSigningUpUser
+                    }
+                } label: {
+                    Text(isSigningUpUser ? "Already have an account? Sign in" : "Need an account? Sign up")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Username")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        TextField("Username", text: Binding(
+                            get: { signInUsername },
+                            set: {
+                                let capped = capUsernameInput($0)
+                                signInUsername = capped
+                                accountUsername = capped
+                                profileUsername = capped
+                                UserDefaults.standard.set(capped, forKey: accountUsernameDefaultsKey)
+                                UserDefaults.standard.set(capped, forKey: profileNameDefaultsKey)
+                            }
+                        ))
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Password")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        TextField("Password", text: $accountPassword)
+                            .textContentType(.oneTimeCode)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .padding(12)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+
+                    Button {
+                        Task { await saveAccountPasswordWithAuthIfNeeded() }
+                    } label: {
+                        Text("Update Account Info")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(hasDraftPassword ? Color.black : Color.gray.opacity(0.35))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!hasDraftPassword)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    if isPasswordSettingsSignOutArmed {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.orange)
+
+                                Text("CRITICAL WARNING")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.red)
+                            }
+
+                            Text("There is NO account recovery.")
+                                .font(.body.weight(.bold))
+                                .foregroundStyle(Color(red: 0.9, green: 0.15, blue: 0.0))
+
+                            Text("We only use simple username and password sign-ups without emails or phone numbers, so we cannot offer username or password resets. Keeping track of your login details is essential to staying connected to your account.")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color(red: 0.85, green: 0.35, blue: 0.0))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.red.opacity(0.35), lineWidth: 1.5)
+                        )
+                    }
+
+                    Button {
+                        if isPasswordSettingsSignOutArmed {
+                            Task { await signOutCurrentAccountWithAuth() }
+                        } else {
+                            isPasswordSettingsSignOutArmed = true
+                        }
+                    } label: {
+                        Text(isPasswordSettingsSignOutArmed ? "Sign out again" : "Sign out")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.black)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !accountAuthMessage.isEmpty {
+                Text(accountAuthMessage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onAppear {
+            explicitSignUpModeOverride = nil
+            let persistedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            accountPassword = persistedPassword
+            let persistedUsername = capUsernameInput(profileUsername.isEmpty ? accountUsername : profileUsername)
+            signInUsername = persistedUsername
+            isShowingAccountPassword = false
+            isShowingSwitchAccountNotice = false
+            isPasswordSettingsSignOutArmed = false
+        }
+    }
+
+    @MainActor
+    private func signUpFromPasswordSettings() async {
+        if isPasswordFaceIDProtectionEnabled {
+            let unlocked = await authenticateForSensitivePasswordAction(
+                failureMessage: "Face ID is required to sign up."
+            )
+            guard unlocked else { return }
+        }
+
+        let cleanedUsername = FirebaseSpotService.normalizeUsername(signInUsername)
+        let cleanedPassword = accountPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedUsername.isEmpty else {
+            accountAuthMessage = "Create your username first, then sign up."
+            return
+        }
+
+        guard FirebaseSpotService.isAllowedUsername(cleanedUsername, reservedAgainst: "") else {
+            accountAuthMessage = "Enter a valid username."
+            return
+        }
+
+        guard !cleanedPassword.isEmpty else {
+            accountAuthMessage = "Enter your password to sign up."
+            return
+        }
+
+        guard FirebaseSpotService.isStrongPassword(cleanedPassword) else {
+            accountAuthMessage = "Password must be at least 6 characters."
+            return
+        }
+
+        let usernameAccount = savedAccounts.first {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+        }
+
+        if usernameAccount != nil {
+            accountAuthMessage = "An account already exists for that username. Sign in instead."
+            explicitSignUpModeOverride = false
+            return
+        }
+
+        let activeUID = try? FirebaseSpotService.shared.currentUserID()
+        let isAvailable = (try? await FirebaseSpotService.shared.checkUsernameAvailability(
+            username: cleanedUsername,
+            currentUserID: activeUID
+        )) ?? true
+
+        guard isAvailable else {
+            accountAuthMessage = "Username is taken by another account. Choose a different username."
+            return
+        }
+
+        // Sign out any active session so a clean Firebase Auth state is prepared for the new account
+        try? FirebaseSpotService.shared.signOut()
+        profilePhotoRemoteURL = ""
+
+        accountUsername = cleanedUsername
+        profileUsername = cleanedUsername
+        signInUsername = cleanedUsername
+        profileName = cleanedUsername
+        accountPassword = cleanedPassword
+
+        UserDefaults.standard.set(cleanedUsername, forKey: accountUsernameDefaultsKey)
+        UserDefaults.standard.set(cleanedUsername, forKey: profileNameDefaultsKey)
+        UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
+        UserDefaults.standard.set(true, forKey: accountSignedInDefaultsKey)
+        UserDefaults.standard.set(true, forKey: hasEverSignedInDefaultsKey)
+
+        isSignedInToAccount = true
+        rememberUsernameAliases([cleanedUsername])
+
+        upsertSavedAccount(
+            email: "",
+            username: cleanedUsername,
+            displayName: cleanedUsername,
+            profilePhotoURL: nil,
+            password: cleanedPassword
+        )
+
+        accountAuthMessage = "Account created. You're signed in."
+
+        let resolvedUserID = await ensureAuthenticatedUserRecord()
+        if !resolvedUserID.isEmpty {
+            try? await FirebaseSpotService.shared.saveUserProfile(
+                userID: resolvedUserID,
+                username: cleanedUsername,
+                displayName: cleanedUsername,
+                bio: nil,
+                photoURL: nil
+            )
+        }
+    }
+
+    @MainActor
+    private func signInFromPasswordSettings() async {
+        if isPasswordFaceIDProtectionEnabled {
+            let unlocked = await authenticateForSensitivePasswordAction(
+                failureMessage: "Face ID is required to sign in."
+            )
+            guard unlocked else { return }
+        }
+
+        let cleanedUsername = FirebaseSpotService.normalizeUsername(signInUsername)
+        let cleanedPassword = accountPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedUsername.isEmpty else {
+            accountAuthMessage = "Create your username first, then sign in with username + password."
+            return
+        }
+
+        guard FirebaseSpotService.isAllowedUsername(cleanedUsername, reservedAgainst: "") else {
+            accountAuthMessage = "Enter a valid username."
+            return
+        }
+
+        guard !cleanedPassword.isEmpty else {
+            accountAuthMessage = "Enter your password."
+            return
+        }
+
+        guard FirebaseSpotService.isStrongPassword(cleanedPassword) else {
+            accountAuthMessage = "Password must be at least 6 characters."
+            return
+        }
+
+        let usernameAccount = savedAccounts.first {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+        }
+
+        guard let credentialByUsername = usernameAccount else {
+            accountAuthMessage = "No account found for that username."
+            return
+        }
+
+        let savedPasswordForUsername = credentialByUsername.password.trimmingCharacters(in: .whitespacesAndNewlines)
+        if savedPasswordForUsername.isEmpty {
+            // If local saved account has no password set yet, attach this password and sign in/up
+            accountPassword = cleanedPassword
+            UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
+            upsertSavedAccount(
+                email: credentialByUsername.email,
+                username: cleanedUsername,
+                displayName: credentialByUsername.displayName.isEmpty ? cleanedUsername : credentialByUsername.displayName,
+                profilePhotoURL: credentialByUsername.profilePhotoURL,
+                password: cleanedPassword
+            )
+            accountAuthMessage = "Password added. You're signed in."
+            isSignedInToAccount = true
+            rememberUsernameAliases([cleanedUsername])
+            return
+        }
+
+        guard savedPasswordForUsername == cleanedPassword else {
+            accountAuthMessage = "Incorrect password for that username."
+            return
+        }
+
+        let credential = credentialByUsername
+
+        let savedEmail = credential.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if FirebaseSpotService.isValidEmail(savedEmail) {
+            await signInWithEmailPassword(email: savedEmail, password: cleanedPassword)
+            return
+        }
+
+        await signInWithSavedUsernameCredential(credential, password: cleanedPassword)
+    }
+
+    private func signInWithSavedUsernameCredential(_ credential: SavedAccountCredential, password: String) async {
+        let cleanedUsername = FirebaseSpotService.normalizeUsername(credential.username)
+        guard !cleanedUsername.isEmpty else {
+            await MainActor.run {
+                accountAuthMessage = "Create your username first, then add a password to create an account."
+            }
+            return
+        }
+
+        let preAuthPersistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let preAuthStateUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stableDeviceID = FirebaseSpotService.makeStableDeviceUserID().trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedDisplayName = credential.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? cleanedUsername
+            : credential.displayName
+
+        // Ensure we do not keep another authenticated user active while switching to local credential sign-in.
+        try? FirebaseSpotService.shared.signOut()
+
+        await MainActor.run {
+            let cleanedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            accountUsername = cleanedUsername
+            profileUsername = cleanedUsername
+            signInUsername = cleanedUsername
+            profileName = resolvedDisplayName
+            accountEmail = credential.email
+            accountPassword = cleanedPassword
+
+            UserDefaults.standard.set(cleanedUsername, forKey: accountUsernameDefaultsKey)
+            UserDefaults.standard.set(resolvedDisplayName, forKey: profileNameDefaultsKey)
+            UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
+            UserDefaults.standard.set(credential.email, forKey: accountEmailDefaultsKey)
+            UserDefaults.standard.set(true, forKey: accountSignedInDefaultsKey)
+            UserDefaults.standard.set(true, forKey: hasEverSignedInDefaultsKey)
+
+            isSignedInToAccount = true
+            rememberUsernameAliases([cleanedUsername])
+            selectSavedAccount(credential)
+            accountAuthMessage = "You're signed in."
+        }
+
+        let resolvedUserID = await ensureAuthenticatedUserRecord()
+        if !resolvedUserID.isEmpty {
+            let fetchedAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: resolvedUserID)
+            let hasExistingPostedHistory: Bool = {
+                guard let fetchedAccount else { return true }
+                return !fetchedAccount.postedPostIDs.isEmpty
+            }()
+
+            if !hasExistingPostedHistory {
+                do {
+                    try await FirebaseSpotService.shared.migrateLegacyPostsForUser(
+                        userID: resolvedUserID,
+                        username: cleanedUsername,
+                        displayName: resolvedDisplayName,
+                        photoURL: nil,
+                        preferredLegacyAuthorIDs: [preAuthPersistedUserID, preAuthStateUserID, stableDeviceID]
+                    )
+                } catch {
+                    print("Spot guest post claim warning: \(error)")
+                }
+            }
+        }
+
+        await loadCurrentUserProfileFromRecord()
+        await refreshFollowingUIDs()
+        await loadCurrentUserPosts()
+    }
+
+    @MainActor
+    private func signOutForDifferentAccount() async {
+        let unlocked = await authenticateForPasswordSettingsIfEnabled(
+            failureMessage: "Face ID is required to sign out."
+        )
+        guard unlocked else { return }
+        await signOutAndForgetCurrentUserFromDevice(successMessage: "Signed out. Sign in to a different account.")
+    }
+
+    @MainActor
+    private func signOutCurrentAccountWithAuth() async {
+        let unlocked = await authenticateForPasswordSettingsIfEnabled(
+            failureMessage: "Face ID is required to sign out."
+        )
+        guard unlocked else { return }
+        await signOutAndForgetCurrentUserFromDevice()
+    }
+
+    @MainActor
+    private func saveAccountPasswordWithAuthIfNeeded() async {
+        if isPasswordFaceIDProtectionEnabled && resolvedSignedInState {
+            let unlocked = await authenticateForSensitivePasswordAction(
+                failureMessage: "Face ID is required to change your password."
+            )
+            guard unlocked else { return }
+        }
+        await saveAccountPassword()
+    }
+
+    @MainActor
+    private func authenticateForPasswordSettingsIfEnabled(failureMessage: String) async -> Bool {
+        if !isPasswordFaceIDProtectionEnabled {
+            return true
+        }
+        return await authenticateForSensitivePasswordAction(failureMessage: failureMessage)
+    }
+
+    @MainActor
+    private func authenticateForSensitivePasswordAction(failureMessage: String) async -> Bool {
+        let unlocked = await authenticateForPasswordSettings()
+        if !unlocked {
+            accountAuthMessage = failureMessage
+        }
+        return unlocked
+    }
+
+    @MainActor
+    private func signOutAndForgetCurrentUserFromDevice(successMessage: String = "Signed out.") async {
+        do {
+            try FirebaseSpotService.shared.signOut()
+            stopCurrentUserProfileLiveListener()
+            stopSelectedUserProfileLiveListener()
+
+            currentUserID = FirebaseSpotService.makeStableDeviceUserID()
+            profileUsername = ""
+            accountUsername = ""
+            accountEmail = ""
+            accountPassword = ""
+            profileName = ""
+            phoneNumber = ""
+            backupPhoneNumber = ""
+            profilePhotoImage = nil
+            profilePhotoPreviewImage = nil
+            pendingProfilePhotoSelection = nil
+            profilePhotoText = "YO"
+            isSignedInToAccount = false
+            hasPhoneLoginBeenValidated = false
+            selectedSavedAccountEmail = ""
+            followedUserIDs = []
+            followerUserIDs = []
+            fakeUserProfiles = []
+            prefetchedProfilesByUserID = [:]
+            prefetchedProfilesByUsername = [:]
+            inFlightProfilePrefetchKeys = []
+            inFlightAvatarPrefetchURLs = []
+            selectedUserProfile = nil
+            selectedProfilePost = nil
+            selectedChatThread = nil
+            profilePhotoRemoteURL = ""
+            pendingPhoneVerificationID = nil
+            pendingPhoneNumber = ""
+            phoneVerificationCode = ""
+            phoneAuthMessage = ""
+            backupPendingPhoneVerificationID = nil
+            backupPendingPhoneNumber = ""
+            backupPhoneVerificationCode = ""
+            backupPhoneAuthMessage = ""
+            pendingProfileNameSaveTask?.cancel()
+            isShowingSwitchAccountNotice = false
+            isPasswordSettingsSignOutArmed = false
+            signInUsername = ""
+            isAnonymousModeEnabled = false
+            draftIsAnonymous = false
+            UserDefaults.standard.set(false, forKey: anonymousModeDefaultsKey)
+            messages.removeAll { $0.isAnonymousConversation }
+            chatMessages.removeAll()
+            if selectedChatThread?.isAnonymousConversation == true {
+                selectedChatThread = nil
+            }
+            remainingBoosts = 0
+
+            UserDefaults.standard.set(false, forKey: accountSignedInDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: phoneNumberDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: backupPhoneNumberDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: accountUsernameDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: accountUsernameAliasesDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: profileNameDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: accountEmailDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: accountPasswordDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: remainingBoostsDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: profilePhotoDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: profilePhotoPendingSyncDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: profilePhotoLastWriteAtDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: profilePhotoRemovalPendingDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: "spot_phone_verified_once")
+            UserDefaults.standard.removeObject(forKey: "spot_firebase_user_id")
+
+            accountAuthMessage = successMessage
+        } catch {
+            accountAuthMessage = "Could not sign out right now."
+        }
+    }
+
+    private func technicalSupportEditorView() -> some View {
+        let supportEmail = "tidingteam@gmail.com"
+
+        return VStack(alignment: .leading, spacing: 14) {
+            Text("Technical Support")
+                .font(.title3.weight(.semibold))
+
+            HStack(spacing: 10) {
+                Text(supportEmail)
+                    .font(.subheadline.weight(.semibold))
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                Button {
+                    UIPasteboard.general.string = supportEmail
+                    technicalSupportCopyMessage = "Copied"
+                } label: {
+                    Text("Copy")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !technicalSupportCopyMessage.isEmpty {
+                Text(technicalSupportCopyMessage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+            }
         }
     }
 
@@ -5514,47 +10853,163 @@ struct ContentView: View {
 
     private static func loadSavedAccountsFromDefaults() -> [SavedAccountCredential] {
         guard let data = UserDefaults.standard.data(forKey: "spot_saved_accounts") else {
-            return []
+            return normalizedSavedAccountCredentials([])
         }
 
         do {
             let decoded = try JSONDecoder().decode([SavedAccountCredential].self, from: data)
-            return decoded
-                .filter { FirebaseSpotService.isValidEmail($0.email.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                .sorted { $0.lastUsedAt > $1.lastUsedAt }
+            let normalized = normalizedSavedAccountCredentials(decoded)
+
+            let tidingUnlockMigrationKey = "spot_tiding_unlock_migration_applied"
+            if !UserDefaults.standard.bool(forKey: tidingUnlockMigrationKey) {
+                let migrated = normalized.map { account -> SavedAccountCredential in
+                    guard FirebaseSpotService.normalizeUsername(account.username) == "tiding" else {
+                        return account
+                    }
+
+                    return SavedAccountCredential(
+                        email: account.email,
+                        username: "tiding",
+                        displayName: account.displayName,
+                        profilePhotoURL: account.profilePhotoURL,
+                        password: "",
+                        lastUsedAt: Date().timeIntervalSince1970
+                    )
+                }
+
+                let canonical = normalizedSavedAccountCredentials(migrated)
+                if let canonicalData = try? JSONEncoder().encode(canonical) {
+                    UserDefaults.standard.set(canonicalData, forKey: "spot_saved_accounts")
+                }
+                UserDefaults.standard.set(true, forKey: tidingUnlockMigrationKey)
+                return canonical
+            }
+
+            return normalized
         } catch {
-            return []
+            return normalizedSavedAccountCredentials([])
         }
+    }
+
+    private static func normalizedSavedAccountCredentials(_ accounts: [SavedAccountCredential]) -> [SavedAccountCredential] {
+        var dedupedByIdentity: [String: SavedAccountCredential] = [:]
+
+        for account in accounts {
+            let normalizedUsername = FirebaseSpotService.normalizeUsername(account.username)
+            let trimmedEmail = account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+            // Only allow the exact reserved username "tiding". Block prefixed variants.
+            if normalizedUsername.hasPrefix("tiding") && normalizedUsername != "tiding" {
+                continue
+            }
+
+            guard !normalizedUsername.isEmpty || !trimmedEmail.isEmpty else {
+                continue
+            }
+
+            // Rule: a normalized username maps to exactly one saved account record.
+            let identityKey = !normalizedUsername.isEmpty ? "u:\(normalizedUsername)" : "e:\(trimmedEmail)"
+            let candidateHasPassword = !account.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+            if let existing = dedupedByIdentity[identityKey] {
+                let existingHasPassword = !existing.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                let shouldReplace: Bool
+
+                if candidateHasPassword != existingHasPassword {
+                    shouldReplace = candidateHasPassword
+                } else {
+                    shouldReplace = account.lastUsedAt > existing.lastUsedAt
+                }
+
+                if shouldReplace {
+                    dedupedByIdentity[identityKey] = account
+                }
+            } else {
+                dedupedByIdentity[identityKey] = account
+            }
+        }
+
+        let hasCanonicalTiding = dedupedByIdentity.values.contains {
+            FirebaseSpotService.normalizeUsername($0.username) == "tiding"
+        }
+        if !hasCanonicalTiding {
+            let seed = SavedAccountCredential(
+                email: "",
+                username: "tiding",
+                displayName: "tiding",
+                profilePhotoURL: nil,
+                password: "",
+                lastUsedAt: Date().timeIntervalSince1970
+            )
+            dedupedByIdentity["u:tiding"] = seed
+        }
+
+        return dedupedByIdentity.values.sorted { $0.lastUsedAt > $1.lastUsedAt }
     }
 
     private func persistSavedAccounts() {
         do {
-            let data = try JSONEncoder().encode(savedAccounts)
+            let normalized = Self.normalizedSavedAccountCredentials(savedAccounts)
+            let data = try JSONEncoder().encode(normalized)
             UserDefaults.standard.set(data, forKey: savedAccountsDefaultsKey)
         } catch {
             UserDefaults.standard.removeObject(forKey: savedAccountsDefaultsKey)
         }
     }
 
-    private func upsertSavedAccount(email: String, username: String, displayName: String) {
+    private func upsertSavedAccount(
+        email: String,
+        username: String,
+        displayName: String,
+        profilePhotoURL: String? = nil,
+        password: String? = nil,
+        preserveExistingPhoto: Bool = true
+    ) {
         let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard FirebaseSpotService.isValidEmail(cleanedEmail) else {
-            return
-        }
-
         let cleanedUsername = FirebaseSpotService.normalizeUsername(username)
         let fallbackUsername = FirebaseSpotService.normalizeUsername(cleanedEmail.components(separatedBy: "@").first ?? "user")
         let resolvedUsername = cleanedUsername.isEmpty ? (fallbackUsername.isEmpty ? "user" : fallbackUsername) : cleanedUsername
+        let identityKey = Self.savedAccountIdentityKey(username: resolvedUsername, email: cleanedEmail)
+
+        let cleanedPhotoURL = profilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedPhotoURL = cleanedPhotoURL?.isEmpty == false ? cleanedPhotoURL : nil
+        let existingPhotoURL = savedAccounts.first(where: { $0.id == identityKey })?.profilePhotoURL
+        let resolvedPhotoURL = preserveExistingPhoto ? (normalizedPhotoURL ?? existingPhotoURL) : normalizedPhotoURL
+
+        let existingPassword = savedAccounts.first(where: { $0.id == identityKey })?.password ?? ""
+        let resolvedPassword = (password ?? existingPassword).trimmingCharacters(in: .whitespacesAndNewlines)
 
         let cleanedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = cleanedDisplayName.isEmpty ? resolvedUsername : cleanedDisplayName
+        let normalizedResolvedUsername = FirebaseSpotService.normalizeUsername(resolvedUsername)
+        let normalizedResolvedPassword = resolvedPassword.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        savedAccounts.removeAll { $0.id == cleanedEmail }
+        savedAccounts.removeAll { account in
+            let existingUsername = FirebaseSpotService.normalizeUsername(account.username)
+            let existingPassword = account.password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Password-secured username should always override prior entries for that username.
+            if !normalizedResolvedUsername.isEmpty && existingUsername == normalizedResolvedUsername {
+                return true
+            }
+
+            // Also prevent duplicate username+password credential pairs.
+            if !normalizedResolvedUsername.isEmpty,
+               !normalizedResolvedPassword.isEmpty,
+               existingUsername == normalizedResolvedUsername,
+               existingPassword == normalizedResolvedPassword {
+                return true
+            }
+
+            return account.id == identityKey
+        }
         savedAccounts.insert(
             SavedAccountCredential(
                 email: cleanedEmail,
                 username: resolvedUsername,
                 displayName: resolvedDisplayName,
+                profilePhotoURL: resolvedPhotoURL,
+                password: resolvedPassword,
                 lastUsedAt: Date().timeIntervalSince1970
             ),
             at: 0
@@ -5564,7 +11019,7 @@ struct ContentView: View {
             savedAccounts = Array(savedAccounts.prefix(12))
         }
 
-        selectedSavedAccountEmail = cleanedEmail
+        selectedSavedAccountEmail = identityKey
         persistSavedAccounts()
     }
 
@@ -5580,11 +11035,15 @@ struct ContentView: View {
         selectedSavedAccountEmail = account.id
         accountEmail = account.email
         accountUsername = account.username
-        if profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            profileName = account.displayName
-        }
-        accountPassword = ""
-        accountAuthMessage = "Saved account selected. Enter password to continue."
+        profileUsername = account.username
+        profileName = account.displayName
+        accountPassword = account.password
+        profilePhotoRemoteURL = Self.preferredProfilePhotoURL(
+            candidateRemoteURL: account.profilePhotoURL,
+            savedAccountPhotoURL: account.profilePhotoURL,
+            fallbackLocalValue: profilePhotoRemoteURL
+        )
+        accountAuthMessage = account.password.isEmpty ? "Saved account selected. Enter password to continue." : "Saved account selected."
     }
 
     private func quickSignInSavedAccount() async {
@@ -5604,9 +11063,7 @@ struct ContentView: View {
             cleanedEmail.components(separatedBy: "@").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "user"
         )
         let resolvedUsername = fallbackUsername.isEmpty ? "user" : fallbackUsername
-        let resolvedDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? resolvedUsername
-            : profileName
+        let resolvedDisplayName = resolvedUsername
         return (resolvedUsername, resolvedDisplayName)
     }
 
@@ -5618,32 +11075,73 @@ struct ContentView: View {
         fallbackDisplayName: String,
         successMessage: String
     ) async {
+        let preAuthPersistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let preAuthStateUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stableDeviceID = FirebaseSpotService.makeStableDeviceUserID().trimmingCharacters(in: .whitespacesAndNewlines)
+
         let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let cleanedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        let persistedProfileName = UserDefaults.standard.string(forKey: profileNameDefaultsKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let persistedProfilePhoto = Self.cachedImage(forKey: profilePhotoDefaultsKey)
-        let restoredProfileName = persistedProfileName.isEmpty ? fallbackDisplayName : persistedProfileName
+        _ = fallbackDisplayName
+
+        let fetchedAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: user.uid)
+        let normalizedFetchedUsername = FirebaseSpotService.normalizeUsername(fetchedAccount?.username ?? "")
+        let resolvedUsername = normalizedFetchedUsername.isEmpty ? fallbackUsername : normalizedFetchedUsername
+        let resolvedDisplayName = resolvedUsername
+        let resolvedRemotePhotoURL = (fetchedAccount?.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        do {
+            try await FirebaseSpotService.shared.migrateLegacyPostsForUser(
+                userID: user.uid,
+                username: resolvedUsername,
+                displayName: resolvedDisplayName,
+                photoURL: resolvedRemotePhotoURL.isEmpty ? nil : resolvedRemotePhotoURL,
+                preferredLegacyAuthorIDs: [preAuthPersistedUserID, preAuthStateUserID, stableDeviceID]
+            )
+            try await FirebaseSpotService.shared.syncAuthorIdentityForPosts(
+                authorID: user.uid,
+                username: resolvedUsername,
+                previousUsername: nil,
+                usernameAliases: [],
+                displayName: resolvedDisplayName,
+                photoURL: resolvedRemotePhotoURL.isEmpty ? nil : resolvedRemotePhotoURL
+            )
+        } catch {
+            print("Spot post identity sync warning on sign-in: \(error)")
+        }
 
         await MainActor.run {
             accountEmail = cleanedEmail
-            accountUsername = fallbackUsername
-            profileUsername = fallbackUsername
-            profileName = restoredProfileName
+            accountUsername = resolvedUsername
+            profileUsername = resolvedUsername
+            profileName = resolvedDisplayName
+            profilePhotoRemoteURL = resolvedRemotePhotoURL
+            isAnonymousModeEnabled = false
+            draftIsAnonymous = false
+            UserDefaults.standard.set(false, forKey: anonymousModeDefaultsKey)
             if let persistedPhoto = persistedProfilePhoto {
                 profilePhotoImage = persistedPhoto
                 profilePhotoPreviewImage = persistedPhoto
                 pendingProfilePhotoSelection = nil
                 profilePhotoText = ""
             }
-            UserDefaults.standard.set(fallbackUsername, forKey: accountUsernameDefaultsKey)
-            UserDefaults.standard.set(restoredProfileName, forKey: profileNameDefaultsKey)
+            UserDefaults.standard.set(resolvedUsername, forKey: accountUsernameDefaultsKey)
+            UserDefaults.standard.set(resolvedDisplayName, forKey: profileNameDefaultsKey)
             UserDefaults.standard.set(cleanedEmail, forKey: accountEmailDefaultsKey)
             UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
             UserDefaults.standard.set(true, forKey: accountSignedInDefaultsKey)
+            UserDefaults.standard.set(true, forKey: hasEverSignedInDefaultsKey)
             isSignedInToAccount = true
             accountAuthMessage = successMessage
             persistResolvedUserID(user.uid)
-            upsertSavedAccount(email: cleanedEmail, username: fallbackUsername, displayName: restoredProfileName)
+            upsertSavedAccount(
+                email: cleanedEmail,
+                username: resolvedUsername,
+                displayName: resolvedDisplayName,
+                profilePhotoURL: resolvedRemotePhotoURL,
+                password: cleanedPassword
+            )
         }
 
         await loadCurrentUserProfileFromRecord()
@@ -5651,13 +11149,25 @@ struct ContentView: View {
 
         await MainActor.run {
             let syncedUsername = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-            let syncedDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let syncedDisplayName = syncedUsername
+
+            if !syncedUsername.isEmpty {
+                applyUserProfileToOwnPosts(
+                    username: syncedUsername,
+                    displayName: syncedDisplayName
+                )
+            }
+
             upsertSavedAccount(
                 email: cleanedEmail,
                 username: syncedUsername.isEmpty ? fallbackUsername : syncedUsername,
-                displayName: syncedDisplayName.isEmpty ? restoredProfileName : syncedDisplayName
+                displayName: syncedDisplayName.isEmpty ? fallbackUsername : syncedDisplayName,
+                profilePhotoURL: profilePhotoRemoteURL,
+                password: cleanedPassword
             )
         }
+
+        await loadCurrentUserPosts()
     }
 
     private func createAccountWithEmailPassword(email: String, password: String) async {
@@ -5674,23 +11184,6 @@ struct ContentView: View {
                 bio: nil,
                 photoURL: nil
             )
-
-            do {
-                try await FirebaseSpotService.shared.sendWelcomeEmailToCurrentUser()
-            } catch {
-                // Account creation remains successful even if welcome email backend is unavailable.
-            }
-
-            do {
-                try await FirebaseSpotService.shared.migrateLegacyPostsForUser(
-                    userID: user.uid,
-                    username: FirebaseSpotService.normalizeUsername(identity.username),
-                    displayName: identity.displayName,
-                    photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
-                )
-            } catch {
-                print("Spot legacy post migration warning: \(error)")
-            }
 
             await finishSuccessfulEmailAuth(
                 user: user,
@@ -5737,12 +11230,6 @@ struct ContentView: View {
 
         do {
             let user = try await FirebaseSpotService.shared.signIn(email: cleanedEmail, password: cleanedPassword)
-            do {
-                try await FirebaseSpotService.shared.sendWelcomeEmailToCurrentUser()
-            } catch {
-                // Keep sign-in successful even if welcome email backend is unavailable.
-            }
-
             let identity = resolvedAccountIdentityForEmail(cleanedEmail)
             await finishSuccessfulEmailAuth(
                 user: user,
@@ -5774,6 +11261,30 @@ struct ContentView: View {
         }
     }
 
+    private func signInWithPhoneNumberAndPassword() async {
+        let resolvedPhone = normalizedPhoneForAuth(pendingPhoneNumber)
+        let cleanedPassword = accountPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !resolvedPhone.isEmpty else {
+            await MainActor.run { accountAuthMessage = "Enter your phone number." }
+            return
+        }
+
+        guard FirebaseSpotService.isStrongPassword(cleanedPassword) else {
+            await MainActor.run { accountAuthMessage = "Password must be at least 6 characters." }
+            return
+        }
+
+        if accountEmail.isEmpty || !FirebaseSpotService.isValidEmail(accountEmail) {
+            await MainActor.run {
+                accountAuthMessage = "This account needs an email/password saved before phone-only sign-in can continue."
+            }
+            return
+        }
+
+        await signInWithEmailPassword(email: accountEmail, password: cleanedPassword)
+    }
+
     private func signInWithEmailPassword(email: String, password: String) async {
         let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let cleanedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5790,12 +11301,6 @@ struct ContentView: View {
 
         do {
             let user = try await FirebaseSpotService.shared.signIn(email: cleanedEmail, password: cleanedPassword)
-            do {
-                try await FirebaseSpotService.shared.sendWelcomeEmailToCurrentUser()
-            } catch {
-                // Keep sign-in successful even if the welcome email backend is unavailable.
-            }
-
             let identity = resolvedAccountIdentityForEmail(cleanedEmail)
             await finishSuccessfulEmailAuth(
                 user: user,
@@ -5836,235 +11341,625 @@ struct ContentView: View {
         }
     }
 
+    private func sendPasswordResetRequest() async {
+        let cleanedEmail = passwordResetEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard FirebaseSpotService.isValidEmail(cleanedEmail) else {
+            await MainActor.run {
+                accountAuthMessage = "Enter an email to receive the reset link."
+                showPasswordResetSpamNotice = false
+            }
+            return
+        }
+
+        accountEmail = cleanedEmail
+        UserDefaults.standard.set(cleanedEmail, forKey: accountEmailDefaultsKey)
+
+        do {
+            _ = try await FirebaseSpotService.shared.sendPasswordReset(email: cleanedEmail)
+            await MainActor.run {
+                accountAuthMessage = "Reset email sent."
+                showPasswordResetSpamNotice = true
+            }
+        } catch {
+            await MainActor.run {
+                accountAuthMessage = "Couldn't send reset email. Try again."
+                showPasswordResetSpamNotice = false
+            }
+        }
+    }
+
+    private func normalizedPhoneForAuth(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = trimmed.filter { $0.isNumber }
+        guard !digits.isEmpty else { return "" }
+
+        // Accept common international entry styles without forcing the user
+        // to type an exact +country-code format in the field.
+        if trimmed.hasPrefix("+") {
+            return "+\(digits)"
+        }
+
+        if trimmed.hasPrefix("00") {
+            let internationalDigits = String(digits.dropFirst(2))
+            return internationalDigits.isEmpty ? "" : "+\(internationalDigits)"
+        }
+
+        // Keep US convenience fallback for plain 10-digit numbers.
+        if digits.count == 10 {
+            return "+1\(digits)"
+        }
+
+        // If user typed country code digits without '+', normalize it.
+        if digits.count >= 8 && digits.count <= 15 {
+            return "+\(digits)"
+        }
+
+        return ""
+    }
+
+    private func phoneAuthFailureMessage(_ error: Error, during action: String) -> String {
+        let nsError = error as NSError
+        let authCode = AuthErrorCode(rawValue: nsError.code)
+
+        switch authCode {
+        case .invalidPhoneNumber:
+            return "That phone number is invalid. Try full number with country code."
+        case .tooManyRequests:
+            return "Too many attempts from this device. Please wait and try again later."
+        case .captchaCheckFailed:
+            return "Phone verification challenge failed. Try again in a moment."
+        case .quotaExceeded:
+            return "SMS quota reached right now. Please try again later."
+        case .appNotAuthorized:
+            return "This app is not authorized for phone sign-in yet."
+        case .missingAppToken, .missingAppCredential:
+            return "Device verification failed. App verification token is missing."
+        case .notificationNotForwarded:
+            return "Verification push was not received. Reopen app and try again."
+        case .sessionExpired:
+            return "Verification session expired. Request a new code."
+        default:
+            print("Spot phone auth \(action) failed: domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription)")
+            return "Could not \(action). Please try again."
+        }
+    }
+
+    private func sendPhoneVerificationCodeRequest() async {
+        let resolvedPhone = normalizedPhoneForAuth(pendingPhoneNumber)
+        let digitsCount = resolvedPhone.filter { $0.isNumber }.count
+
+        guard digitsCount >= 8 else {
+            await MainActor.run {
+                phoneAuthMessage = "Enter a valid phone number with area/country code."
+            }
+            return
+        }
+
+        isSendingPhoneCode = true
+        do {
+            let verificationID = try await FirebaseSpotService.shared.sendPhoneCode(to: resolvedPhone)
+            await MainActor.run {
+                pendingPhoneVerificationID = verificationID
+                pendingPhoneNumber = resolvedPhone
+                phoneAuthMessage = "Code sent. Enter verification code."
+            }
+        } catch {
+            await MainActor.run {
+                phoneAuthMessage = phoneAuthFailureMessage(error, during: "send code")
+            }
+        }
+        isSendingPhoneCode = false
+    }
+
+    private func verifyPhoneCodeAndSignIn() async {
+        let resolvedPhone = normalizedPhoneForAuth(pendingPhoneNumber)
+        let cleanedCode = phoneVerificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let verificationID = pendingPhoneVerificationID,
+              !verificationID.isEmpty,
+              !resolvedPhone.isEmpty,
+              !cleanedCode.isEmpty else {
+            await MainActor.run {
+                phoneAuthMessage = "Enter the verification code."
+            }
+            return
+        }
+
+        isVerifyingPhoneCode = true
+        do {
+            let user = try await FirebaseSpotService.shared.linkOrSignInPhoneNumber(
+                phoneNumber: resolvedPhone,
+                verificationID: verificationID,
+                verificationCode: cleanedCode
+            )
+
+            persistResolvedUserID(user.uid)
+
+            let resolvedUsername = await resolvedUsernameForProfileSave(userID: user.uid)
+            let resolvedDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "User" : profileName
+            try await FirebaseSpotService.shared.saveUserProfile(
+                userID: user.uid,
+                username: resolvedUsername,
+                displayName: resolvedDisplayName,
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
+
+            await MainActor.run {
+                phoneNumber = resolvedPhone
+                pendingPhoneNumber = resolvedPhone
+                backupPhoneNumber = resolvedPhone
+                backupPendingPhoneNumber = resolvedPhone
+                pendingPhoneVerificationID = nil
+                phoneVerificationCode = ""
+                phoneAuthMessage = "You're signed in with phone."
+                hasPhoneLoginBeenValidated = true
+                isSignedInToAccount = true
+                UserDefaults.standard.set(true, forKey: accountSignedInDefaultsKey)
+                UserDefaults.standard.set(true, forKey: hasEverSignedInDefaultsKey)
+                UserDefaults.standard.set(true, forKey: "spot_phone_verified_once")
+                UserDefaults.standard.set(resolvedPhone, forKey: phoneNumberDefaultsKey)
+            }
+
+            await loadCurrentUserProfileFromRecord()
+            await refreshFollowingUIDs()
+            await loadCurrentUserPosts()
+        } catch {
+            let authCode = AuthErrorCode(rawValue: (error as NSError).code)
+            await MainActor.run {
+                switch authCode {
+                case .invalidVerificationCode:
+                    phoneAuthMessage = "Invalid code. Please try again."
+                case .sessionExpired:
+                    phoneAuthMessage = "Code expired. Request a new code."
+                case .tooManyRequests:
+                    phoneAuthMessage = "Too many attempts. Please wait and try again."
+                default:
+                    phoneAuthMessage = "Could not verify code. Please try again."
+                }
+            }
+        }
+
+        isVerifyingPhoneCode = false
+    }
+
+    private func verifyPhoneAndSave() async {
+        await verifyPhoneCodeAndSignIn()
+    }
+
+    private func saveAccountPassword() async {
+        let cleanedUsername = FirebaseSpotService.normalizeUsername(
+            profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? accountUsername
+                : profileUsername
+        )
+
+        guard FirebaseSpotService.isAllowedUsername(cleanedUsername, reservedAgainst: "") else {
+            await MainActor.run {
+                accountAuthMessage = "Create a valid username first, then save your password."
+            }
+            return
+        }
+
+        let cleanedPassword = accountPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedPassword.isEmpty else {
+            await MainActor.run {
+                accountAuthMessage = "Enter a password to save to this account."
+            }
+            return
+        }
+
+        guard FirebaseSpotService.isStrongPassword(cleanedPassword) else {
+            await MainActor.run {
+                accountAuthMessage = "Password must be at least 6 characters."
+            }
+            return
+        }
+
+        let existingCombo = savedAccounts.first {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+            && $0.password.trimmingCharacters(in: .whitespacesAndNewlines) == cleanedPassword
+        }
+        if existingCombo != nil {
+            await MainActor.run {
+                accountAuthMessage = "This username + password already exists. Use Sign In instead of creating it again."
+            }
+            return
+        }
+
+        await MainActor.run {
+            UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
+            accountAuthMessage = "Password saved. This username is now secured for sign-in on other devices."
+
+            upsertSavedAccount(
+                email: accountEmail,
+                username: cleanedUsername,
+                displayName: profileName,
+                password: cleanedPassword
+            )
+        }
+    }
+
+    private func sendPhoneUpdateCodeRequest() async {
+        let source = backupPendingPhoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? phoneNumber
+            : backupPendingPhoneNumber
+        let resolvedPhone = normalizedPhoneForAuth(source)
+        let digitsCount = resolvedPhone.filter { $0.isNumber }.count
+
+        guard digitsCount >= 8 else {
+            await MainActor.run {
+                backupPhoneAuthMessage = "Enter a valid new phone number with area/country code."
+            }
+            return
+        }
+
+        isSendingBackupPhoneCode = true
+        do {
+            let verificationID = try await FirebaseSpotService.shared.sendPhoneCode(to: resolvedPhone)
+            await MainActor.run {
+                backupPendingPhoneVerificationID = verificationID
+                backupPendingPhoneNumber = resolvedPhone
+                backupPhoneAuthMessage = "Code sent. Enter the code to confirm this number."
+            }
+        } catch {
+            await MainActor.run {
+                backupPhoneAuthMessage = phoneAuthFailureMessage(error, during: "send code")
+            }
+        }
+        isSendingBackupPhoneCode = false
+    }
+
+    private func verifyPhoneUpdateAndSave() async {
+        let resolvedPhone = normalizedPhoneForAuth(backupPendingPhoneNumber)
+        let cleanedCode = backupPhoneVerificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let verificationID = backupPendingPhoneVerificationID,
+              !verificationID.isEmpty,
+              !resolvedPhone.isEmpty,
+              !cleanedCode.isEmpty else {
+            await MainActor.run {
+                backupPhoneAuthMessage = "Enter the verification code to update your phone number."
+            }
+            return
+        }
+
+        isVerifyingBackupPhoneCode = true
+        do {
+            _ = try await FirebaseSpotService.shared.updatePhoneNumberForCurrentUser(
+                phoneNumber: resolvedPhone,
+                verificationID: verificationID,
+                verificationCode: cleanedCode
+            )
+
+            await MainActor.run {
+                phoneNumber = resolvedPhone
+                pendingPhoneNumber = resolvedPhone
+                backupPhoneNumber = resolvedPhone
+                backupPendingPhoneNumber = resolvedPhone
+                backupPendingPhoneVerificationID = nil
+                backupPhoneVerificationCode = ""
+                backupPhoneAuthMessage = "Phone number updated and verified."
+                UserDefaults.standard.set(resolvedPhone, forKey: phoneNumberDefaultsKey)
+                UserDefaults.standard.set(resolvedPhone, forKey: backupPhoneNumberDefaultsKey)
+            }
+        } catch {
+            let authCode = AuthErrorCode(rawValue: (error as NSError).code)
+            await MainActor.run {
+                switch authCode {
+                case .invalidVerificationCode:
+                    backupPhoneAuthMessage = "Invalid code. Please try again."
+                case .sessionExpired:
+                    backupPhoneAuthMessage = "Code expired. Send a new code."
+                case .tooManyRequests:
+                    backupPhoneAuthMessage = "Too many attempts. Please wait and try again."
+                default:
+                    backupPhoneAuthMessage = "Could not update phone number. Please try again."
+                }
+            }
+        }
+        isVerifyingBackupPhoneCode = false
+    }
+
+    private func sendMergePhoneCodeRequest() async {
+        let resolvedPhone = normalizedPhoneForAuth(mergePhoneNumber)
+        let digitsCount = resolvedPhone.filter { $0.isNumber }.count
+        let cleanedPassword = mergePhonePassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard digitsCount >= 8 else {
+            await MainActor.run {
+                mergePhoneAuthMessage = "Enter a valid phone number with area/country code."
+            }
+            return
+        }
+
+        guard !cleanedPassword.isEmpty else {
+            await MainActor.run {
+                mergePhoneAuthMessage = "Enter your password to add another phone number."
+            }
+            return
+        }
+
+        isSendingMergePhoneCode = true
+        do {
+            let verificationID = try await FirebaseSpotService.shared.sendPhoneCode(to: resolvedPhone)
+            await MainActor.run {
+                mergePhoneVerificationID = verificationID
+                mergePhoneNumber = resolvedPhone
+                mergePhoneAuthMessage = "Code sent. Enter the verification code."
+            }
+        } catch {
+            await MainActor.run {
+                mergePhoneAuthMessage = phoneAuthFailureMessage(error, during: "send code")
+            }
+        }
+        isSendingMergePhoneCode = false
+    }
+
+    private func verifyMergePhoneNumberAndSave() async {
+        let resolvedPhone = normalizedPhoneForAuth(mergePhoneNumber)
+        let cleanedCode = mergePhoneVerificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedPassword = mergePhonePassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let verificationID = mergePhoneVerificationID,
+              !verificationID.isEmpty,
+              !resolvedPhone.isEmpty,
+              !cleanedCode.isEmpty else {
+            await MainActor.run {
+                mergePhoneAuthMessage = "Enter the verification code to add this phone number."
+            }
+            return
+        }
+
+        guard !cleanedPassword.isEmpty else {
+            await MainActor.run {
+                mergePhoneAuthMessage = "Enter your password to confirm this account merge."
+            }
+            return
+        }
+
+        isVerifyingMergePhoneCode = true
+        do {
+            guard let currentUser = Auth.auth().currentUser else {
+                throw FirebaseSpotError.userNotAuthenticated
+            }
+
+            let email = (currentUser.email ?? accountEmail).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !email.isEmpty, FirebaseSpotService.isValidEmail(email) else {
+                throw FirebaseSpotError.invalidEmail
+            }
+
+            let reauthCredential = EmailAuthProvider.credential(withEmail: email, password: cleanedPassword)
+            try await currentUser.reauthenticate(with: reauthCredential)
+
+            _ = try await FirebaseSpotService.shared.updatePhoneNumberForCurrentUser(
+                phoneNumber: resolvedPhone,
+                verificationID: verificationID,
+                verificationCode: cleanedCode
+            )
+
+            await MainActor.run {
+                phoneNumber = resolvedPhone
+                pendingPhoneNumber = resolvedPhone
+                backupPhoneNumber = resolvedPhone
+                backupPendingPhoneNumber = resolvedPhone
+                mergePhoneNumber = ""
+                mergePhonePassword = ""
+                mergePhoneVerificationID = nil
+                mergePhoneVerificationCode = ""
+                mergePhoneAuthMessage = "Phone number added to this account."
+                UserDefaults.standard.set(resolvedPhone, forKey: phoneNumberDefaultsKey)
+                UserDefaults.standard.set(resolvedPhone, forKey: backupPhoneNumberDefaultsKey)
+                hasPhoneLoginBeenValidated = true
+                UserDefaults.standard.set(true, forKey: "spot_phone_verified_once")
+            }
+        } catch {
+            let authCode = AuthErrorCode(rawValue: (error as NSError).code)
+            await MainActor.run {
+                switch authCode {
+                case .invalidVerificationCode:
+                    mergePhoneAuthMessage = "Invalid code. Please try again."
+                case .wrongPassword:
+                    mergePhoneAuthMessage = "Password is incorrect. Please try again."
+                case .sessionExpired:
+                    mergePhoneAuthMessage = "Code expired. Send a new code."
+                case .tooManyRequests:
+                    mergePhoneAuthMessage = "Too many attempts. Please wait and try again."
+                default:
+                    mergePhoneAuthMessage = "Could not add this phone number. Please try again."
+                }
+            }
+        }
+        isVerifyingMergePhoneCode = false
+    }
+
     private func accountInfoEditorView() -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Account")
                 .font(.title3.weight(.semibold))
 
-            if !savedAccounts.isEmpty {
+            if isSignedInToAccount {
+                // Phone number section with verification
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Saved accounts")
+                    Text("Phone number")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(savedAccounts) { account in
-                                let isSelected = selectedSavedAccountEmail == account.id
-                                Button {
-                                    selectSavedAccount(account)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack(spacing: 8) {
-                                            Circle()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
-                                                )
-                                                .frame(width: 34, height: 34)
-                                                .overlay(
-                                                    Text(String(account.username.prefix(2)).uppercased())
-                                                        .font(.caption.weight(.bold))
-                                                        .foregroundStyle(.black)
-                                                )
+                    TextField("Phone number", text: $pendingPhoneNumber)
+                        .keyboardType(.phonePad)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                                            Button {
-                                                removeSavedAccount(account)
-                                            } label: {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-
-                                        Text(account.displayName)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(1)
-
-                                        Text(displayUsername(account.username))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-
-                                        Text(account.email)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
-                                    .padding(12)
-                                    .frame(width: 180, alignment: .leading)
-                                    .background(Color(.secondarySystemBackground))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(isSelected ? Color.black : Color.clear, lineWidth: 1)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                    // Verification code field (only show if verification ID exists)
+                    if pendingPhoneVerificationID != nil {
+                        TextField("Verification code", text: $phoneVerificationCode)
+                            .keyboardType(.numberPad)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .padding(12)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
 
-                    if let selected = selectedSavedAccount {
-                        Text("Quick sign in: \(selected.email)")
+                    // Send Verification button
+                    if pendingPhoneVerificationID == nil {
+                        Button {
+                            Task {
+                                await sendPhoneVerificationCodeRequest()
+                            }
+                        } label: {
+                            Text(isSendingPhoneCode ? "Sending..." : "Send Verification")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.black)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isSendingPhoneCode)
+                    } else {
+                        // Verify button (when verification code is being entered)
+                        Button {
+                            Task {
+                                await verifyPhoneAndSave()
+                            }
+                        } label: {
+                            Text(isVerifyingPhoneCode ? "Verifying..." : "Verify")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.black)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isVerifyingPhoneCode)
+                    }
+
+                    if !phoneAuthMessage.isEmpty {
+                        Text(phoneAuthMessage)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 }
-            }
-
-            Text(isSignedInToAccount ? "You're signed in." : "Use email and password. Continue will sign in or create your account.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            if isSignedInToAccount {
-                Text("Signed in as \(accountEmail.isEmpty ? displayUsername(accountUsername) : accountEmail)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            TextField("Email", text: $accountEmail)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .disableAutocorrection(true)
-                .padding(12)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
                 .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .onChange(of: accountEmail) { _, newValue in
-                    selectedSavedAccountEmail = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            SecureField("Password", text: $accountPassword)
-                .textInputAutocapitalization(.never)
-                .disableAutocorrection(true)
-                .padding(12)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                // Password section (only show if verified)
+                if phoneNumber.isEmpty == false {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SecureField("Create password", text: $accountPassword)
+                            .padding(12)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            if !accountEditorStatusMessage.isEmpty {
-                Text(accountEditorStatusMessage)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            if showPasswordResetSpamNotice {
-                Text("Tip: if it doesn't show in inbox, check spam/junk.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if isSignedInToAccount {
-                Button {
-                    Task {
-                        do {
-                            try FirebaseSpotService.shared.signOut()
-                            let persistedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
-                            await MainActor.run {
-                                profileUsername = ""
-                                accountUsername = ""
-                                accountEmail = persistedEmail
-                                accountPassword = ""
-                                profileName = ""
-                                profilePhotoImage = nil
-                                profilePhotoPreviewImage = nil
-                                pendingProfilePhotoSelection = nil
-                                profilePhotoText = "YO"
-                                accountAuthMessage = "Signed out."
-                                isSignedInToAccount = false
-                                selectedSavedAccountEmail = persistedEmail.lowercased()
-                                followedUserIDs = []
-                                profilePhotoRemoteURL = ""
-                                UserDefaults.standard.set(false, forKey: accountSignedInDefaultsKey)
-                                UserDefaults.standard.removeObject(forKey: "spot_firebase_user_id")
+                        Button {
+                            Task {
+                                await saveAccountPasswordWithAuthIfNeeded()
                             }
-                        } catch {
-                            await MainActor.run {
-                                accountAuthMessage = "Could not sign out."
-                            }
+                        } label: {
+                            Text("Create Password")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.black)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        if !accountAuthMessage.isEmpty {
+                            Text(accountAuthMessage)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
                         }
                     }
-                } label: {
-                    Text("Sign out")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.red)
-                        .clipShape(Capsule())
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .buttonStyle(.plain)
-            } else {
-                // PRIMARY ACTION: Sign in to selected account (if one is selected)
-                if selectedSavedAccount != nil {
+
+                // Sign out button (only show if fully set up)
+                if !phoneNumber.isEmpty {
                     Button {
                         Task {
-                            await quickSignInSavedAccount()
+                            await signOutCurrentAccountWithAuth()
                         }
                     } label: {
-                        Text("Sign in to selected account")
-                            .font(.headline.weight(.bold))
+                        Text("Sign Out")
+                            .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.black)
+                            .background(Color.red)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
+            } else {
+                Text("Sign in to manage your account.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 
-                // PRIMARY ACTION: Continue (sign in or create account)
-                Button {
-                    Task {
-                        await continueWithEmailPassword()
+    private func passwordResetEditorView() -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Reset Password")
+                .font(.title3.weight(.semibold))
+
+            Text("Check your email for the reset link.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if isSignedInToAccount {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Email address", text: $passwordResetEmail)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .padding(12)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Button {
+                        Task {
+                            await sendPasswordResetRequest()
+                        }
+                    } label: {
+                        Text("Send reset email")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(Color.black)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                } label: {
-                    Text("Continue")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(accountEmail.isEmpty || accountPassword.isEmpty ? Color.gray : ContentView.appPrimaryThemeColor)
-                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                .disabled(accountEmail.isEmpty || accountPassword.isEmpty)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                // SECONDARY ACTION: Password reset (less prominent, below main buttons)
-                Button {
-                    Task {
-                        let cleanedEmail = accountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard FirebaseSpotService.isValidEmail(cleanedEmail) else {
-                            await MainActor.run {
-                                accountAuthMessage = "Enter your account email first."
-                                showPasswordResetSpamNotice = false
-                            }
-                            return
-                        }
-
-                        do {
-                            _ = try await FirebaseSpotService.shared.sendPasswordReset(email: cleanedEmail)
-                            await MainActor.run {
-                                accountAuthMessage = "Reset email sent. Check inbox and spam."
-                                showPasswordResetSpamNotice = true
-                            }
-                        } catch {
-                            await MainActor.run {
-                                accountAuthMessage = "Couldn't send reset email. Try again."
-                                showPasswordResetSpamNotice = false
-                            }
-                        }
-                    }
-                } label: {
-                    Text("Forgot password?")
-                        .font(.subheadline)
+                if !accountAuthMessage.isEmpty {
+                    Text(accountAuthMessage)
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+            } else {
+                Text("Sign in to your account to reset your password.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -6084,7 +11979,23 @@ struct ContentView: View {
             )
         }
 
-        let candidates = (firestoreProfiles + fakeUserProfiles + communityUsers.map { profile in
+        let postAuthorProfiles = posts.compactMap { post -> FakeUserProfile? in
+            let cleanedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+            guard !cleanedHandle.isEmpty, cleanedHandle != "you", cleanedHandle != Self.anonymousHandle else { return nil }
+            return FakeUserProfile(
+                userID: post.authorUserID,
+                username: cleanedHandle,
+                name: post.author.isEmpty ? cleanedHandle : post.author,
+                city: "",
+                bio: "",
+                followerCount: 0,
+                followingCount: 0,
+                profilePhotoText: String((post.author.isEmpty ? cleanedHandle : post.author).prefix(2)).uppercased(),
+                profilePhotoURL: post.authorProfilePhotoURL
+            )
+        }
+
+        let candidates = (firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityUsers.map { profile in
             FakeUserProfile(username: profile.username, name: profile.name, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: String(profile.name.prefix(2)))
         } + [
             FakeUserProfile(username: profileUsername.isEmpty ? "you" : profileUsername, name: profileName.isEmpty ? "You" : profileName, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: "YO")
@@ -6143,7 +12054,22 @@ struct ContentView: View {
                 profilePhotoURL: account.profilePhotoURL
             )
         }
-        let candidates = (firestoreProfiles + fakeUserProfiles + communityUsers.map { profile in
+        let postAuthorProfiles = posts.compactMap { post -> FakeUserProfile? in
+            let cleanedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+            guard !cleanedHandle.isEmpty, cleanedHandle != "you", cleanedHandle != Self.anonymousHandle else { return nil }
+            return FakeUserProfile(
+                userID: post.authorUserID,
+                username: cleanedHandle,
+                name: post.author.isEmpty ? cleanedHandle : post.author,
+                city: "",
+                bio: "",
+                followerCount: 0,
+                followingCount: 0,
+                profilePhotoText: String((post.author.isEmpty ? cleanedHandle : post.author).prefix(2)).uppercased(),
+                profilePhotoURL: post.authorProfilePhotoURL
+            )
+        }
+        let candidates = (firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityUsers.map { profile in
             FakeUserProfile(username: profile.username, name: profile.name, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: String(profile.name.prefix(2)))
         } + [
             FakeUserProfile(username: profileUsername.isEmpty ? "you" : profileUsername, name: profileName.isEmpty ? "You" : profileName, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: "YO")
@@ -6234,13 +12160,8 @@ struct ContentView: View {
 
     private func refreshFirestoreUserSearchResults() async {
         let query = userSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            await MainActor.run { firestoreUserSearchResults = [] }
-            return
-        }
-
         do {
-            let matches = try await FirebaseSpotService.shared.searchUsers(query: query, limit: 12)
+            let matches = try await FirebaseSpotService.shared.searchUsers(query: query, limit: 30)
             await MainActor.run {
                 firestoreUserSearchResults = matches
                 cacheAndPrefetchSearchResultProfiles()
@@ -6250,86 +12171,116 @@ struct ContentView: View {
         }
     }
 
+    private func scheduleLocationSearchDebounce() {
+        locationSearchTask?.cancel()
+
+        let trimmedQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Immediately clear results and cancel tasks when query is empty or less than 2 characters
+        guard trimmedQuery.count >= 2 else {
+            locationSearchTask = nil
+            firestorePOISearchResults = []
+            return
+        }
+
+        locationSearchTask = Task { @MainActor in
+            // Reduced debounce to 60ms for ultra-responsive search update triggering
+            try? await Task.sleep(nanoseconds: 60_000_000)
+            guard !Task.isCancelled else { return }
+
+            await self.refreshFirestorePOISearchResults()
+        }
+    }
+
     private func refreshFirestorePOISearchResults() async {
         let query = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let center = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+
+        if query.count < 2 {
+            await MainActor.run {
+                firestorePOISearchResults = []
+            }
+            return
+        }
 
         let requestRevision = await MainActor.run { () -> Int in
             poiSearchRequestRevision += 1
             return poiSearchRequestRevision
         }
 
-        if !query.isEmpty {
-            try? await Task.sleep(nanoseconds: 180_000_000)
-            guard !Task.isCancelled else { return }
+        let loweredQuery = query.lowercased()
+
+        // 1. Instantly execute local memory search in background
+        let localFallbackPOIs = await Task.detached(priority: .userInitiated) {
+            NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: center, limit: 100)
+        }.value
+
+        // 2. Immediately render local memory matches without waiting for network Firestore search
+        await MainActor.run {
+            guard requestRevision == poiSearchRequestRevision else { return }
+            let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard currentQuery == query else { return }
+            self.firestorePOISearchResults = localFallbackPOIs
         }
 
         do {
-            let rawResults: [FirebasePOIRecord]
-            if query.isEmpty {
-                rawResults = try await FirebaseSpotService.shared.fetchNearbyPOIs(
-                    around: center,
-                    limit: 80
-                )
-            } else {
-                rawResults = try await FirebaseSpotService.shared.searchPOIs(
-                    query: query,
-                    limit: 500,
-                    center: center
-                )
-            }
+            // 3. Fast network query for remote POIs
+            let rawResults = try await FirebaseSpotService.shared.searchPOIs(
+                query: query,
+                limit: 100,
+                center: center
+            )
 
-            let loweredQuery = query.lowercased()
-            let scored = rawResults.map { poi -> (poi: FirebasePOIRecord, score: Double, distance: Double) in
-                let distance = NearbyPlaceLoader.haversineMiles(
-                    from: center,
-                    to: CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
-                )
+            // Heavy filtering, scoring, deduplication, and sorting on background thread
+            let finalOrderedPOIs = await Task.detached(priority: .userInitiated) { () -> [FirebasePOIRecord] in
+                var mergedByKey: [String: FirebasePOIRecord] = [:]
+                for poi in localFallbackPOIs + rawResults {
+                    let key = "\(Self.normalizedLocationRealm(poi.name))|\(poi.latitude)|\(poi.longitude)"
+                    if mergedByKey[key] == nil {
+                        mergedByKey[key] = poi
+                    }
+                }
 
-                let lowerName = poi.name.lowercased()
-                let lowerCity = (poi.city ?? "").lowercased()
-                let lowerCountry = (poi.country ?? "").lowercased()
-                let lowerCategory = poi.category.lowercased()
+                let mergedResults = Array(mergedByKey.values)
+                let scored = mergedResults.map { poi -> (poi: FirebasePOIRecord, score: Double, distance: Double) in
+                    let distance = NearbyPlaceLoader.haversineMiles(
+                        from: center,
+                        to: CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
+                    )
 
-                let textScore: Double = {
-                    if loweredQuery.isEmpty { return max(0, 280 - distance * 14) }
+                    let textScore: Double = {
+                        if loweredQuery.isEmpty { return max(0, 280 - distance * 14) }
+                        return FirebaseSpotService.poiSearchScore(query: query, poi: poi)
+                    }()
 
-                    var score = 0.0
-                    if lowerName == loweredQuery { score += 100000 }
-                    if lowerName.hasPrefix(loweredQuery) { score += 60000 }
-                    if lowerName.contains(loweredQuery) { score += 25000 }
-                    if lowerCity.contains(loweredQuery) { score += 15000 }
-                    if lowerCountry.contains(loweredQuery) { score += 12000 }
-                    if lowerCategory.contains(loweredQuery) { score += 10000 }
-                    return score
-                }()
+                    // Proximity boost is capped to prevent famous local landmarks (like Space Needle) from overriding weak text matches
+                    let proximityScore = max(0.0, 50.0 - (distance * 0.5))
+                    let combinedScore = loweredQuery.isEmpty
+                        ? textScore
+                        : textScore + proximityScore
+                    return (poi, combinedScore, distance)
+                }
+                .filter { loweredQuery.isEmpty ? true : FirebaseSpotService.poiSearchMatches(query: query, poi: $0.poi) }
+                .sorted { lhs, rhs in
+                    if lhs.score != rhs.score { return lhs.score > rhs.score }
+                    return lhs.distance < rhs.distance
+                }
 
-                let proximityScore = max(0.0, 1000.0 - (distance * 70.0))
-                let combinedScore = textScore + (proximityScore * 0.25)
-                return (poi, combinedScore, distance)
-            }
-            .filter { loweredQuery.isEmpty ? true : $0.score > 0 }
-            .sorted { lhs, rhs in
-                if lhs.score != rhs.score { return lhs.score > rhs.score }
-                return lhs.distance < rhs.distance
-            }
+                return Array(scored.prefix(150).map(\.poi))
+            }.value
 
-            let ordered = Array(scored.prefix(200).map(\.poi))
             await MainActor.run {
                 guard requestRevision == poiSearchRequestRevision else { return }
                 let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard currentQuery == query else { return }
-                firestorePOISearchResults = ordered
+                firestorePOISearchResults = finalOrderedPOIs
             }
         } catch {
             await MainActor.run {
                 guard requestRevision == poiSearchRequestRevision else { return }
                 let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard currentQuery == query else { return }
-
-                // Keep existing suggestions for typed queries to avoid flicker on transient request failures.
-                if query.isEmpty {
-                    firestorePOISearchResults = []
+                if firestorePOISearchResults.isEmpty {
+                    firestorePOISearchResults = localFallbackPOIs
                 }
             }
         }
@@ -6340,9 +12291,6 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Search users")
                     .font(.title3.weight(.semibold))
-                Text("Find people by username or their account name.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
 
                 TextField("Search by username or name", text: $userSearchText)
                     .textInputAutocapitalization(.words)
@@ -6351,29 +12299,29 @@ struct ContentView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                if searchedUsersResults.isEmpty {
-                    Text("No matches found")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
+                if !searchedUsersResults.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(searchedUsersResults, id: \ .username) { user in
                             Button {
                                 openUserProfileScreen(with: user)
                             } label: {
                                 HStack(alignment: .center, spacing: 12) {
-                                    Circle()
-                                        .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                        .frame(width: 34, height: 34)
-                                        .overlay(Text(user.profilePhotoText).font(.caption.weight(.bold)).foregroundStyle(.black))
+                                    userProfileAvatarView(for: user, size: 34, samplePosts: posts)
 
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(user.name.isEmpty ? user.username : user.name)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(.primary)
+                                        let displayNameText = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        let isDisplayNameSameAsUsername = FirebaseSpotService.normalizeUsername(displayNameText) == FirebaseSpotService.normalizeUsername(user.username)
+                                        let shouldShowDisplayName = !displayNameText.isEmpty && !isDisplayNameSameAsUsername
+
+                                        if shouldShowDisplayName {
+                                            Text(displayNameText)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                        }
+
                                         Text(displayUsername(user.username))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .font(shouldShowDisplayName ? .caption : .subheadline.weight(.semibold))
+                                            .foregroundStyle(usernameGoldTextColor)
                                     }
 
                                     Spacer()
@@ -6420,25 +12368,261 @@ struct ContentView: View {
         return Array(filtered.prefix(8))
     }
 
+    private func ensureNotificationAuthorization() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined:
+            do {
+                let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
+                if granted {
+                    await MainActor.run {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                }
+                return granted
+            } catch {
+                return false
+            }
+        default:
+            return false
+        }
+    }
+
+    private func scheduleLocalNotification(
+        identifierPrefix: String,
+        title: String,
+        body: String,
+        delaySeconds: TimeInterval = 1.1
+    ) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .active
+            content.relevanceScore = 1.0
+        }
+
+        // iOS requires at least 1 second for time-interval triggers.
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1.0, delaySeconds), repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "\(identifierPrefix)-\(UUID().uuidString)",
+            content: content,
+            trigger: trigger
+        )
+
+        try await UNUserNotificationCenter.current().add(request)
+    }
+
+    private func presentInAppNotificationFallback(title: String, body: String) {
+        inAppNotificationFallbackMessage = "\(title): \(body)"
+        showsInAppNotificationFallback = true
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            withAnimation(.easeOut(duration: 0.22)) {
+                showsInAppNotificationFallback = false
+            }
+        }
+    }
+
     private func requestLocationAlertNotificationsIfNeeded() async {
-        do {
-            _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
-        } catch {
-            // Ignore notification permission errors and let the user try again later.
+        _ = await ensureNotificationAuthorization()
+    }
+
+    private func refreshNotificationPermissionStatus() {
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            let statusText: String
+            let shouldOfferSettings: Bool
+
+            switch settings.authorizationStatus {
+            case .authorized:
+                if settings.alertSetting == .enabled {
+                    statusText = "Notifications: On"
+                    shouldOfferSettings = false
+                } else {
+                    statusText = "Notifications: Allowed, but banners are off in iOS Settings"
+                    shouldOfferSettings = true
+                }
+            case .provisional, .ephemeral:
+                statusText = "Notifications: Limited"
+                shouldOfferSettings = true
+            case .notDetermined:
+                statusText = "Notifications: Not requested yet"
+                shouldOfferSettings = false
+            case .denied:
+                statusText = "Notifications: Off in iOS Settings"
+                shouldOfferSettings = true
+            @unknown default:
+                statusText = "Notifications: Unknown status"
+                shouldOfferSettings = true
+            }
+
+            await MainActor.run {
+                notificationPermissionStatusText = statusText
+                canOpenNotificationSettings = shouldOfferSettings
+            }
+        }
+    }
+
+    private func requestNotificationPermissionFromEditor() {
+        Task {
+            let granted = await ensureNotificationAuthorization()
+            await MainActor.run {
+                if granted {
+                    accountAuthMessage = "Notifications enabled."
+                } else {
+                    accountAuthMessage = "Notifications are off. Open iOS Settings to enable them."
+                }
+            }
+            refreshNotificationPermissionStatus()
+        }
+    }
+
+    private func openSystemNotificationSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(settingsURL)
+    }
+
+    private enum FakePushType {
+        case points5
+        case points20
+        case points40
+        case accountViewed
+        case directMessage
+        case locationNewPost(locationName: String)
+    }
+
+    private func notificationPreviewLocationName() -> String {
+        if let saved = savedLocations.first?.trimmingCharacters(in: .whitespacesAndNewlines), !saved.isEmpty {
+            return saved
+        }
+        if let recent = recentLocations.first?.trimmingCharacters(in: .whitespacesAndNewlines), !recent.isEmpty {
+            return recent
+        }
+        let current = fromLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        return current.isEmpty ? "Metric" : current
+    }
+
+    private func fakePushPayload(for type: FakePushType) -> (title: String, body: String) {
+        switch type {
+        case .points5:
+            return ("Momentum started", "Your post just passed 5 points.")
+        case .points20:
+            return ("Trending in your area", "Your post just passed 20 points.")
+        case .points40:
+            return ("Top post right now", "Your post just passed 40 points.")
+        case .accountViewed:
+            return ("Profile view", "Someone checked out your account.")
+        case .directMessage:
+            return ("New direct message", "You received a new message.")
+        case .locationNewPost(let locationName):
+            return ("\(locationName) has a new post", "Open Tiding to see what's new.")
+        }
+    }
+
+    private func sendFakePushNotification(_ type: FakePushType) {
+        Task {
+            let hasNotificationAccess = await ensureNotificationAuthorization()
+            guard hasNotificationAccess else {
+                await MainActor.run {
+                    accountAuthMessage = "Enable notifications in iOS Settings to receive alerts."
+                }
+                return
+            }
+
+            let payload = fakePushPayload(for: type)
+
+            do {
+                try await scheduleLocalNotification(
+                    identifierPrefix: "spot-fake-push",
+                    title: payload.title,
+                    body: payload.body,
+                    delaySeconds: 0.45
+                )
+                await MainActor.run {
+                    accountAuthMessage = "Notification scheduled: \(payload.title)"
+                }
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Could not schedule test notification."
+                }
+            }
+        }
+    }
+
+    private func sendToggleChangeNotification(setting: String, isEnabled: Bool) {
+        Task {
+            let hasNotificationAccess = await ensureNotificationAuthorization()
+            guard hasNotificationAccess else {
+                await MainActor.run {
+                    accountAuthMessage = "Enable notifications in iOS Settings to receive alerts."
+                }
+                return
+            }
+
+            do {
+                try await scheduleLocalNotification(
+                    identifierPrefix: "spot-toggle-change",
+                    title: "Post notifications updated",
+                    body: "\(setting.capitalized) notifications turned \(isEnabled ? "on" : "off").",
+                    delaySeconds: 1.1
+                )
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Could not schedule notification."
+                }
+            }
+        }
+    }
+
+    private func sendLocationToggleChangeNotification(isEnabled: Bool) {
+        Task {
+            let hasNotificationAccess = await ensureNotificationAuthorization()
+            guard hasNotificationAccess else {
+                await MainActor.run {
+                    accountAuthMessage = "Enable notifications in iOS Settings to receive alerts."
+                }
+                return
+            }
+
+            do {
+                try await scheduleLocalNotification(
+                    identifierPrefix: "spot-location-toggle-change",
+                    title: "Location notifications updated",
+                    body: "New post notifications turned \(isEnabled ? "on" : "off").",
+                    delaySeconds: 1.1
+                )
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Could not schedule notification."
+                }
+            }
         }
     }
 
     private func addLocationAlert(_ value: String) {
         let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
-        if savedLocations.contains(cleaned) { locationAlertSearchText = ""; return }
-        if savedLocations.count >= 10 {
+
+        let normalizedCleaned = Self.normalizedLocationRealm(cleaned)
+        if savedLocations.contains(where: { Self.normalizedLocationRealm($0) == normalizedCleaned }) {
+            locationAlertSearchText = ""
+            return
+        }
+
+        if Self.deduplicatedLocationNames(savedLocations, limit: 10).count >= 10 {
             locationAlertSearchText = ""
             return
         }
 
         let isFirstSavedLocation = savedLocations.isEmpty
-        savedLocations.insert(cleaned, at: 0)
+        savedLocations = Self.orderedSavedLocations(savedLocations, adding: cleaned, limit: 10)
         persistSavedLocations()
         locationAlertSearchText = ""
 
@@ -6456,19 +12640,57 @@ struct ContentView: View {
 
     private func locationAlertsEditorView() -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Location alerts")
+            Text("Location notifications")
                 .font(.title3.weight(.semibold))
 
             Text("Save up to 10 places to get notified when new posts are shared there.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            TextField("Search places or cities", text: $locationAlertSearchText)
-                .textInputAutocapitalization(.words)
-                .disableAutocorrection(true)
-                .padding(12)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                TextField("Search places or cities", text: $locationAlertSearchText)
+                    .font(.subheadline)
+                    .textInputAutocapitalization(.words)
+                    .disableAutocorrection(true)
+
+                if !locationAlertSearchText.isEmpty {
+                    Button {
+                        locationAlertSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+            )
+
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $notifySavedLocationPosts) {
+                    Text("Notify for new posts")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .onChange(of: notifySavedLocationPosts) { _, newValue in
+                    notifyLocationNotificationToggleChange(isEnabled: newValue)
+                }
+            }
+            .padding(12)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             if !locationAlertSuggestions.isEmpty && !locationAlertSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -6496,15 +12718,7 @@ struct ContentView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Saved locations")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                if savedLocations.isEmpty {
-                    Text("No saved locations yet.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
+                if !savedLocations.isEmpty {
                     ForEach(savedLocations.prefix(10), id: \ .self) { saved in
                         HStack {
                             Text(saved)
@@ -6531,6 +12745,102 @@ struct ContentView: View {
         }
     }
 
+    private func notifyLocationNotificationToggleChange(isEnabled: Bool) {
+        let stateText = isEnabled ? "On" : "Off"
+        let message = "Location new posts: \(stateText)"
+        locationNotificationToggleStatusMessage = message
+        accountAuthMessage = message
+        sendLocationToggleChangeNotification(isEnabled: isEnabled)
+    }
+
+    private func postNotificationsEditorView() -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
+                Toggle(isOn: $notifyPointsAt5) {
+                    Text("Notify at 5 points")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .onChange(of: notifyPointsAt5) { _, newValue in
+                    notifyPostNotificationToggleChange(setting: "5 points", isEnabled: newValue)
+                }
+
+                Divider().opacity(0.3)
+
+                Toggle(isOn: $notifyPointsAt20) {
+                    Text("Notify at 20 points")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .onChange(of: notifyPointsAt20) { _, newValue in
+                    notifyPostNotificationToggleChange(setting: "20 points", isEnabled: newValue)
+                }
+
+                Divider().opacity(0.3)
+
+                Toggle(isOn: $notifyPointsAt40) {
+                    Text("Notify at 40 points")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .onChange(of: notifyPointsAt40) { _, newValue in
+                    notifyPostNotificationToggleChange(setting: "40 points", isEnabled: newValue)
+                }
+
+                Divider().opacity(0.3)
+
+                Toggle(isOn: $notifyWhenAccountViewed) {
+                    Text("Notify when account is viewed")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .onChange(of: notifyWhenAccountViewed) { _, newValue in
+                    notifyPostNotificationToggleChange(setting: "account viewed", isEnabled: newValue)
+                }
+
+                Divider().opacity(0.3)
+
+                Toggle(isOn: $notifyDirectMessages) {
+                    Text("Notify for direct messages")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .black))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .onChange(of: notifyDirectMessages) { _, newValue in
+                    notifyPostNotificationToggleChange(setting: "direct messages", isEnabled: newValue)
+                }
+            }
+            .padding(16)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .onAppear {
+            refreshNotificationPermissionStatus()
+        }
+    }
+
+    private func notifyPostNotificationToggleChange(setting: String, isEnabled: Bool) {
+        let stateText = isEnabled ? "On" : "Off"
+        let message = "\(setting.capitalized) notifications: \(stateText)"
+        postNotificationToggleStatusMessage = message
+        accountAuthMessage = message
+        sendToggleChangeNotification(setting: setting, isEnabled: isEnabled)
+    }
+
     private func nameEditorView() -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Account name")
@@ -6543,7 +12853,13 @@ struct ContentView: View {
                 .background(Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .onChange(of: profileName) { _, newValue in
-                    let cleaned = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let cappedValue = capAccountNameInput(newValue)
+                    if cappedValue != newValue {
+                        profileName = cappedValue
+                        return
+                    }
+
+                    let cleaned = cappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     UserDefaults.standard.set(cleaned, forKey: profileNameDefaultsKey)
                     pendingProfileNameSaveTask?.cancel()
 
@@ -6575,7 +12891,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Adjust profile photo")
                     .font(.title3.weight(.semibold))
-                Text("Pick a photo, then frame it in the circle.")
+                Text("Drag to reposition and zoom to fit your profile circle.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -6588,7 +12904,7 @@ struct ContentView: View {
 
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
                         .frame(width: 280, height: 280)
                         .clipShape(Circle())
                         .scaleEffect(profilePhotoCropScale)
@@ -6597,23 +12913,49 @@ struct ContentView: View {
                             SimultaneousGesture(
                                 MagnificationGesture()
                                     .onChanged { value in
-                                        profilePhotoCropScale = max(1.0, min(2.5, value))
+                                        profilePhotoCropScale = max(0.5, min(1.3, value))
                                     },
                                 DragGesture()
                                     .onChanged { value in
-                                        profilePhotoCropOffset = CGSize(
-                                            width: value.translation.width,
-                                            height: value.translation.height
-                                        )
+                                        let clampedX = max(-80, min(80, value.translation.width))
+                                        let clampedY = max(-80, min(80, value.translation.height))
+                                        profilePhotoCropOffset = CGSize(width: clampedX, height: clampedY)
                                     }
                             )
                         )
 
                     Circle()
-                        .stroke(Color.white, lineWidth: 3)
+                        .stroke(profileAvatarGoldBorderColor, lineWidth: 3)
                         .frame(width: 280, height: 280)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Zoom")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text(String(format: "%.1fx", profilePhotoCropScale))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Slider(value: Binding(
+                        get: { profilePhotoCropScale },
+                        set: { profilePhotoCropScale = max(0.5, min(1.3, $0)) }
+                    ), in: 0.5...1.3, step: 0.05)
+                        .tint(.black)
+
+                    Button {
+                        profilePhotoCropScale = 1.0
+                        profilePhotoCropOffset = .zero
+                    } label: {
+                        Text("Reset framing")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.black)
+                    }
+                    .buttonStyle(.plain)
+                }
             } else {
                 PhotosPicker(selection: $profilePhotoItem, matching: .images, photoLibrary: .shared()) {
                     ZStack {
@@ -6653,7 +12995,9 @@ struct ContentView: View {
                             profilePhotoImage = image
                             profilePhotoPreviewImage = image
                             pendingProfilePhotoSelection = image
-                            Task { await persistCurrentProfilePhoto() }
+                            let finalScale = profilePhotoCropScale
+                            let finalOffset = profilePhotoCropOffset
+                            Task { await persistCurrentProfilePhoto(cropScale: finalScale, cropOffset: finalOffset) }
                         }
                         profilePhotoCropScale = 1.0
                         profilePhotoCropOffset = .zero
@@ -6680,6 +13024,10 @@ struct ContentView: View {
                     Text("Remove photo")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -6688,6 +13036,14 @@ struct ContentView: View {
 
     private func handleProfilePhotoSelection(_ newItem: PhotosPickerItem) {
         Task {
+            guard resolvedSignedInState else {
+                await MainActor.run {
+                    profilePhotoItem = nil
+                    accountAuthMessage = "Create an account first before adding a profile photo."
+                }
+                return
+            }
+
             do {
                 guard let data = try await newItem.loadTransferable(type: Data.self),
                       let image = UIImage(data: data) else {
@@ -6701,9 +13057,8 @@ struct ContentView: View {
                 await MainActor.run {
                     setSelectedProfilePhoto(image)
                     profilePhotoItem = nil
+                    activeSettingsEditor = .photo
                 }
-
-                await persistCurrentProfilePhoto()
             } catch {
                 await MainActor.run {
                     profilePhotoItem = nil
@@ -6714,36 +13069,62 @@ struct ContentView: View {
         }
     }
 
+    private func postTypeGroupPill(for type: String) -> String {
+        switch type {
+        case "Photo", "Video", "Audio":
+            return "MEDIA"
+        case "Text", "Poll", "Link":
+            return "SOCIAL"
+        case "Guide", "For Sale":
+            return "UTILITY"
+        default:
+            return "POST"
+        }
+    }
+
     private func postTypeSelectionButton(for type: String, compact: Bool = false) -> some View {
-        let isCompact = compact
-        let card: some View = VStack(alignment: .center, spacing: isCompact ? 8 : 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.secondarySystemBackground))
-                    .frame(height: isCompact ? 72 : 108)
-                    .overlay(
-                        Image(systemName: postTypeIcon(for: type))
-                            .font(.system(size: isCompact ? 23 : 33, weight: .semibold))
-                            .foregroundStyle(.black)
-                    )
+        let row: some View = HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(type)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .lineLimit(1)
+
+                    Text(postTypeGroupPill(for: type))
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.08))
+                        .clipShape(Capsule())
+                }
             }
 
-            Text(displayNameForPostType(type))
-                .font(isCompact ? .subheadline.weight(.semibold) : .headline.weight(.semibold))
+            Spacer(minLength: 0)
+
+            Image(systemName: postTypeIcon(for: type))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.black)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .lineLimit(1)
+                .frame(width: 38, height: 38)
         }
-        .padding(isCompact ? 10 : 12)
-        .frame(maxWidth: isCompact ? 120 : .infinity, minHeight: isCompact ? 120 : 188, alignment: .center)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 6)
+        .padding(.horizontal, compact ? 12 : 14)
+        .padding(.vertical, compact ? 10 : 12)
+        .frame(maxWidth: .infinity, minHeight: compact ? 68 : 74, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
 
         if type == "Photo" {
             return AnyView(
                 PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
-                    card
+                    row
                 }
                 .buttonStyle(.plain)
                 .task(id: draftPhotoItem) {
@@ -6777,7 +13158,7 @@ struct ContentView: View {
         } else if type == "Video" {
             return AnyView(
                 PhotosPicker(selection: $draftVideoItem, matching: .videos, photoLibrary: .shared()) {
-                    card
+                    row
                 }
                 .buttonStyle(.plain)
                 .task(id: draftVideoItem) {
@@ -6838,7 +13219,165 @@ struct ContentView: View {
                     }
                     currentScreen = .composer
                 } label: {
-                    card
+                    row
+                }
+                .buttonStyle(.plain)
+            )
+        }
+    }
+
+    private func postTypeTileCard(for type: String, title: String? = nil, isFeaturedHero: Bool = false) -> some View {
+        let displayTitle = title ?? type
+        let iconName = postTypeIcon(for: type)
+        let pillTag = postTypeGroupPill(for: type)
+
+        let pillGradient = LinearGradient(
+            colors: [
+                Color(red: 0.985, green: 0.99, blue: 0.996),
+                Color(red: 0.94, green: 0.952, blue: 0.965)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        let pillContent: some View = HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: iconName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.black)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .lineLimit(1)
+
+                Text(postTypeDescription(for: type))
+                    .font(.caption)
+                    .foregroundStyle(Color.black.opacity(0.55))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            Text(pillTag)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.08))
+                .clipShape(Capsule())
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(height: 58)
+        .frame(maxWidth: .infinity)
+        .background(pillGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black, lineWidth: 1.4)
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
+
+        if type == "Photo" {
+            return AnyView(
+                PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
+                    pillContent
+                }
+                .buttonStyle(.plain)
+                .task(id: draftPhotoItem) {
+                    guard let newItem = draftPhotoItem else { return }
+                    selectedPostType = type
+                    resetDraftFor(type)
+                    do {
+                        if let data = try await newItem.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            await MainActor.run {
+                                draftPhotoImage = image
+                                draftPhotoCropScale = 1.0
+                                draftPhotoCropOffset = .zero
+                                currentScreen = .composer
+                            }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            draftPhotoImage = nil
+                            currentScreen = .composer
+                        }
+                    }
+                }
+            )
+        } else if type == "Video" {
+            return AnyView(
+                PhotosPicker(selection: $draftVideoItem, matching: .videos, photoLibrary: .shared()) {
+                    pillContent
+                }
+                .buttonStyle(.plain)
+                .task(id: draftVideoItem) {
+                    guard let newItem = draftVideoItem else { return }
+                    selectedPostType = type
+                    resetDraftFor(type)
+                    isPreparingVideoSelection = true
+                    currentScreen = .composer
+
+                    do {
+                        let itemURL = try? await newItem.loadTransferable(type: URL.self)
+                        if let url = itemURL {
+                            let stableURL = await MainActor.run { copyVideoToTemporaryLocation(sourceURL: url) } ?? url
+                            await MainActor.run {
+                                draftVideoURL = stableURL
+                                draftUrl = stableURL.absoluteString
+                                isPreparingVideoSelection = false
+                                currentScreen = .composer
+                            }
+                        } else if let data = try? await newItem.loadTransferable(type: Data.self) {
+                            let fallbackURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                                .appendingPathComponent(UUID().uuidString)
+                                .appendingPathExtension("mp4")
+                            try data.write(to: fallbackURL)
+                            await MainActor.run {
+                                draftVideoURL = fallbackURL
+                                draftUrl = fallbackURL.absoluteString
+                                isPreparingVideoSelection = false
+                                currentScreen = .composer
+                            }
+                        } else {
+                            await MainActor.run {
+                                draftVideoURL = nil
+                                isPreparingVideoSelection = false
+                                currentScreen = .composer
+                            }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            draftVideoURL = nil
+                            isPreparingVideoSelection = false
+                            currentScreen = .composer
+                        }
+                    }
+                }
+            )
+        } else {
+            return AnyView(
+                Button {
+                    selectedPostType = type
+                    resetDraftFor(type)
+                    if type == "Guide" {
+                        prepareGuideDefaultsIfNeeded()
+                    } else if type == "For Sale" {
+                        prepareSaleDefaultsIfNeeded()
+                    } else if type == "Song" {
+                        prepareSongDefaultsIfNeeded()
+                    }
+                    currentScreen = .composer
+                } label: {
+                    pillContent
                 }
                 .buttonStyle(.plain)
             )
@@ -6847,27 +13386,73 @@ struct ContentView: View {
 
     private var createTypePickerView: some View {
         ZStack(alignment: .bottom) {
+            Color.white
+                .ignoresSafeArea()
+
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-                        ForEach(postTypes, id: \.self) { type in
-                            postTypeSelectionButton(for: type)
-                        }
+                VStack(alignment: .leading, spacing: 20) {
+                    // MEDIA SECTION (Photo, Video, Audio)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("MEDIA")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+
+                        postTypeTileCard(for: "Photo")
+                        postTypeTileCard(for: "Video")
+                        postTypeTileCard(for: "Audio")
                     }
                     .padding(.horizontal, 18)
-                    .padding(.top, 0)
-                    .padding(.bottom, 128)
+
+                    // SOCIAL SECTION (Text, Poll, Link)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("SOCIAL")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+
+                        postTypeTileCard(for: "Text")
+                        postTypeTileCard(for: "Poll")
+                        postTypeTileCard(for: "Link")
+                    }
+                    .padding(.horizontal, 18)
+
+                    // UTILITY SECTION (Guide, For Sale)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("UTILITY")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+
+                        postTypeTileCard(for: "Guide")
+                        postTypeTileCard(for: "For Sale")
+                    }
+                    .padding(.horizontal, 18)
+
+                    Color.clear
+                        .frame(height: 120)
                 }
+                .padding(.top, 16)
             }
 
-            floatingHomeActions
-                .padding(.bottom, 12)
+            VStack {
+                HStack {
+                    backButton(destination: .profile)
+                    Spacer()
+                }
                 .padding(.horizontal, 18)
+                .padding(.bottom, 20)
+            }
         }
     }
 
     private var createComposerView: some View {
-        ZStack(alignment: .bottom) {
+        let isMapPinnedComposer = isCreatingPostFromMap && mapDraftCoordinate != nil
+
+        return ZStack(alignment: .bottom) {
+            Color.white
+                .ignoresSafeArea()
+
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     backButton(destination: .contentTypePicker)
@@ -6880,13 +13465,6 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         draftPreviewCard
-
-                        if !composerStatusMessage.isEmpty {
-                            Text(composerStatusMessage)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 18)
-                        }
                     }
                     .padding(.bottom, 140)
                 }
@@ -6929,36 +13507,154 @@ struct ContentView: View {
                 }
             }
 
-            VStack(spacing: 12) {
-                Button {
+            Button {
+                if isMapPinnedComposer {
+                    currentScreen = .mapPostPreview
+                } else {
                     currentScreen = .postLocationPicker
-                } label: {
-                    Text("Next")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(red: 0.99, green: 0.94, blue: 0.74), Color(red: 0.96, green: 0.78, blue: 0.44)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.black, lineWidth: 1)
-                        )
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 18)
-
-                floatingHomeActions
-                    .padding(.horizontal, 18)
+            } label: {
+                Text("Next")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.black)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white, lineWidth: 1)
+                    )
             }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 18)
             .padding(.bottom, 12)
         }
+    }
+
+    private var mapPostPreviewView: some View {
+        return ZStack(alignment: .bottom) {
+            Color.black
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    Button {
+                        currentScreen = .composer
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Text("Map")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        mapPinnedComposerLocationCard
+                    }
+                    .padding(.bottom, 140)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Button {
+                submitDraftPost()
+            } label: {
+                Text(isSubmittingPost ? "Posting..." : "Post")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.black)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isSubmittingPost)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 0)
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    private var mapPinnedComposerLocationCard: some View {
+        let mapAreaLabel = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Group {
+                if let coordinate = mapDraftCoordinate {
+                    let coordinateLabel = Self.mapPinnedLocationLabel(for: coordinate)
+                    let pinMarker = MapPostMarker(
+                        id: "draft-map-pin-\(coordinateLabel)",
+                        postID: -1,
+                        type: selectedPostType,
+                        locationName: mapAreaLabel.isEmpty ? "Map Pin" : mapAreaLabel,
+                        coordinate: coordinate,
+                        createdAt: Date(),
+                        hasPreciseCoordinate: true
+                    )
+
+                    PostsMapView(
+                        markers: [pinMarker],
+                        focusedPostID: -1,
+                        focusMode: .newestOnly,
+                        focusTrigger: mapFocusTrigger,
+                        userCoordinate: locationService.lastKnownLocation?.coordinate,
+                        hideAttributionButton: true,
+                        mapTapEnabled: false,
+                        mapLongPressEnabled: true,
+                        onMapTap: { _ in },
+                        onMapLongPress: { tappedCoordinate in
+                            mapDraftCoordinate = tappedCoordinate
+                            mapAreaCenterCoordinate = tappedCoordinate
+                            mapAreaSourcePostID = nil
+                            mapFocusedPostID = nil
+                            postLocation = Self.mapPinnedLocationLabel(for: tappedCoordinate)
+                        },
+                        onMarkerTap: { _ in },
+                        onCameraCenterZoomChanged: nil
+                    )
+                    .frame(height: 468)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white, lineWidth: 2)
+                    )
+                } else {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(height: 468)
+                        .overlay(
+                            Text("Map preview unavailable")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        )
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 18)
     }
 
     private var photoEditorView: some View {
@@ -7083,6 +13779,7 @@ struct ContentView: View {
 
             Spacer()
         }
+        .background(Color.black.ignoresSafeArea())
         .onChange(of: draftPhotoItem) { _, newItem in
             guard let newItem else { return }
             Task {
@@ -7135,7 +13832,7 @@ struct ContentView: View {
                         .frame(height: 420)
                         .overlay(
                             VStack(spacing: 12) {
-                                Image(systemName: "film.fill")
+                                Image(systemName: "play.fill")
                                     .font(.system(size: 44))
                                     .foregroundStyle(.primary)
                                 Text("Video selected")
@@ -7194,7 +13891,7 @@ struct ContentView: View {
                                         .foregroundStyle(.white.opacity(0.9))
                                         .multilineTextAlignment(.center)
                                 } else {
-                                    Image(systemName: "film.fill")
+                                    Image(systemName: "play.fill")
                                         .font(.system(size: 44))
                                         .foregroundStyle(.white)
                                     Text("Add your video")
@@ -7224,6 +13921,7 @@ struct ContentView: View {
 
             Spacer()
         }
+        .background(Color.black.ignoresSafeArea())
         .onChange(of: draftVideoItem) { _, newItem in
             guard let newItem else { return }
             Task {
@@ -7359,7 +14057,6 @@ struct ContentView: View {
                 .padding(.horizontal, 18)
 
                 floatingHomeActions
-                    .padding(.horizontal, 18)
             }
             .padding(.bottom, 12)
         }
@@ -7447,7 +14144,6 @@ struct ContentView: View {
                 .padding(.horizontal, 18)
 
                 floatingHomeActions
-                    .padding(.horizontal, 18)
             }
             .padding(.bottom, 12)
         }
@@ -7862,7 +14558,6 @@ struct ContentView: View {
         )
 
         if isLocationOnCooldownForPosting(resolvedLocation) {
-            showLocationCooldownMessage(for: resolvedLocation)
             return
         }
 
@@ -7960,16 +14655,6 @@ struct ContentView: View {
                 lastSentMessage = "For Sale post needs a price."
                 return
             }
-
-            let phoneDigits = WorkPostCodec.sanitizedPhoneDigits(draftSaleContactPhone)
-            let email = draftSaleContactEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-            let hasPhone = phoneDigits.count >= 7
-            let hasEmail = email.contains("@") && email.contains(".")
-            guard hasPhone || hasEmail else {
-                accountAuthMessage = "Add a valid contact phone or email."
-                lastSentMessage = "For Sale post needs contact info."
-                return
-            }
         }
 
         Task {
@@ -8000,6 +14685,8 @@ struct ContentView: View {
                 handle: newPost.handle,
                 authorUserID: userID,
                 authorProfilePhotoURL: newPost.authorProfilePhotoURL,
+                authorAge: newPost.authorAge,
+                authorPosition: newPost.authorPosition,
                 type: newPost.type,
                 location: resolvedLocation,
                 title: newPost.title,
@@ -8041,33 +14728,64 @@ struct ContentView: View {
                 return
             }
             
-            let resolvedMediaURLs = mediaURLs.isEmpty ? fallbackDraftMediaURLs(for: posted) : mediaURLs
-            print("Spot submitDraftPost: resolvedMediaURLs count=\(resolvedMediaURLs.count), isFallback=\(resolvedMediaURLs.first?.lowercased().hasPrefix("local-") ?? false)")
-            
-            let requiresUploadedMedia = posted.type == "Audio" || posted.type == "Song" || posted.type == "Video" || posted.type == "Photo" || posted.type == "Photo/Video"
-            if requiresUploadedMedia && resolvedMediaURLs.isEmpty {
+            let requiresUploadedMedia = posted.type == "Audio" || posted.type == "Song" || posted.type == "Video" || posted.type == "Photo" || posted.type == "Photo/Video" || (posted.type == "For Sale" && !draftListingImages.isEmpty)
+            let resolvedMediaURLs = requiresUploadedMedia ? mediaURLs : (mediaURLs.isEmpty ? fallbackDraftMediaURLs(for: posted) : mediaURLs)
+            var finalizedMediaURLs = resolvedMediaURLs
+
+            // Emergency retry path: when direct Storage upload fails due client auth config,
+            // push photo bytes through callable fallback so moderation still receives a real URL.
+            if requiresUploadedMedia && finalizedMediaURLs.isEmpty,
+               (posted.type == "Photo" || posted.type == "Photo/Video"),
+               let photo = draftPhotoImage,
+                    let imageData = optimizedPhotoDataForUpload(photo) ?? photo.jpegData(compressionQuality: 0.8) {
+                let retryFileName = "photo_retry_\(UUID().uuidString).jpg"
+                do {
+                    let retryURL = try await FirebaseSpotService.shared.uploadMediaFallback(
+                        data: imageData,
+                        folder: "posts/\(posted.id)/photos",
+                        fileName: retryFileName,
+                        contentType: "image/jpeg",
+                        ownerID: userID
+                    )
+                    finalizedMediaURLs.append(retryURL)
+                    print("Spot submitDraftPost: Emergency photo upload fallback succeeded: \(retryURL)")
+                } catch {
+                    print("Spot submitDraftPost: Emergency photo upload fallback failed: \(error)")
+                }
+            }
+
+            if requiresUploadedMedia && finalizedMediaURLs.isEmpty {
                 await MainActor.run {
                     accountAuthMessage = "Media failed to upload. Please stay signed in and try again."
                     lastSentMessage = "Media upload failed. Post not sent."
                 }
-                print("Spot submitDraftPost: BLOCKED - requiresUploadedMedia but resolvedMediaURLs.isEmpty")
+                print("Spot submitDraftPost: BLOCKED - requiresUploadedMedia but no uploaded media URLs were returned")
                 return
             }
 
-            // If media upload failed and we have media-type post, don't use fake fallback URLs
-            let isFallbackURL = resolvedMediaURLs.first?.lowercased().hasPrefix("local-") == true || resolvedMediaURLs.first?.lowercased().hasPrefix("file://") == true
-            if requiresUploadedMedia && isFallbackURL {
+            let sanitizedMediaURLs = finalizedMediaURLs.filter {
+                let lowered = $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                return Self.isRemoteURLString(lowered) || lowered.hasPrefix("gs://") || lowered.hasPrefix("file://")
+            }
+
+            if requiresUploadedMedia && sanitizedMediaURLs.isEmpty {
                 await MainActor.run {
-                    accountAuthMessage = "Media upload verification failed. Please try again."
-                    lastSentMessage = "Media upload failed. Post not sent."
+                    accountAuthMessage = "Media upload did not complete. Please try again."
+                    lastSentMessage = "Media upload incomplete. Post not sent."
                 }
-                print("Spot submitDraftPost: BLOCKED - isFallbackURL=true for media post. URL=\(resolvedMediaURLs.first ?? "nil")")
+                print("Spot submitDraftPost: BLOCKED - media URLs were local/fallback only. resolved=\(finalizedMediaURLs)")
                 return
             }
+
+            // Note: Backend moderation will validate and reject any malicious/fake URLs
+            // Real URLs proceed to moderation before posting
 
             if posted.type == "Video" {
-                let hasRemoteVideoURL = resolvedMediaURLs.contains { Self.isRemoteURLString($0) }
-                if !hasRemoteVideoURL {
+                let hasValidVideoURL = sanitizedMediaURLs.contains {
+                    let lowered = $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    return Self.isRemoteURLString(lowered) || lowered.hasPrefix("gs://") || lowered.hasPrefix("file://")
+                }
+                if !hasValidVideoURL {
                     await MainActor.run {
                         accountAuthMessage = "Video failed to upload. Please try posting again."
                         lastSentMessage = "Video upload failed. Post not sent."
@@ -8076,9 +14794,10 @@ struct ContentView: View {
                 }
             }
 
-            let payload = firebasePayload(for: posted, authorID: userID, mediaURLs: resolvedMediaURLs)
+            let effectiveAuthorPhotoURL = await ensureCurrentUserProfilePhotoPublishedIfNeeded(userID: userID)
+            let payload = firebasePayload(for: posted, authorID: userID, mediaURLs: sanitizedMediaURLs, authorPhotoURL: effectiveAuthorPhotoURL)
 
-            print("Spot submitDraftPost: Created Firebase payload with contentType=\(payload.contentType), mediaURLs.count=\(payload.mediaURLs.count)")
+            print("Spot submitDraftPost: Created Firebase payload with contentType=\(payload.contentType), mediaURLs.count=\(payload.mediaURLs.count), authorPhotoURLPresent=\(payload.authorProfilePhotoURL != nil)")
 
             let moderatedPostResult: FirebaseModeratedPostResult
 
@@ -8095,15 +14814,12 @@ struct ContentView: View {
                 return
             }
 
-            print("Spot submitDraftPost: Got moderation result - approved=\(moderatedPostResult.approved) posted=\(moderatedPostResult.posted)")
+            print("Spot submitDraftPost: Got moderation result - approved=\(moderatedPostResult.approved) posted=\(moderatedPostResult.posted) status=\(moderatedPostResult.status) reasonCodes=\(moderatedPostResult.reasonCodes) scores=\(moderatedPostResult.scores)")
 
             guard moderatedPostResult.isApproved else {
                 await MainActor.run {
-                    let blockedMessage = moderatedPostResult.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "This post is not allowed by moderation policy."
-                        : moderatedPostResult.message
-                    accountAuthMessage = blockedMessage
-                    lastSentMessage = blockedMessage
+                    resetDraftFor(selectedPostType)
+                    currentScreen = .contentTypePicker
                 }
                 return
             }
@@ -8156,7 +14872,7 @@ struct ContentView: View {
                 posts.insert(localPosted, at: 0)
 
                 recordPostForCooldown(at: resolvedLocation)
-                rememberSavedLocation(resolvedLocation)
+                rememberRecentLocation(resolvedLocation)
                 applyLocationSelection(resolvedLocation, context: .feed)
                 applyLocationSelection(resolvedLocation, context: .post)
                 if posted.type == "Video" {
@@ -8164,8 +14880,13 @@ struct ContentView: View {
                 }
                 draftLocation = resolvedLocation
                 lastSentMessage = "Posted in \(resolvedLocation)"
-                if posted.type == "Video" {
-                    currentScreen = .locationFeed
+                if isCreatingPostFromMap {
+                    prepareFreshMapExplorerState()
+                    mapFocusedPostID = localPosted.id
+                    mapFocusTrigger += 1
+                    currentScreen = .home
+                    isCreatingPostFromMap = false
+                    mapDraftCoordinate = nil
                 } else {
                     currentScreen = .home
                 }
@@ -8180,18 +14901,23 @@ struct ContentView: View {
 
     private var draftPreviewCard: some View {
         let previewPost = makeDraftPost()
-        let identityBlurRadius: CGFloat = draftIsAnonymous ? 8 : 0
+        let previewIdentityText = draftIsAnonymous ? "" : displayUsername(profileUsername.isEmpty ? "you" : profileUsername)
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profileName.isEmpty ? "You" : profileName)
-                        .font(.headline)
-                    Text(displayUsername(profileUsername.isEmpty ? "you" : profileUsername))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if draftIsAnonymous {
+                    anonymousMaskLabel(size: 20)
+                } else {
+                    HStack(spacing: 8) {
+                        profileAvatarView(size: 28, textSize: 12)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(previewIdentityText)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(usernameGoldTextColor)
+                        }
+                    }
                 }
-                .blur(radius: identityBlurRadius)
 
                 Spacer()
             }
@@ -8324,6 +15050,7 @@ struct ContentView: View {
                     .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(maxWidth: .infinity)
                     .frame(height: 230)
+                    .fixedSize(horizontal: false, vertical: true)
                     .overlay(
                         VStack(alignment: .center, spacing: 10) {
                             Spacer()
@@ -8352,9 +15079,13 @@ struct ContentView: View {
                             } else {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.white.opacity(0.2))
+                                        .fill(Color.gray.opacity(0.28))
                                         .frame(width: 56, height: 56)
-                                    Image(systemName: "play.rectangle.fill")
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.72), lineWidth: 1.2)
+                                        )
+                                    Image(systemName: "play.fill")
                                         .font(.title2)
                                         .foregroundStyle(.white)
                                 }
@@ -8542,32 +15273,15 @@ struct ContentView: View {
                 }
             } else if selectedPostType == "Song" {
                 VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        isSongFileImporterPresented = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "music.note.list")
-                                .font(.subheadline.weight(.bold))
-                            Text("Choose file")
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white)
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.black, lineWidth: 1)
-                        )
+                    if !isSignedInToAccount {
+                        Text("Save your account first so your profile photo can attach to this post.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.yellow.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-
-                    Text("Most people share songs by linking a Spotify, Apple Music, or YouTube Music URL in the post title or description.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
 
                     if let selectedSongURL = draftSongFileURL {
                         HStack(spacing: 8) {
@@ -8591,26 +15305,19 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.997, green: 0.998, blue: 1.0), Color(red: 0.966, green: 0.972, blue: 0.978)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            if selectedPostType != "Text"
-                && selectedPostType != "Photo"
-                && selectedPostType != "Video"
-                && selectedPostType != "Link"
-                && selectedPostType != "Audio"
-                && selectedPostType != "Song"
-                && selectedPostType != "Poll"
-                && selectedPostType != "Live Route"
-                && selectedPostType != "Guide"
-                && selectedPostType != "Work"
-                && selectedPostType != "Hiring"
-                && selectedPostType != "For Sale" {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.black, lineWidth: 1)
-            }
-        }
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.black.opacity(0.12), lineWidth: 1.1)
+        )
+        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 10)
         .padding(.horizontal, 18)
         .onChange(of: draftPhotoItem) { _, newItem in
             guard let newItem else { return }
@@ -8626,6 +15333,27 @@ struct ContentView: View {
 
     static func cappedCaptionText(_ value: String, maxLength: Int = 350) -> String {
         String(value.prefix(maxLength))
+    }
+
+    static func cappedListingPhotoSelection(_ images: [UIImage]) -> [UIImage] {
+        Array(images.prefix(10))
+    }
+
+    static func deduplicatedCappedListingPhotoSelection(_ images: [UIImage]) -> [UIImage] {
+        var seen = Set<Data>()
+        var unique: [UIImage] = []
+
+        for image in images {
+            guard let fingerprint = image.pngData() else { continue }
+            if seen.insert(fingerprint).inserted {
+                unique.append(image)
+            }
+            if unique.count >= 10 {
+                break
+            }
+        }
+
+        return unique
     }
 
     private func draftEditorForCurrentType() -> some View {
@@ -8652,10 +15380,11 @@ struct ContentView: View {
                     .lineSpacing(6)
 
             case "Photo":
-                TextField("Add a caption (up to 350 characters)", text: Binding(
+                TextField("Add a caption", text: Binding(
                     get: { draftBody },
                     set: { draftBody = Self.cappedCaptionText($0) }
                 ))
+                .textContentType(.oneTimeCode)
                 .font(.subheadline)
                 .padding(12)
                 .background(Color.white)
@@ -8666,10 +15395,11 @@ struct ContentView: View {
                 )
 
             case "Video", "Photo/Video":
-                TextField("Add a caption (up to 350 characters)", text: Binding(
+                TextField("Add a caption", text: Binding(
                     get: { draftBody },
                     set: { draftBody = Self.cappedCaptionText($0) }
                 ))
+                .textContentType(.oneTimeCode)
                 .font(.subheadline)
                 .padding(12)
                 .background(Color.white)
@@ -8702,7 +15432,7 @@ struct ContentView: View {
                 )
                 .frame(maxWidth: .infinity)
 
-                TextField("Add a caption (up to 350 characters)", text: Binding(
+                TextField("Add a caption", text: Binding(
                     get: { draftBody },
                     set: { draftBody = Self.cappedCaptionText($0) }
                 ))
@@ -8722,24 +15452,7 @@ struct ContentView: View {
                 EmptyView()
 
             case "Poll":
-                TextEditor(text: Binding(
-                    get: { draftPollQuestion },
-                    set: { draftPollQuestion = String($0.prefix(100)) }
-                ))
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.primary)
-                .frame(minHeight: 88, maxHeight: 150)
-                .padding(10)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.black, lineWidth: 1)
-                )
-                .scrollContentBackground(.hidden)
-                .lineSpacing(4)
-
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 14) {
                     Text("Top choice")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -8749,7 +15462,9 @@ struct ContentView: View {
                         set: { draftPollOptionA = String($0.prefix(36)) }
                     ), prompt: Text("Top option").foregroundStyle(.secondary))
                         .font(.subheadline)
-                        .padding(12)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 16)
+                        .frame(minHeight: 58)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(
@@ -8766,7 +15481,9 @@ struct ContentView: View {
                         set: { draftPollOptionB = String($0.prefix(36)) }
                     ), prompt: Text("Bottom option").foregroundStyle(.secondary))
                         .font(.subheadline)
-                        .padding(12)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 16)
+                        .frame(minHeight: 58)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(
@@ -8960,14 +15677,10 @@ struct ContentView: View {
 
             case "For Sale":
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Listing photo")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
+                    PhotosPicker(selection: $draftListingItems, maxSelectionCount: 10, matching: .images, photoLibrary: .shared()) {
                         HStack(spacing: 12) {
                             Group {
-                                if let image = draftPhotoImage {
+                                if let image = draftListingImages.first ?? draftPhotoImage {
                                     Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
@@ -8979,15 +15692,23 @@ struct ContentView: View {
                                         .fill(Color(.secondarySystemBackground))
                                         .frame(width: 72, height: 72)
                                         .overlay(
-                                            Image(systemName: "photo")
+                                            Image(systemName: "photo.on.rectangle")
                                                 .foregroundStyle(.secondary)
                                         )
                                 }
                             }
 
-                            Text(draftPhotoImage == nil ? "Add photo" : "Change photo")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(draftListingImages.isEmpty && draftPhotoImage == nil ? "Add photos" : "Change photos")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+
+                                if draftListingImages.count > 1 || draftPhotoImage != nil {
+                                    Text("\(max(1, draftListingImages.count)) selected")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
 
                             Spacer()
                         }
@@ -9001,6 +15722,11 @@ struct ContentView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .onChange(of: draftListingItems) { _, newItems in
+                        Task {
+                            await updateDraftListingImages(from: newItems)
+                        }
+                    }
 
                     TextField("Description", text: Binding(
                         get: { draftSaleItems.first ?? "" },
@@ -9041,45 +15767,11 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(Color.black, lineWidth: 1)
                     )
-
-                    TextField("Contact phone", text: Binding(
-                        get: { draftSaleContactPhone },
-                        set: {
-                            draftSaleContactPhone = String($0.prefix(24))
-                            persistSaleDraftState()
-                        }
-                    ))
-                    .font(.subheadline)
-                    .padding(12)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.black, lineWidth: 1)
-                    )
-
-                    TextField("Contact email", text: Binding(
-                        get: { draftSaleContactEmail },
-                        set: {
-                            draftSaleContactEmail = String($0.prefix(120))
-                            persistSaleDraftState()
-                        }
-                    ))
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled(true)
-                    .font(.subheadline)
-                    .padding(12)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.black, lineWidth: 1)
-                    )
                 }
 
             default:
                 TextField("", text: $draftTitle, prompt: Text("Type your post title").foregroundStyle(.secondary))
+                    .textContentType(.oneTimeCode)
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
                     .padding(12)
@@ -9091,6 +15783,7 @@ struct ContentView: View {
                     )
 
                 TextField("", text: $draftBody, prompt: Text("Write your post here").foregroundStyle(.secondary), axis: .vertical)
+                    .textContentType(.oneTimeCode)
                     .font(.body)
                     .lineLimit(5...8)
                     .foregroundStyle(.primary)
@@ -9470,6 +16163,33 @@ struct ContentView: View {
             .joined(separator: " ")
     }
 
+    static func isMapAreaRealm(_ value: String) -> Bool {
+        normalizedLocationRealm(value) == normalizedLocationRealm(mapAreaLocationLabel)
+    }
+
+    static func isCoordinateLocationLabel(_ value: String) -> Bool {
+        let cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+
+        let pattern = "-?\\d{1,3}\\.\\d+\\s*,\\s*-?\\d{1,3}\\.\\d+"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(cleaned.startIndex..<cleaned.endIndex, in: cleaned)
+        return regex.firstMatch(in: cleaned, options: [], range: range) != nil
+    }
+
+    static func displayLocationLabel(_ value: String) -> String {
+        if isMapAreaRealm(value) {
+            return mapAreaLocationLabel
+        }
+
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if extractCoordinateFromLocationName(trimmed) != nil {
+            return mapAreaLocationLabel
+        }
+
+        return trimmed
+    }
+
     static func resolvedPostingLocation(postLocation: String, feedLocation: String, nearbyPlaceName: String? = nil) -> String {
         let cleanedPost = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanedFeed = feedLocation.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -9511,6 +16231,30 @@ struct ContentView: View {
         return realms
     }
 
+    static func resolvedMapAreaCenterCoordinate(
+        _ current: CLLocationCoordinate2D?,
+        userCoordinate: CLLocationCoordinate2D?,
+        markers: [MapPostMarker]
+    ) -> CLLocationCoordinate2D {
+        if let current, current.latitude.isFinite, current.longitude.isFinite {
+            return current
+        }
+        if let userCoordinate, userCoordinate.latitude.isFinite, userCoordinate.longitude.isFinite {
+            return userCoordinate
+        }
+        if let newestMarker = markers.max(by: { $0.createdAt < $1.createdAt })?.coordinate,
+           newestMarker.latitude.isFinite, newestMarker.longitude.isFinite {
+            return newestMarker
+        }
+        return NearbyPlaceLoader.defaultCenter
+    }
+
+    private static func mapAreaRadiusMiles(forZoom zoom: CGFloat) -> Double {
+        // Expand area naturally as users zoom out, and tighten as users zoom in.
+        let rawRadius = mapAreaDefaultRadiusMiles * pow(2.0, Double(13.8 - zoom))
+        return min(max(rawRadius, 0.65), 300.0)
+    }
+
     static func postsForLocationRealm(_ posts: [MockPost], activeLocation: String, includeVideos: Bool = true) -> [MockPost] {
         let selected = activeLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedSelected = normalizedLocationRealm(selected.isEmpty ? "Tokyo, Japan" : selected)
@@ -9529,13 +16273,377 @@ struct ContentView: View {
         }
     }
 
+    private func boostDistributionRealmLimit(totalPosts: Int, boostedPosts: Int, candidateRealmCount: Int) -> Int {
+        guard totalPosts > 0, boostedPosts > 0, candidateRealmCount > 0 else { return 0 }
+
+        let boostRatio = Double(boostedPosts) / Double(max(1, totalPosts))
+        let ratioCap: Int
+        switch boostRatio {
+        case ..<0.06:
+            ratioCap = 5
+        case ..<0.12:
+            ratioCap = 4
+        case ..<0.24:
+            ratioCap = 3
+        case ..<0.38:
+            ratioCap = 2
+        default:
+            ratioCap = 1
+        }
+
+        // Wider location coverage can support slightly broader distribution, but keep it bounded.
+        let breadthCap = max(1, min(5, Int(Double(candidateRealmCount).squareRoot().rounded())))
+        return max(1, min(candidateRealmCount, ratioCap, breadthCap))
+    }
+
+    private func stableBoostHash(_ value: String) -> UInt64 {
+        var hash: UInt64 = 1469598103934665603
+        for byte in value.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        return hash
+    }
+
+    private func isEligibleBoostDestinationRealm(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        if Self.isMapAreaRealm(trimmed) || Self.isCoordinateLocationLabel(trimmed) || Self.isDeprecatedLocationOption(trimmed) {
+            return false
+        }
+
+        let normalized = Self.normalizedLocationRealm(trimmed)
+        guard !normalized.isEmpty else { return false }
+        if normalized == Self.normalizedLocationRealm("Metric") {
+            return false
+        }
+        if normalized == Self.normalizedLocationRealm("Friends") || normalized == Self.normalizedLocationRealm("Following") {
+            return false
+        }
+
+        return true
+    }
+
+    private func boostedFeedCandidateRealms(from sourcePosts: [MockPost], realmMap: [String: String]) -> [String] {
+        var countsByRealm: [String: Int] = [:]
+        var displayRealmByNormalized: [String: String] = [:]
+
+        for post in sourcePosts {
+            // Destination realms are derived from real, unpinned feeds only.
+            if realmMap[postAdminPinStorageKey(post)] != nil { continue }
+
+            let realms = Self.resolvedPostedRealms(location: post.location, postedInLocations: post.postedInLocations)
+            for realm in realms {
+                guard isEligibleBoostDestinationRealm(realm) else { continue }
+                let normalized = Self.normalizedLocationRealm(realm)
+                countsByRealm[normalized, default: 0] += 1
+                if displayRealmByNormalized[normalized] == nil {
+                    displayRealmByNormalized[normalized] = Self.displayLocationLabel(realm)
+                }
+            }
+        }
+
+        return countsByRealm
+            .sorted { lhs, rhs in
+                if lhs.value != rhs.value { return lhs.value > rhs.value }
+                let lhsDisplay = displayRealmByNormalized[lhs.key] ?? lhs.key
+                let rhsDisplay = displayRealmByNormalized[rhs.key] ?? rhs.key
+                return lhsDisplay.localizedCaseInsensitiveCompare(rhsDisplay) == .orderedAscending
+            }
+            .compactMap { displayRealmByNormalized[$0.key] }
+    }
+
+    private func distributedBoostRealms(for post: MockPost, from candidateRealms: [String], limit: Int) -> [String] {
+        guard !candidateRealms.isEmpty, limit > 0 else { return [] }
+
+        let stableKey = "\(postAdminPinStorageKey(post))|\(post.createdAt.timeIntervalSince1970)"
+        let offset = Int(stableBoostHash(stableKey) % UInt64(candidateRealms.count))
+        var selected: [String] = []
+        selected.reserveCapacity(limit)
+
+        var index = offset
+        while selected.count < limit {
+            selected.append(candidateRealms[index])
+            index = (index + 1) % candidateRealms.count
+        }
+
+        return selected
+    }
+
+    private func postsWithSmartBoostDistribution(includeVideos: Bool = true) -> [MockPost] {
+        let realmMap = adminPinnedRealmMap()
+        let sourcePool = posts.filter { post in
+            includeVideos || post.type != "Video"
+        }
+        let realmDiscoverySource = sourcePool.filter { !$0.isBoosted }
+        let candidateRealms = boostedFeedCandidateRealms(
+            from: realmDiscoverySource.isEmpty ? sourcePool : realmDiscoverySource,
+            realmMap: realmMap
+        )
+        let boostedCount = sourcePool.filter(\.isBoosted).count
+        let destinationLimit = boostDistributionRealmLimit(
+            totalPosts: sourcePool.count,
+            boostedPosts: boostedCount,
+            candidateRealmCount: candidateRealms.count
+        )
+
+        guard destinationLimit > 0 else { return posts }
+
+        return posts.map { post in
+            guard post.isBoosted else { return post }
+
+            var updated = post
+            var merged = Self.resolvedPostedRealms(location: post.location, postedInLocations: post.postedInLocations)
+            let distributed = distributedBoostRealms(for: post, from: candidateRealms, limit: destinationLimit)
+
+            for realm in distributed {
+                let normalized = Self.normalizedLocationRealm(realm)
+                let alreadyPresent = merged.contains { Self.normalizedLocationRealm($0) == normalized }
+                if !alreadyPresent {
+                    merged.append(realm)
+                }
+            }
+
+            updated.postedInLocations = Self.resolvedPostedRealms(location: updated.location, postedInLocations: merged)
+            return updated
+        }
+    }
+
+    static func mapAreaVisiblePostIDs(
+        markers: [MapPostMarker],
+        center: CLLocationCoordinate2D,
+        zoom: CGFloat,
+        sourcePostID: Int? = nil
+    ) -> Set<Int> {
+        let visibleRadiusMiles = Self.mapAreaRadiusMiles(forZoom: zoom)
+        var visibleIDs = Set(
+            markers
+                .filter { marker in
+                    NearbyPlaceLoader.haversineMiles(from: center, to: marker.coordinate) <= visibleRadiusMiles
+                }
+                .map(\.postID)
+        )
+
+        // Always retain the tapped source post in map-area feeds to prevent empty-state regressions.
+        if let sourcePostID {
+            visibleIDs.insert(sourcePostID)
+        }
+
+        return visibleIDs
+    }
+
+    private static func markerCoordinate(for postID: Int, in markers: [MapPostMarker]) -> CLLocationCoordinate2D {
+        markers.first(where: { $0.postID == postID })?.coordinate ?? NearbyPlaceLoader.defaultCenter
+    }
+
+    private func postsForActiveMapArea(includeVideos: Bool = true) -> [MockPost] {
+        if mapAreaCenterCoordinate == nil {
+            mapAreaCenterCoordinate = Self.resolvedMapAreaCenterCoordinate(
+                mapAreaCenterCoordinate,
+                userCoordinate: locationService.lastKnownLocation?.coordinate,
+                markers: mapPostMarkers
+            )
+        }
+
+        guard let mapAreaCenterCoordinate else { return [] }
+        var postIDs = Self.mapAreaVisiblePostIDs(
+            markers: mapPostMarkers,
+            center: mapAreaCenterCoordinate,
+            zoom: mapAreaZoomLevel,
+            sourcePostID: mapAreaSourcePostID
+        )
+
+        let realmMap = adminPinnedRealmMap()
+        let mapPinnedIDs = posts
+            .filter { isMapTopPinned($0, realmMap: realmMap) }
+            .map(\.id)
+        postIDs.formUnion(mapPinnedIDs)
+
+        guard !postIDs.isEmpty else {
+            return []
+        }
+
+        let visiblePosts = posts
+            .filter { post in
+                postIDs.contains(post.id)
+                    && (includeVideos || post.type != "Video")
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+
+        return prioritizeAdminMapTopPinnedPosts(visiblePosts)
+    }
+
     static func loadViewedPostIDs() -> Set<Int> {
         let saved = UserDefaults.standard.array(forKey: "spot_viewed_post_ids") as? [Int] ?? []
         return Set(saved)
     }
 
+    private static func loadReportedPostKeys() -> Set<String> {
+        let saved = UserDefaults.standard.array(forKey: Self.reportedPostKeysDefaultsKey) as? [String] ?? []
+        let cleaned = saved
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Set(cleaned)
+    }
+
+    private static func loadAdminFlaggedPostsByKey() -> [String: Double] {
+        let saved = UserDefaults.standard.dictionary(forKey: Self.adminFlaggedPostsByKeyDefaultsKey) as? [String: Double] ?? [:]
+        var cleaned: [String: Double] = [:]
+
+        for (key, timestamp) in saved {
+            let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, timestamp > 0 else { continue }
+            cleaned[trimmed] = timestamp
+        }
+
+        return cleaned
+    }
+
+    private static func loadEngagementSnapshotsByPostKey() -> [String: EngagementSnapshot] {
+        guard let data = UserDefaults.standard.data(forKey: engagementSnapshotsDefaultsKey) else {
+            return [:]
+        }
+
+        do {
+            return try JSONDecoder().decode([String: EngagementSnapshot].self, from: data)
+        } catch {
+            return [:]
+        }
+    }
+
     private func persistViewedPostIDs() {
         UserDefaults.standard.set(Array(viewedPostIDs), forKey: "spot_viewed_post_ids")
+    }
+
+    private func persistReportedPostKeys() {
+        UserDefaults.standard.set(Array(reportedPostKeys), forKey: Self.reportedPostKeysDefaultsKey)
+    }
+
+    private func persistAdminFlaggedPostsByKey() {
+        UserDefaults.standard.set(adminFlaggedPostsByKey, forKey: Self.adminFlaggedPostsByKeyDefaultsKey)
+    }
+
+    private func pruneExpiredAdminFlaggedPosts() {
+        let now = Date().timeIntervalSince1970
+        let pruned = adminFlaggedPostsByKey.filter { _, flaggedAt in
+            now - flaggedAt <= Self.adminFlaggedRetentionSeconds
+        }
+
+        if pruned.count != adminFlaggedPostsByKey.count {
+            adminFlaggedPostsByKey = pruned
+            persistAdminFlaggedPostsByKey()
+        }
+    }
+
+    private func adminFlaggedStorageKey(for post: MockPost) -> String {
+        let firestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !firestoreID.isEmpty {
+            return "f:\(firestoreID)"
+        }
+        return "l:\(post.id)"
+    }
+
+    private func adminFlaggedTimestamp(for post: MockPost) -> Double? {
+        let candidateKeys = [adminFlaggedStorageKey(for: post)] + reportedStorageKeys(for: post)
+        return candidateKeys.compactMap { adminFlaggedPostsByKey[$0] }.max()
+    }
+
+    private var adminFlaggedFeedPosts: [MockPost] {
+        let now = Date().timeIntervalSince1970
+        let activeKeys = Set(
+            adminFlaggedPostsByKey
+                .filter { _, flaggedAt in
+                    now - flaggedAt <= Self.adminFlaggedRetentionSeconds
+                }
+                .map(\.key)
+        )
+
+        let candidates = posts.filter { post in
+            reportedStorageKeys(for: post).contains { activeKeys.contains($0) }
+                || activeKeys.contains(adminFlaggedStorageKey(for: post))
+        }
+
+        return candidates.sorted { lhs, rhs in
+            let lhsTimestamp = adminFlaggedTimestamp(for: lhs) ?? lhs.createdAt.timeIntervalSince1970
+            let rhsTimestamp = adminFlaggedTimestamp(for: rhs) ?? rhs.createdAt.timeIntervalSince1970
+            if lhsTimestamp != rhsTimestamp {
+                return lhsTimestamp > rhsTimestamp
+            }
+            return lhs.createdAt > rhs.createdAt
+        }
+    }
+
+    private func persistEngagementSnapshotsByPostKey() {
+        do {
+            let data = try JSONEncoder().encode(engagementSnapshotsByPostKey)
+            UserDefaults.standard.set(data, forKey: Self.engagementSnapshotsDefaultsKey)
+        } catch {
+            UserDefaults.standard.removeObject(forKey: Self.engagementSnapshotsDefaultsKey)
+        }
+    }
+
+    private func postEngagementStorageKey(for post: MockPost) -> String {
+        let trimmedFirestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedFirestoreID.isEmpty {
+            return "f:\(trimmedFirestoreID)"
+        }
+        return "l:\(post.id)"
+    }
+
+    private func reportedStorageKeys(for post: MockPost) -> [String] {
+        var keys: [String] = []
+        let firestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !firestoreID.isEmpty {
+            keys.append("f:\(firestoreID)")
+        }
+        keys.append("l:\(post.id)")
+        return keys
+    }
+
+    private func isPostReported(_ post: MockPost) -> Bool {
+        if reportedPostIds.contains(post.id) {
+            return true
+        }
+        return reportedStorageKeys(for: post).contains { reportedPostKeys.contains($0) }
+    }
+
+    private func cacheEngagementSnapshot(for post: MockPost) {
+        let key = postEngagementStorageKey(for: post)
+        let existing = engagementSnapshotsByPostKey[key]
+        let next = EngagementSnapshot(
+            viewCount: max(existing?.viewCount ?? 0, post.viewCount),
+            timeViewedSeconds: max(existing?.timeViewedSeconds ?? 0, post.timeViewedSeconds),
+            savedCount: max(existing?.savedCount ?? 0, post.savedCount),
+            shareCount: max(existing?.shareCount ?? 0, post.shareCount),
+            likes: max(existing?.likes ?? 0, post.likes),
+            peakEngagementScore: max(existing?.peakEngagementScore ?? 0, post.engagementScore)
+        )
+
+        engagementSnapshotsByPostKey[key] = next
+        persistEngagementSnapshotsByPostKey()
+    }
+
+    private func applyCachedEngagementSnapshots(to source: [MockPost]) -> [MockPost] {
+        source.map { post in
+            let key = postEngagementStorageKey(for: post)
+            guard let snapshot = engagementSnapshotsByPostKey[key] else {
+                return post
+            }
+
+            var updated = post
+            updated.viewCount = max(updated.viewCount, snapshot.viewCount)
+            updated.timeViewedSeconds = max(updated.timeViewedSeconds, snapshot.timeViewedSeconds)
+            updated.savedCount = max(updated.savedCount, snapshot.savedCount)
+            updated.shareCount = max(updated.shareCount, snapshot.shareCount)
+            updated.likes = max(updated.likes, snapshot.likes)
+            updated.peakEngagementScore = max(updated.peakEngagementScore, snapshot.peakEngagementScore, updated.realEngagementScore)
+            return updated
+        }
     }
 
     private func distanceMilesFromUser(to post: MockPost) -> Double? {
@@ -9599,10 +16707,35 @@ struct ContentView: View {
             }
         }
 
+        let metricBoostBonus: Double = {
+            let metricRealm = Self.normalizedLocationRealm("Metric")
+            guard Self.normalizedLocationRealm(activeLocation) == metricRealm, post.isBoosted else {
+                return 0.0
+            }
+
+            // Boosted posts should rise quickly and stay elevated longer in Metric feed.
+            let immediateLift = max(0.0, 22_000.0 - (ageMinutes * 55.0))
+            let sustainedLift = max(0.0, 12_000.0 - (ageHours * 180.0))
+            return immediateLift + sustainedLift
+        }()
+
+        let isMetricFeed = normalizedLocation == "metric"
+        let userCoord = locationService.lastKnownLocation?.coordinate
+        let rawMlScore = MetricFeedMLEngine.shared.calculateMLScore(
+            for: post,
+            userCoordinate: userCoord,
+            activeLocation: activeLocation,
+            allPosts: posts,
+            nearbyPlaces: nearbyPlaces
+        )
+        let mlRecommendationScore = isMetricFeed ? (rawMlScore * 3.0) : (rawMlScore * 0.5)
+
         let freshnessPenalty = ageHours > 72.0 ? min(30_000.0, (ageHours - 72.0) * 220.0) : 0.0
         let viewedPenalty = viewedPostIDs.contains(post.id) ? 90_000.0 : 0.0
 
-        return trendScore + recencyBoost + resurgenceBonus + localSuccessBonus - freshnessPenalty - viewedPenalty
+        let ownPostPenalty = Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername) ? 150_000.0 : 0.0
+
+        return trendScore + recencyBoost + resurgenceBonus + localSuccessBonus + metricBoostBonus + mlRecommendationScore - freshnessPenalty - viewedPenalty - ownPostPenalty
     }
 
     private func rankedPostsForFeed(_ candidates: [MockPost], activeLocation: String, isFriendsFeed: Bool) -> [MockPost] {
@@ -9618,6 +16751,118 @@ struct ContentView: View {
             }
             return lhs.id > rhs.id
         }
+    }
+
+    private func newestFirstPosts(_ candidates: [MockPost]) -> [MockPost] {
+        candidates.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+    }
+
+    private func adminProfilePinnedTimestampMap() -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: Self.adminProfilePinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+    }
+
+    private func adminProfilePinnedTimestamp(for post: MockPost, timestampMap: [String: Double]) -> Double {
+        let key = postAdminPinStorageKey(post)
+        return timestampMap[key] ?? 0
+    }
+
+    private func newestFirstProfilePosts(_ candidates: [MockPost]) -> [MockPost] {
+        let profilePinnedAt = adminProfilePinnedTimestampMap()
+        return candidates.sorted { lhs, rhs in
+            let lhsRankTimestamp = max(lhs.createdAt.timeIntervalSince1970, adminProfilePinnedTimestamp(for: lhs, timestampMap: profilePinnedAt))
+            let rhsRankTimestamp = max(rhs.createdAt.timeIntervalSince1970, adminProfilePinnedTimestamp(for: rhs, timestampMap: profilePinnedAt))
+
+            if lhsRankTimestamp != rhsRankTimestamp {
+                return lhsRankTimestamp > rhsRankTimestamp
+            }
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+    }
+
+    private func adminVideoMetricPinnedTimestampMap() -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: Self.adminVideoMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+    }
+
+    private func prioritizeAdminVideoMetricPinnedPosts(_ candidates: [MockPost]) -> [MockPost] {
+        guard !candidates.isEmpty else { return candidates }
+
+        let pinnedMap = adminVideoMetricPinnedTimestampMap()
+        if pinnedMap.isEmpty {
+            return candidates
+        }
+
+        let pinned = candidates
+            .filter { post in
+                let key = postAdminPinStorageKey(post)
+                return pinnedMap[key] != nil
+            }
+            .sorted { lhs, rhs in
+                let lhsKey = postAdminPinStorageKey(lhs)
+                let rhsKey = postAdminPinStorageKey(rhs)
+                let lhsPinnedAt = pinnedMap[lhsKey] ?? 0
+                let rhsPinnedAt = pinnedMap[rhsKey] ?? 0
+                if lhsPinnedAt != rhsPinnedAt {
+                    return lhsPinnedAt > rhsPinnedAt
+                }
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+
+        let unpinned = candidates.filter { post in
+            let key = postAdminPinStorageKey(post)
+            return pinnedMap[key] == nil
+        }
+
+        return pinned + unpinned
+    }
+
+    private func adminVideoNonMetricPinnedTimestampMap() -> [String: Double] {
+        UserDefaults.standard.dictionary(forKey: Self.adminVideoNonMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+    }
+
+    private func prioritizeAdminVideoNonMetricPinnedPosts(_ candidates: [MockPost]) -> [MockPost] {
+        guard !candidates.isEmpty else { return candidates }
+
+        let pinnedMap = adminVideoNonMetricPinnedTimestampMap()
+        if pinnedMap.isEmpty {
+            return candidates
+        }
+
+        let pinned = candidates
+            .filter { post in
+                let key = postAdminPinStorageKey(post)
+                return pinnedMap[key] != nil
+            }
+            .sorted { lhs, rhs in
+                let lhsKey = postAdminPinStorageKey(lhs)
+                let rhsKey = postAdminPinStorageKey(rhs)
+                let lhsPinnedAt = pinnedMap[lhsKey] ?? 0
+                let rhsPinnedAt = pinnedMap[rhsKey] ?? 0
+                if lhsPinnedAt != rhsPinnedAt {
+                    return lhsPinnedAt > rhsPinnedAt
+                }
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+
+        let unpinned = candidates.filter { post in
+            let key = postAdminPinStorageKey(post)
+            return pinnedMap[key] == nil
+        }
+
+        return pinned + unpinned
     }
 
     private func adminPinnedRealmMap() -> [String: String] {
@@ -9669,14 +16914,110 @@ struct ContentView: View {
         return timestampMap[key] ?? 0
     }
 
+    private func isGlobalPinnedActiveForLocation(_ post: MockPost, location: String) -> Bool {
+        let globalPinnedKeys = Set(
+            adminPinnedRealmMap()
+                .filter { $0.value == Self.adminPinAllNonMetricMarker || $0.value == Self.adminPinNearestPOIMarker }
+                .map { $0.key }
+        )
+        guard globalPinnedKeys.contains(postAdminPinStorageKey(post)) else { return false }
+
+        // Nearest POI feeds exclude posts pinned with spot:all-non-metric
+        let realmMap = adminPinnedRealmMap()
+        let postKey = postAdminPinStorageKey(post)
+        let isNearestPOIFeed = isLocationNearestPOI(location)
+
+        if isNearestPOIFeed {
+            if realmMap[postKey] == Self.adminPinAllNonMetricMarker {
+                return false
+            }
+        } else {
+            if realmMap[postKey] == Self.adminPinNearestPOIMarker {
+                return false
+            }
+        }
+
+        let activeLocationRealm = Self.normalizedLocationRealm(location)
+        let unpinnedPostsInLocation = posts.filter { p in
+            !globalPinnedKeys.contains(postAdminPinStorageKey(p)) &&
+            Self.resolvedPostedRealms(location: p.location, postedInLocations: p.postedInLocations)
+                .contains { Self.normalizedLocationRealm($0) == activeLocationRealm }
+        }
+
+        return unpinnedPostsInLocation.isEmpty
+    }
+
+    private func isLocationNearestPOI(_ locationName: String) -> Bool {
+        let normalized = Self.normalizedLocationRealm(locationName)
+        
+        // Fast match against state property nearbyPlaces without disk CSV parsing
+        if nearbyPlaces.contains(where: { Self.normalizedLocationRealm($0.name) == normalized }) {
+            return true
+        }
+
+        return false
+    }
+
     private func isAdminPinned(_ post: MockPost, for activeLocation: String, realmMap: [String: String]) -> Bool {
         let key = postAdminPinStorageKey(post)
         guard let pinnedRealm = realmMap[key] else { return false }
         let normalizedActive = Self.normalizedLocationRealm(activeLocation)
         if pinnedRealm == Self.adminPinAllNonMetricMarker {
-            return normalizedActive != Self.normalizedLocationRealm("Metric")
+            // Exclude spot:all-non-metric posts from the user's nearest POI feed
+            if isLocationNearestPOI(activeLocation) {
+                return false
+            }
+            return isGlobalPinnedActiveForLocation(post, location: activeLocation)
+        }
+        if pinnedRealm == Self.adminPinNearestPOIMarker {
+            // Include spot:nearest-poi posts ONLY in nearest POI feeds
+            if isLocationNearestPOI(activeLocation) {
+                return isGlobalPinnedActiveForLocation(post, location: activeLocation)
+            }
+            return false
         }
         return pinnedRealm == normalizedActive
+    }
+
+    private func mapPinnedPostKeys(realmMap: [String: String]? = nil) -> Set<String> {
+        let resolvedRealmMap = realmMap ?? adminPinnedRealmMap()
+        return Set(
+            resolvedRealmMap
+                .filter { $0.value == Self.adminPinMapTopMarker }
+                .map { $0.key }
+        )
+    }
+
+    private func isMapTopPinned(_ post: MockPost, realmMap: [String: String]? = nil) -> Bool {
+        let resolvedRealmMap = realmMap ?? adminPinnedRealmMap()
+        let key = postAdminPinStorageKey(post)
+        return resolvedRealmMap[key] == Self.adminPinMapTopMarker
+    }
+
+    private func prioritizeAdminMapTopPinnedPosts(_ candidates: [MockPost]) -> [MockPost] {
+        guard !candidates.isEmpty else { return candidates }
+
+        let realmMap = adminPinnedRealmMap()
+        let pinnedKeys = mapPinnedPostKeys(realmMap: realmMap)
+        guard !pinnedKeys.isEmpty else { return candidates }
+
+        let timestampMap = adminPinnedTimestampMap()
+        let pinned = candidates
+            .filter { pinnedKeys.contains(postAdminPinStorageKey($0)) }
+            .sorted { lhs, rhs in
+                let lhsPinnedAt = adminPinTimestamp(for: lhs, timestampMap: timestampMap)
+                let rhsPinnedAt = adminPinTimestamp(for: rhs, timestampMap: timestampMap)
+                if lhsPinnedAt != rhsPinnedAt {
+                    return lhsPinnedAt > rhsPinnedAt
+                }
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id > rhs.id
+            }
+
+        let unpinned = candidates.filter { !pinnedKeys.contains(postAdminPinStorageKey($0)) }
+        return pinned + unpinned
     }
 
     private func prioritizeAdminPinnedPosts(_ candidates: [MockPost], activeLocation: String) -> [MockPost] {
@@ -9742,9 +17083,14 @@ struct ContentView: View {
         let ranked = rankedPostsForFeed(candidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
         feedRankedPostIDs = ranked.map(\.id)
         feedRankingSignature = signature
-        feedLoadedCount = min(max(3, feedLoadedCount), max(0, ranked.count))
+        let isMetricFeed = Self.normalizedLocationRealm(activeLocation) == Self.normalizedLocationRealm("Metric")
+        if isMetricFeed {
+            feedLoadedCount = max(feedLoadedCount, ranked.count)
+        } else {
+            feedLoadedCount = min(max(24, feedLoadedCount), max(0, ranked.count))
+        }
         if force {
-            feedLoadedCount = min(3, ranked.count)
+            feedLoadedCount = ranked.count
         }
     }
 
@@ -9763,9 +17109,9 @@ struct ContentView: View {
         let ranked = rankedPostsForFeed(candidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
         videoFeedRankedPostIDs = ranked.map(\.id)
         videoFeedRankingSignature = signature
-        lazyVideoLoadedCount = min(max(4, lazyVideoLoadedCount), max(0, ranked.count))
+        lazyVideoLoadedCount = max(24, min(lazyVideoLoadedCount, max(0, ranked.count)))
         if force {
-            lazyVideoLoadedCount = min(4, ranked.count)
+            lazyVideoLoadedCount = ranked.count
         }
     }
 
@@ -9789,18 +17135,19 @@ struct ContentView: View {
         let cappedBody = (selectedPostType == "Photo" || selectedPostType == "Video" || selectedPostType == "Link" || selectedPostType == "Photo/Video")
             ? Self.cappedCaptionText(draftBody)
             : String(draftBody.prefix(500))
-        let realName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "You" : profileName
         let realHandle = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "you" : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("@") ? String(profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).dropFirst()) : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        let draftAuthorName = draftIsAnonymous ? Self.anonymousDisplayName : realName
+        let draftAuthorName = draftIsAnonymous ? "" : realHandle
         let draftAuthorHandle = draftIsAnonymous ? Self.anonymousHandle : realHandle
+        let titleIdentity = realHandle
         let brandedRouteTitle = draftRouteIsRunBranding
-            ? (realName.hasSuffix("s") ? "\(realName)' run" : "\(realName)'s run")
-            : (realName.hasSuffix("s") ? "\(realName)' trip" : "\(realName)'s trip")
-        let brandedWorkTitle = realName.hasSuffix("s") ? "\(realName)' hiring" : "\(realName)'s hiring"
+            ? (titleIdentity.hasSuffix("s") ? "\(titleIdentity)' run" : "\(titleIdentity)'s run")
+            : (titleIdentity.hasSuffix("s") ? "\(titleIdentity)' trip" : "\(titleIdentity)'s trip")
+        let brandedWorkTitle = titleIdentity.hasSuffix("s") ? "\(titleIdentity)' hiring" : "\(titleIdentity)'s hiring"
         let title = selectedPostType == "Poll" ? draftPollQuestion : (selectedPostType == "Live Route" ? brandedRouteTitle : ((selectedPostType == "Work" || selectedPostType == "Hiring") ? brandedWorkTitle : cappedTitle))
         let body = selectedPostType == "Poll"
             ? draftBody
             : ((selectedPostType == "Work" || selectedPostType == "Hiring") ? "" : cappedBody)
+        let primaryListingImage = selectedPostType == "For Sale" ? draftListingImages.first : draftPhotoImage
         let resolvedAudioURL = selectedPostType == "Audio" ? Self.audioPostSourceURL(draftUrl: draftUrl, recordedAudioURL: draftRecordedAudioURL) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
         let resolvedSongURL = selectedPostType == "Song" ? (draftSongFileURL?.absoluteString ?? (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
         let resolvedVideoURL = selectedPostType == "Video" ? (draftVideoURL?.absoluteString ?? (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
@@ -9861,7 +17208,10 @@ struct ContentView: View {
             id: id,
             author: draftAuthorName,
             handle: draftAuthorHandle,
+            authorUserID: currentUserID,
             authorProfilePhotoURL: draftIsAnonymous ? nil : (profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL),
+            authorAge: draftIsAnonymous ? nil : postDetailAgeValue.trimmingCharacters(in: .whitespacesAndNewlines),
+            authorPosition: draftIsAnonymous ? nil : postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines),
             type: selectedPostType,
             location: location,
             title: title,
@@ -9875,7 +17225,7 @@ struct ContentView: View {
             sentTo: [],
             pollOptions: pollOptions,
             pollVotes: pollVotes,
-            mediaImage: selectedPostType == "Song" ? (songArtworkImage ?? draftPhotoImage) : draftPhotoImage,
+            mediaImage: selectedPostType == "Song" ? (songArtworkImage ?? draftPhotoImage) : (selectedPostType == "For Sale" ? primaryListingImage : draftPhotoImage),
             postedInLocations: [location],
             isAnonymous: draftIsAnonymous
         )
@@ -9903,6 +17253,8 @@ struct ContentView: View {
         draftSaleContactPhone = ""
         draftSaleContactEmail = ""
         draftPhotoItem = nil
+        draftListingItems = []
+        draftListingImages = []
         clearSaleDraftState()
         draftVideoItem = nil
         draftVideoURL = nil
@@ -9947,7 +17299,42 @@ struct ContentView: View {
             draftSaleContactEmail = accountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
+        draftListingImages = Self.cappedListingPhotoSelection(draftListingImages)
+        if let firstListingImage = draftListingImages.first {
+            draftPhotoImage = firstListingImage
+        } else {
+            // Prevent stale non-listing photos from blocking For Sale posting.
+            draftPhotoImage = nil
+        }
+
         persistSaleDraftState()
+    }
+
+    private func updateDraftListingImages(from items: [PhotosPickerItem]) async {
+        let existingImages = await MainActor.run { draftListingImages }
+        var loaded: [UIImage] = []
+
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                loaded.append(image)
+            }
+        }
+
+        let merged = Self.deduplicatedCappedListingPhotoSelection(existingImages + loaded)
+
+        await MainActor.run {
+            draftListingImages = merged
+            if let first = draftListingImages.first {
+                draftPhotoImage = first
+            } else {
+                draftPhotoImage = nil
+            }
+            if !draftListingImages.isEmpty {
+                draftListingItems = []
+            }
+            persistSaleDraftState()
+        }
     }
 
     private func persistSaleDraftState() {
@@ -9958,7 +17345,8 @@ struct ContentView: View {
             phone: draftSaleContactPhone,
             email: draftSaleContactEmail,
             description: draftBody,
-            photoData: draftPhotoImage?.jpegData(compressionQuality: 0.85)
+            photoData: draftListingImages.first?.jpegData(compressionQuality: 0.85) ?? draftPhotoImage?.jpegData(compressionQuality: 0.85),
+            photoDatas: draftListingImages.map { $0.jpegData(compressionQuality: 0.85) ?? Data() }.filter { !$0.isEmpty }
         )
 
         if let encoded = try? JSONEncoder().encode(payload) {
@@ -9983,9 +17371,15 @@ struct ContentView: View {
         draftSaleContactPhone = payload.phone
         draftSaleContactEmail = payload.email
 
-        if let photoData = payload.photoData, let restoredImage = UIImage(data: photoData) {
+        let restoredPhotos = payload.photoDatas.compactMap { UIImage(data: $0) }
+        if !restoredPhotos.isEmpty {
+            draftListingImages = Self.cappedListingPhotoSelection(restoredPhotos)
+            draftPhotoImage = draftListingImages.first
+        } else if let photoData = payload.photoData, let restoredImage = UIImage(data: photoData) {
+            draftListingImages = [restoredImage]
             draftPhotoImage = restoredImage
         } else {
+            draftListingImages = []
             draftPhotoImage = nil
         }
     }
@@ -10061,7 +17455,7 @@ struct ContentView: View {
         case "Song": return "Share a full song file and tap play to listen."
         case "Poll": return "Ask a question and let people vote."
         case "Live Route": return "Share your trip with a route and story."
-        case "Guide": return "Share a step-by-step guide with up to 10 slides."
+        case "Guide": return "List items for nearby people"
         case "Work", "Hiring": return "Post jobs with phone or email contact."
         case "For Sale": return "List items with price and contact phone."
         default: return "Share a short audio clip."
@@ -10115,10 +17509,30 @@ struct ContentView: View {
             return true
         }
 
-        let target = username.lowercased()
-        return communityUsers.contains { user in
-            user.username.lowercased() == target && user.isFollowing
+        let normalizedTarget = FirebaseSpotService.normalizeUsername(username)
+        if !normalizedTarget.isEmpty {
+            return communityUsers.contains { user in
+                FirebaseSpotService.normalizeUsername(user.username) == normalizedTarget && user.isFollowing
+            }
         }
+
+        return false
+    }
+
+    private func isUserFollowedOrSelf(authorUserID: String = "", username: String = "") -> Bool {
+        let trimmedAuthorID = authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCurrentUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedAuthorID.isEmpty && !trimmedCurrentUserID.isEmpty && trimmedAuthorID == trimmedCurrentUserID {
+            return true
+        }
+
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+        let normalizedCurrentUsername = FirebaseSpotService.normalizeUsername(profileUsername)
+        if !normalizedUsername.isEmpty && !normalizedCurrentUsername.isEmpty && normalizedUsername == normalizedCurrentUsername {
+            return true
+        }
+
+        return isUserFollowed(authorUserID: authorUserID, username: username)
     }
 
     private func isUserMutualFollowed(authorUserID: String = "", username: String = "") -> Bool {
@@ -10136,6 +17550,10 @@ struct ContentView: View {
 
     private func isFriendsRealm(_ locationName: String) -> Bool {
         Self.normalizedLocationRealm(locationName) == Self.normalizedLocationRealm("Friends")
+    }
+
+    private func isFollowingRealm(_ locationName: String) -> Bool {
+        Self.normalizedLocationRealm(locationName) == Self.normalizedLocationRealm("Following")
     }
 
     private func applyFollowCountsLocally(userID: String, username: String, followers: Int, following: Int) {
@@ -10210,73 +17628,96 @@ struct ContentView: View {
     private func toggleFollowState(for profile: FakeUserProfile) {
         guard !isOwnProfile(profile) else { return }
 
-        let targetUserID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let initialTargetUserID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
         let targetUsername = profile.username.trimmingCharacters(in: .whitespacesAndNewlines)
-        let currentlyFollowed = isUserFollowed(authorUserID: targetUserID, username: targetUsername)
+        let currentlyFollowed = isUserFollowed(authorUserID: initialTargetUserID, username: targetUsername)
         let shouldFollow = !currentlyFollowed
 
         Task {
-            let followerUserID = await ensureAuthenticatedUserRecord()
+            let followerUserID = (try? FirebaseSpotService.shared.currentUserID())?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !followerUserID.isEmpty else {
                 await MainActor.run {
+                    UserDefaults.standard.set(false, forKey: accountSignedInDefaultsKey)
+                    UserDefaults.standard.removeObject(forKey: accountPasswordDefaultsKey)
+                    isSignedInToAccount = false
                     accountAuthMessage = "Sign in to follow accounts."
                 }
                 return
             }
 
-            if !targetUserID.isEmpty {
-                do {
-                    try await FirebaseSpotService.shared.setFollowState(
-                        followerUserID: followerUserID,
-                        followedUserID: targetUserID,
-                        isFollowing: shouldFollow
-                    )
-
-                    let counts = try await FirebaseSpotService.shared.fetchUserFollowCounts(userID: targetUserID)
-                    let currentUserCounts = try await FirebaseSpotService.shared.fetchUserFollowCounts(userID: followerUserID)
-                    await MainActor.run {
-                        if shouldFollow {
-                            followedUserIDs.insert(targetUserID)
-                        } else {
-                            followedUserIDs.remove(targetUserID)
-                        }
-
-                        applyFollowCountsLocally(
-                            userID: targetUserID,
-                            username: targetUsername,
-                            followers: counts.followers,
-                            following: counts.following
-                        )
-
-                        applyFollowCountsLocally(
-                            userID: followerUserID,
-                            username: profileUsername,
-                            followers: currentUserCounts.followers,
-                            following: currentUserCounts.following
-                        )
-                    }
-                } catch {
-                    await MainActor.run {
-                        accountAuthMessage = "Could not update follow right now."
-                    }
+            var targetUserID = initialTargetUserID
+            if targetUserID.isEmpty {
+                let normalizedUsername = FirebaseSpotService.normalizeUsername(targetUsername)
+                if !normalizedUsername.isEmpty {
+                    targetUserID = (try? await FirebaseSpotService.shared.resolveUserID(username: normalizedUsername)) ?? ""
                 }
             }
 
-            await MainActor.run {
-                withAnimation(.spring(response: 0.24, dampingFraction: 0.82)) {
-                    if let index = communityUsers.firstIndex(where: { $0.username.lowercased() == targetUsername.lowercased() }) {
-                        communityUsers[index].isFollowing = shouldFollow
-                    } else if !targetUsername.isEmpty {
-                        communityUsers.append(UserProfile(username: targetUsername, name: profile.name, isFollowing: shouldFollow))
+            guard !targetUserID.isEmpty else {
+                await MainActor.run {
+                    accountAuthMessage = "Could not find this account to follow right now."
+                }
+                return
+            }
+
+            do {
+                try await FirebaseSpotService.shared.setFollowState(
+                    followerUserID: followerUserID,
+                    followedUserID: targetUserID,
+                    isFollowing: shouldFollow
+                )
+
+                let followerDelta = shouldFollow ? 1 : -1
+                let optimisticTargetFollowers = max(0, profile.followerCount + followerDelta)
+                let optimisticTargetFollowing = max(0, profile.followingCount)
+                let optimisticCurrentUserFollowers = max(0, currentUserFollowerCount)
+                let optimisticCurrentUserFollowing = max(0, currentUserFollowingCount + followerDelta)
+
+                let refreshedTargetCounts = try? await FirebaseSpotService.shared.fetchUserFollowCounts(userID: targetUserID)
+                let refreshedCurrentUserCounts = try? await FirebaseSpotService.shared.fetchUserFollowCounts(userID: followerUserID)
+
+                let resolvedTargetFollowers = refreshedTargetCounts?.followers ?? optimisticTargetFollowers
+                let resolvedTargetFollowing = refreshedTargetCounts?.following ?? optimisticTargetFollowing
+                let resolvedCurrentUserFollowers = refreshedCurrentUserCounts?.followers ?? optimisticCurrentUserFollowers
+                let resolvedCurrentUserFollowing = refreshedCurrentUserCounts?.following ?? optimisticCurrentUserFollowing
+                await MainActor.run {
+                    if shouldFollow {
+                        followedUserIDs.insert(targetUserID)
+                    } else {
+                        followedUserIDs.remove(targetUserID)
+                    }
+
+                    applyFollowCountsLocally(
+                        userID: targetUserID,
+                        username: targetUsername,
+                        followers: resolvedTargetFollowers,
+                        following: resolvedTargetFollowing
+                    )
+
+                    applyFollowCountsLocally(
+                        userID: followerUserID,
+                        username: profileUsername,
+                        followers: resolvedCurrentUserFollowers,
+                        following: resolvedCurrentUserFollowing
+                    )
+
+                    withAnimation(.spring(response: 0.24, dampingFraction: 0.82)) {
+                        if let index = communityUsers.firstIndex(where: { $0.username.lowercased() == targetUsername.lowercased() }) {
+                            communityUsers[index].isFollowing = shouldFollow
+                        } else if !targetUsername.isEmpty {
+                            communityUsers.append(UserProfile(username: targetUsername, name: profile.name, isFollowing: shouldFollow))
+                        }
                     }
                 }
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Could not update follow right now."
+                }
+                return
             }
 
             await refreshFollowingUIDs()
-
-            if !targetUserID.isEmpty {
-                await refreshSelectedUserProfileFromRecord(expectedUserID: targetUserID)
-            }
+            await refreshSelectedUserProfileFromRecord(expectedUserID: targetUserID)
         }
     }
 
@@ -10306,18 +17747,46 @@ struct ContentView: View {
         UserDefaults.standard.set(userID, forKey: "spot_firebase_user_id")
     }
 
+    private func preferredPersistedUsername() -> String {
+        let candidates = [
+            UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? "",
+            selectedSavedAccount?.username ?? "",
+            accountUsername,
+            profileUsername,
+            signInUsername
+        ]
+
+        for candidate in candidates {
+            let normalized = FirebaseSpotService.normalizeUsername(candidate)
+            if !normalized.isEmpty && normalized != "user" {
+                return normalized
+            }
+        }
+
+        for candidate in candidates {
+            let normalized = FirebaseSpotService.normalizeUsername(candidate)
+            if !normalized.isEmpty {
+                return normalized
+            }
+        }
+
+        return ""
+    }
+
     private func hydratePersistedIdentity() {
         let savedName = UserDefaults.standard.string(forKey: profileNameDefaultsKey) ?? ""
-        let savedUsername = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? ""
+        let restoredUsername = preferredPersistedUsername()
         let savedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
 
         if !savedName.isEmpty {
             profileName = savedName
         }
 
-        if !savedUsername.isEmpty {
-            profileUsername = savedUsername
-            accountUsername = savedUsername
+        if !restoredUsername.isEmpty {
+            profileUsername = restoredUsername
+            accountUsername = restoredUsername
+            signInUsername = restoredUsername
+            UserDefaults.standard.set(restoredUsername, forKey: accountUsernameDefaultsKey)
         }
 
         if !savedEmail.isEmpty {
@@ -10336,8 +17805,10 @@ struct ContentView: View {
     }
 
     static func shouldRestoreSavedAccount(accountSignedIn: Bool, savedEmail: String, savedPassword: String) -> Bool {
-        guard accountSignedIn else { return false }
-        return !savedEmail.isEmpty && !savedPassword.isEmpty
+        // Username is the account identity in this app. Legacy email/password
+        // restoration is intentionally disabled so the username-only flow stays
+        // consistent across devices and sign-in attempts.
+        return false
     }
 
     private func resolveAuthenticatedUserID() async -> String {
@@ -10346,31 +17817,37 @@ struct ContentView: View {
             return authenticatedID
         }
 
-        let accountSignedIn = UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey)
-        let savedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
-        let savedPassword = UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? ""
-
-        if Self.shouldRestoreSavedAccount(accountSignedIn: accountSignedIn, savedEmail: savedEmail, savedPassword: savedPassword) {
-            do {
-                let user = try await FirebaseSpotService.shared.signIn(email: savedEmail, password: savedPassword)
-                persistResolvedUserID(user.uid)
-                await MainActor.run {
-                    hydratePersistedIdentity()
-                    if let profileFromUser = UserDefaults.standard.string(forKey: profileNameDefaultsKey), !profileFromUser.isEmpty {
-                        profileName = profileFromUser
-                    }
-                    if let usernameFromUser = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey), !usernameFromUser.isEmpty {
-                        profileUsername = usernameFromUser
-                        accountUsername = usernameFromUser
-                    }
-                }
-                return user.uid
-            } catch {
-                print("Spot restored account sign-in failed: \(error)")
+        let currentUsername = preferredPersistedUsername()
+        if !currentUsername.isEmpty,
+           let resolvedFromUsername = try? await FirebaseSpotService.shared.resolveUserID(username: currentUsername),
+           !resolvedFromUsername.isEmpty {
+            persistResolvedUserID(resolvedFromUsername)
+            await MainActor.run {
+                hydratePersistedIdentity()
             }
+            return resolvedFromUsername
         }
 
-        return ""
+        do {
+            let identityUsername = currentUsername.isEmpty ? "user" : currentUsername
+            let user = try await FirebaseSpotService.shared.ensureAuthenticatedUser(
+                username: identityUsername,
+                displayName: profileName.isEmpty ? identityUsername : profileName,
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
+            persistResolvedUserID(user.uid)
+            await MainActor.run {
+                hydratePersistedIdentity()
+            }
+            return user.uid
+        } catch {
+            print("Spot restored username-linked identity failed: \(error)")
+            let stableDeviceID = FirebaseSpotService.makeStableDeviceUserID()
+            currentUserID = stableDeviceID
+            UserDefaults.standard.set(stableDeviceID, forKey: "spot_firebase_user_id")
+            return stableDeviceID
+        }
     }
 
     private func uploadDraftMedia(postID: Int) async -> [String] {
@@ -10378,25 +17855,73 @@ struct ContentView: View {
 
         print("Spot uploadDraftMedia: Starting. draftPhotoImage=\(draftPhotoImage != nil), draftVideoURL=\(draftVideoURL != nil), draftRecordedAudioURL=\(draftRecordedAudioURL != nil)")
 
-        if let photo = draftPhotoImage,
-           let imageData = photo.jpegData(compressionQuality: 0.8) {
-            print("Spot uploadDraftMedia: Found photo, size=\(imageData.count) bytes")
+        let listingPhotos = selectedPostType == "For Sale" ? Self.cappedListingPhotoSelection(draftListingImages) : (draftPhotoImage != nil ? [draftPhotoImage!] : [])
+
+        for photo in listingPhotos {
+            guard let imageData = photo.jpegData(compressionQuality: 0.8) else { continue }
+            let callableSafeImageData = optimizedPhotoDataForUpload(photo) ?? imageData
+            let uploadImageData = selectedPostType == "For Sale" ? callableSafeImageData : imageData
+            print("Spot uploadDraftMedia: Found photo, size=\(imageData.count) bytes, callableSafe=\(callableSafeImageData.count) bytes")
             let fileName = "photo_\(UUID().uuidString).jpg"
-            if let url = try? await FirebaseSpotService.shared.uploadMedia(data: imageData, folder: "posts/\(postID)/photos", fileName: fileName) {
+            do {
+                let url = try await FirebaseSpotService.shared.uploadMedia(data: uploadImageData, folder: "posts/\(postID)/photos", fileName: fileName)
                 print("Spot uploadDraftMedia: Photo uploaded successfully: \(url)")
                 uploadedURLs.append(url)
-            } else {
-                print("Spot uploadDraftMedia: Photo upload returned nil")
+            } catch {
+                print("Spot uploadDraftMedia: Primary photo upload FAILED, retrying optimized bytes before callable fallback. error=\(error)")
+                do {
+                    let optimizedURL = try await FirebaseSpotService.shared.uploadMedia(data: callableSafeImageData, folder: "posts/\(postID)/photos", fileName: fileName)
+                    print("Spot uploadDraftMedia: Photo upload retry with optimized bytes succeeded: \(optimizedURL)")
+                    uploadedURLs.append(optimizedURL)
+                    continue
+                } catch {
+                    print("Spot uploadDraftMedia: Optimized photo upload retry failed, attempting callable fallback. error=\(error)")
+                }
+
+                do {
+                    let fallbackOwnerID = try FirebaseSpotService.shared.currentUserID()
+                    let fallbackURL = try await FirebaseSpotService.shared.uploadMediaFallback(
+                        data: callableSafeImageData,
+                        folder: "posts/\(postID)/photos",
+                        fileName: fileName,
+                        contentType: "image/jpeg",
+                        ownerID: fallbackOwnerID
+                    )
+                    print("Spot uploadDraftMedia: Photo uploaded via callable fallback: \(fallbackURL)")
+                    uploadedURLs.append(fallbackURL)
+                } catch {
+                    print("Spot uploadDraftMedia: Photo upload FAILED with fallback error: \(error)")
+                }
             }
-        } else {
+        }
+
+        if listingPhotos.isEmpty && draftPhotoImage != nil {
             print("Spot uploadDraftMedia: No photo or photo.jpegData failed")
         }
 
         if let recordedURL = draftRecordedAudioURL,
            let audioData = try? Data(contentsOf: recordedURL) {
             let fileName = "audio_\(UUID().uuidString).m4a"
-            if let url = try? await FirebaseSpotService.shared.uploadMedia(data: audioData, folder: "posts/\(postID)/audio", fileName: fileName) {
+            do {
+                let url = try await FirebaseSpotService.shared.uploadMedia(data: audioData, folder: "posts/\(postID)/audio", fileName: fileName)
                 uploadedURLs.append(url)
+            } catch {
+                print("Spot uploadDraftMedia: Primary audio upload FAILED, attempting callable fallback. error=\(error)")
+                do {
+                    let fallbackOwnerID = try FirebaseSpotService.shared.currentUserID()
+                    let fallbackURL = try await FirebaseSpotService.shared.uploadMediaFallback(
+                        data: audioData,
+                        folder: "posts/\(postID)/audio",
+                        fileName: fileName,
+                        contentType: "audio/m4a",
+                        ownerID: fallbackOwnerID
+                    )
+                    print("Spot uploadDraftMedia: Audio uploaded via callable fallback: \(fallbackURL)")
+                    uploadedURLs.append(fallbackURL)
+                } catch {
+                    print("Spot uploadDraftMedia: Audio upload FAILED with fallback error, using local URL: \(error)")
+                    uploadedURLs.append(recordedURL.absoluteString)
+                }
             }
         }
 
@@ -10410,6 +17935,8 @@ struct ContentView: View {
             } else if let songData = try? Data(contentsOf: preparedSongURL),
                       let fallbackURL = try? await FirebaseSpotService.shared.uploadMedia(data: songData, folder: "posts/\(postID)/songs", fileName: fileName) {
                 uploadedURLs.append(fallbackURL)
+            } else {
+                uploadedURLs.append(preparedSongURL.absoluteString)
             }
         }
 
@@ -10418,11 +17945,41 @@ struct ContentView: View {
             let extensionHint = preparedVideoURL.pathExtension.isEmpty ? "mp4" : preparedVideoURL.pathExtension
             let fileName = "video_\(UUID().uuidString).\(extensionHint)"
 
-            if let url = try? await FirebaseSpotService.shared.uploadMediaFile(fileURL: preparedVideoURL, folder: "posts/\(postID)/videos", fileName: fileName) {
+            let exportURL = await compressVideoForFastUpload(sourceURL: preparedVideoURL) ?? preparedVideoURL
+
+            do {
+                let url = try await FirebaseSpotService.shared.uploadMediaFile(fileURL: exportURL, folder: "posts/\(postID)/videos", fileName: fileName)
                 uploadedURLs.append(url)
-            } else if let videoData = try? Data(contentsOf: preparedVideoURL),
-                      let fallbackURL = try? await FirebaseSpotService.shared.uploadMedia(data: videoData, folder: "posts/\(postID)/videos", fileName: fileName) {
-                uploadedURLs.append(fallbackURL)
+                print("Spot uploadDraftMedia: Video upload via uploadMediaFile succeeded: \(url)")
+            } catch {
+                print("Spot uploadDraftMedia: Primary video uploadMediaFile failed: \(error)")
+                do {
+                    let videoData = try Data(contentsOf: exportURL)
+                    let fallbackURL = try await FirebaseSpotService.shared.uploadMedia(data: videoData, folder: "posts/\(postID)/videos", fileName: fileName)
+                    uploadedURLs.append(fallbackURL)
+                    print("Spot uploadDraftMedia: Video upload via uploadMedia data succeeded: \(fallbackURL)")
+                } catch {
+                    print("Spot uploadDraftMedia: Secondary video uploadMedia data failed: \(error)")
+                    if let fallbackOwnerID = try? FirebaseSpotService.shared.currentUserID(),
+                       let videoData = try? Data(contentsOf: exportURL),
+                       let fallbackURL = try? await FirebaseSpotService.shared.uploadMediaFallback(
+                           data: videoData,
+                           folder: "posts/\(postID)/videos",
+                           fileName: fileName,
+                           contentType: "video/mp4",
+                           ownerID: fallbackOwnerID
+                       ) {
+                        uploadedURLs.append(fallbackURL)
+                        print("Spot uploadDraftMedia: Video upload via uploadMediaFallback succeeded: \(fallbackURL)")
+                    } else {
+                        print("Spot uploadDraftMedia: All remote video upload attempts failed, falling back to local URL.")
+                        uploadedURLs.append(preparedVideoURL.absoluteString)
+                    }
+                }
+            }
+
+            if exportURL != preparedVideoURL {
+                try? FileManager.default.removeItem(at: exportURL)
             }
         }
 
@@ -10437,6 +17994,39 @@ struct ContentView: View {
         }
 
         return uploadedURLs
+    }
+
+    private func optimizedPhotoDataForUpload(_ image: UIImage, maxBytes: Int = 6_800_000) -> Data? {
+        let qualitySteps: [CGFloat] = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.24]
+
+        for quality in qualitySteps {
+            if let data = image.jpegData(compressionQuality: quality), data.count <= maxBytes {
+                return data
+            }
+        }
+
+        // If quality alone is not enough, progressively downscale and retry JPEG compression.
+        let scaleSteps: [CGFloat] = [0.9, 0.8, 0.7, 0.6, 0.5]
+        for scale in scaleSteps {
+            let targetSize = CGSize(
+                width: max(320, image.size.width * scale),
+                height: max(320, image.size.height * scale)
+            )
+
+            let rendererFormat = UIGraphicsImageRendererFormat.default()
+            rendererFormat.opaque = true
+            let resized = UIGraphicsImageRenderer(size: targetSize, format: rendererFormat).image { _ in
+                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+
+            for quality in qualitySteps {
+                if let data = resized.jpegData(compressionQuality: quality), data.count <= maxBytes {
+                    return data
+                }
+            }
+        }
+
+        return image.jpegData(compressionQuality: 0.2)
     }
 
     private func copyVideoToTemporaryLocation(sourceURL: URL) -> URL? {
@@ -10466,6 +18056,36 @@ struct ContentView: View {
         }
     }
 
+    private func compressVideoForFastUpload(sourceURL: URL) async -> URL? {
+        guard sourceURL.isFileURL else { return nil }
+        let asset = AVURLAsset(url: sourceURL)
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: AVAssetExportPresetHighestQuality
+        ) else {
+            return nil
+        }
+
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("compressed_\(UUID().uuidString)")
+            .appendingPathExtension("mp4")
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+
+        return await withCheckedContinuation { continuation in
+            exportSession.exportAsynchronously {
+                if exportSession.status == .completed {
+                    continuation.resume(returning: outputURL)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
     private func fallbackDraftMediaURLs(for post: MockPost) -> [String] {
         switch post.type {
         case "Photo", "Photo/Video":
@@ -10486,16 +18106,23 @@ struct ContentView: View {
         }
     }
 
-    private func firebasePayload(for post: MockPost, authorID: String, mediaURLs: [String] = []) -> FirebasePostPayload {
+    private func firebasePayload(for post: MockPost, authorID: String, mediaURLs: [String] = [], authorPhotoURL: String? = nil) -> FirebasePostPayload {
         let fallbackMediaURLs: [String]
         if mediaURLs.isEmpty {
-            let cleanedURL = post.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            fallbackMediaURLs = cleanedURL.isEmpty ? [] : [cleanedURL]
+            if post.type == "For Sale" {
+                fallbackMediaURLs = []
+            } else {
+                let cleanedURL = post.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                fallbackMediaURLs = cleanedURL.isEmpty ? [] : [cleanedURL]
+            }
         } else {
             fallbackMediaURLs = mediaURLs
         }
         let resolvedSourceURL: String?
         if post.type == "Link" {
+            let cleanedURL = post.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            resolvedSourceURL = cleanedURL.isEmpty ? nil : cleanedURL
+        } else if post.type == "For Sale" {
             let cleanedURL = post.url.trimmingCharacters(in: .whitespacesAndNewlines)
             resolvedSourceURL = cleanedURL.isEmpty ? nil : cleanedURL
         } else if post.type == "Audio" || post.type == "Song" {
@@ -10514,12 +18141,14 @@ struct ContentView: View {
             ? Self.anonymousHandle
             : displayUsername(profileUsername.isEmpty ? "you" : profileUsername)
         let payloadAuthorDisplayName = post.isAnonymous
-            ? Self.anonymousDisplayName
-            : (profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "You" : profileName)
+            ? ""
+            : FirebaseSpotService.normalizeUsername(payloadAuthorUsername)
         let rawPayloadTags = [
             post.tag,
             post.isAnonymous ? Self.anonymousTagMarker : nil,
-            post.isBoosted ? Self.boostedTagMarker : nil
+            post.isBoosted ? Self.boostedTagMarker : nil,
+            (post.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? "\(Self.ageTagPrefix)\(post.authorAge!.trimmingCharacters(in: .whitespacesAndNewlines))" : nil,
+            (post.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? "\(Self.positionTagPrefix)\(post.authorPosition!.trimmingCharacters(in: .whitespacesAndNewlines))" : nil
         ].compactMap { $0 }
         var seenPayloadTags: Set<String> = []
         let payloadTags = rawPayloadTags.filter { tag in
@@ -10530,12 +18159,16 @@ struct ContentView: View {
             return true
         }
 
+        let resolvedPostAuthorPhotoURL = post.isAnonymous ? nil : (
+            (authorPhotoURL ?? profilePhotoRemoteURL).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : (authorPhotoURL ?? profilePhotoRemoteURL)
+        )
+
         return FirebasePostPayload(
             id: String(post.id),
             authorID: authorID,
             authorUsername: payloadAuthorUsername,
             authorDisplayName: payloadAuthorDisplayName,
-            authorProfilePhotoURL: post.isAnonymous ? nil : (profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL),
+            authorProfilePhotoURL: resolvedPostAuthorPhotoURL,
             contentType: post.type,
             title: post.title,
             body: post.body,
@@ -10573,16 +18206,59 @@ struct ContentView: View {
             return currentPosts
         }
 
+        func stablePostID(from raw: String) -> Int {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let digitsOnly = trimmed.filter { $0.isNumber }
+            if let numeric = Int(digitsOnly), numeric > 0 {
+                return numeric
+            }
+
+            // Deterministic FNV-1a hash avoids Swift hash randomization between launches.
+            var hash: UInt64 = 1469598103934665603
+            for byte in trimmed.utf8 {
+                hash ^= UInt64(byte)
+                hash &*= 1099511628211
+            }
+            return Int((hash % 2_000_000_000) + 1)
+        }
+
+        let currentAuthUserID = (Auth.auth().currentUser?.uid ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let persistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedCurrentHandle = FirebaseSpotService.normalizeUsername(ownerHandle)
+
         let currentByID = Dictionary(uniqueKeysWithValues: currentPosts.map { ($0.id, $0) })
+        var usedNumericIDs = Set<Int>()
 
         let mapped = persistedPosts.map { payload in
-            let numericID = Int(payload.id.filter { $0.isNumber }) ?? abs(payload.id.hashValue)
+            var numericID = stablePostID(from: payload.id)
+            while usedNumericIDs.contains(numericID) {
+                numericID = numericID == Int.max ? 1 : (numericID + 1)
+            }
+            usedNumericIDs.insert(numericID)
             let cachedImage = payload.mediaURLs.first.flatMap { _ in
                 let key = Self.postPhotoCacheKey(forPostID: numericID)
                 return Self.cachedImage(forKey: key)
             }
-            let resolvedHandle = FirebaseSpotService.normalizeUsername(payload.authorUsername)
-            let resolvedAuthor = payload.authorDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? ownerName : payload.authorDisplayName
+            let payloadAuthorID = payload.authorID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawHandle = FirebaseSpotService.normalizeUsername(payload.authorUsername)
+            let isOwnPayload = (!payloadAuthorID.isEmpty && (payloadAuthorID == currentAuthUserID || payloadAuthorID == persistedUserID))
+                || (!rawHandle.isEmpty && !normalizedCurrentHandle.isEmpty && rawHandle == normalizedCurrentHandle)
+
+            let rawAuthor = payload.authorDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let resolvedHandle: String = {
+                if !rawHandle.isEmpty { return rawHandle }
+                if isOwnPayload { return ownerHandle }
+                return "user"
+            }()
+
+            let resolvedAuthor: String = {
+                if !rawAuthor.isEmpty { return rawAuthor }
+                if isOwnPayload { return ownerName }
+                if !resolvedHandle.isEmpty && resolvedHandle != "user" { return resolvedHandle.capitalized }
+                return "User"
+            }()
+
             let resolvedURL = persistedPostURL(contentType: payload.contentType, sourceURL: payload.sourceURL, mediaURLs: payload.mediaURLs)
             let resolvedAccent = payload.accentHex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "#DCE7FF" : payload.accentHex
             let resolvedRealms = resolvedPostedRealms(location: payload.locationName, postedInLocations: payload.postedInLocations)
@@ -10590,14 +18266,44 @@ struct ContentView: View {
             let isAnonymousPost = payload.tags.contains(Self.anonymousTagMarker)
                 || normalizedPayloadUsername == Self.anonymousHandle
             let isBoostedPost = payload.tags.contains(Self.boostedTagMarker)
+            let extractedAgeTag = payload.tags.first(where: { $0.hasPrefix(Self.ageTagPrefix) })
+            let payloadAge = extractedAgeTag.map { String($0.dropFirst(Self.ageTagPrefix.count)) }
+            let extractedPositionTag = payload.tags.first(where: { $0.hasPrefix(Self.positionTagPrefix) })
+            let payloadPosition = extractedPositionTag.map { String($0.dropFirst(Self.positionTagPrefix.count)) }
             let visibleTag = payload.tags.first(where: { !$0.hasPrefix("spot:") }) ?? payload.locationName
+
+            let currentPositionSetting = (UserDefaults.standard.string(forKey: Self.postDetailPositionValueDefaultsKey) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let resolvedAuthorPosition: String? = {
+                if isAnonymousPost { return nil }
+                if isOwnPayload && !currentPositionSetting.isEmpty {
+                    return currentPositionSetting
+                }
+                return payloadPosition
+            }()
+
+            let resolvedAuthorID: String = {
+                if !payload.authorID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return payload.authorID
+                }
+                if isOwnPayload && !currentAuthUserID.isEmpty {
+                    return currentAuthUserID
+                }
+                if isOwnPayload && !persistedUserID.isEmpty {
+                    return persistedUserID
+                }
+                return payload.authorID
+            }()
 
             return MockPost(
                 id: numericID,
-                author: isAnonymousPost ? Self.anonymousDisplayName : resolvedAuthor,
-                handle: isAnonymousPost ? Self.anonymousHandle : (resolvedHandle.isEmpty ? ownerHandle : resolvedHandle),
-                authorUserID: payload.authorID,
+                author: isAnonymousPost ? "" : resolvedAuthor,
+                handle: isAnonymousPost ? Self.anonymousHandle : resolvedHandle,
+                authorUserID: resolvedAuthorID,
                 authorProfilePhotoURL: isAnonymousPost ? nil : payload.authorProfilePhotoURL,
+                authorAge: isAnonymousPost ? nil : payloadAge,
+                authorPosition: resolvedAuthorPosition,
                 type: payload.contentType,
                 location: payload.locationName,
                 title: payload.title ?? "",
@@ -10616,6 +18322,7 @@ struct ContentView: View {
                 sentTo: [],
                 pollOptions: payload.pollOptions,
                 pollVotes: payload.pollVotes,
+                currentUserPollSelection: payload.currentUserPollSelection,
                 mediaImage: cachedImage,
                 mediaURLs: payload.mediaURLs,
                 sourceURL: payload.sourceURL,
@@ -10634,6 +18341,7 @@ struct ContentView: View {
             }
 
             var next = persisted
+            next.isSaved = current.isSaved
             next.viewCount = max(current.viewCount, persisted.viewCount)
             next.timeViewedSeconds = max(current.timeViewedSeconds, persisted.timeViewedSeconds)
             next.savedCount = max(current.savedCount, persisted.savedCount)
@@ -10661,40 +18369,133 @@ struct ContentView: View {
     }
 
     static func isPostOwnedByUser(_ post: MockPost, currentUserID: String, currentUsername: String) -> Bool {
-        let trimmedUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedUserID.isEmpty, !post.authorUserID.isEmpty {
-            return post.authorUserID == trimmedUserID
+        let candidateUserIDs: Set<String> = {
+            var ids: Set<String> = []
+
+            let stateUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !stateUserID.isEmpty {
+                ids.insert(stateUserID)
+            }
+
+            let persistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !persistedUserID.isEmpty {
+                ids.insert(persistedUserID)
+            }
+
+            let authUserID = (Auth.auth().currentUser?.uid ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !authUserID.isEmpty {
+                ids.insert(authUserID)
+            }
+
+            return ids
+        }()
+
+        let trimmedPostAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPostAuthorID.isEmpty {
+            // When the post has a valid authorUserID, ownership MUST be verified strictly by ID matching.
+            return candidateUserIDs.contains(trimmedPostAuthorID)
         }
 
-        let normalizedUser = FirebaseSpotService.normalizeUsername(currentUsername)
+        var candidateUsernames: Set<String> = []
+
+        let normalizedCurrentUsername = FirebaseSpotService.normalizeUsername(currentUsername)
+        if !normalizedCurrentUsername.isEmpty {
+            candidateUsernames.insert(normalizedCurrentUsername)
+        }
+
+        let persistedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
+        )
+        if !persistedUsername.isEmpty {
+            candidateUsernames.insert(persistedUsername)
+        }
+
+        let persistedAliases = UserDefaults.standard.array(forKey: "spot_account_username_aliases") as? [String] ?? []
+        for alias in persistedAliases {
+            let normalizedAlias = FirebaseSpotService.normalizeUsername(alias)
+            if !normalizedAlias.isEmpty {
+                candidateUsernames.insert(normalizedAlias)
+            }
+        }
+
         let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
-        return !normalizedUser.isEmpty && !normalizedHandle.isEmpty && normalizedUser == normalizedHandle
+        guard !normalizedHandle.isEmpty, normalizedHandle != "you", normalizedHandle != Self.anonymousHandle else {
+            return false
+        }
+
+        return candidateUsernames.contains(normalizedHandle)
+    }
+
+    private static func isUsernameCredentialSecured(_ username: String) -> Bool {
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+        guard !normalizedUsername.isEmpty else { return false }
+
+        let persistedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
+        )
+        let persistedPassword = (UserDefaults.standard.string(forKey: "spot_account_password") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if persistedUsername == normalizedUsername, !persistedPassword.isEmpty {
+            return true
+        }
+
+        let savedAccounts = loadSavedAccountsFromDefaults()
+        return savedAccounts.contains { account in
+            FirebaseSpotService.normalizeUsername(account.username) == normalizedUsername
+            && !account.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     static func shouldIncludePostInViewedProfile(
         _ post: MockPost,
         viewedUsername: String,
+        viewedUserID: String = "",
         signedInUsername: String,
-        currentUserID: String
+        currentUserID: String,
+        isAnonymousModeActive: Bool = false
     ) -> Bool {
-        guard !post.isAnonymous else { return false }
-
         let normalizedViewed = FirebaseSpotService.normalizeUsername(viewedUsername)
         let normalizedSignedIn = FirebaseSpotService.normalizeUsername(signedInUsername)
-        let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+        let cleanedViewedUserID = viewedUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let viewingOwnProfile = (!normalizedViewed.isEmpty && normalizedViewed != "you" && normalizedViewed == normalizedSignedIn)
+            || (!cleanedViewedUserID.isEmpty && !currentUserID.isEmpty && cleanedViewedUserID == currentUserID)
 
-        let handleMatchesViewedUser = !normalizedViewed.isEmpty
-            && !normalizedHandle.isEmpty
-            && normalizedHandle == normalizedViewed
-
-        // Only use current-user ownership fallback when the viewed profile is the signed-in profile.
-        let viewingOwnProfile = !normalizedViewed.isEmpty && normalizedViewed == normalizedSignedIn
-        if viewingOwnProfile {
-            let ownedBySignedInUser = isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: signedInUsername)
-            return handleMatchesViewedUser || ownedBySignedInUser
+        if viewingOwnProfile && isAnonymousModeActive {
+            guard post.isAnonymous else { return false }
+            return isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: signedInUsername)
         }
 
-        return handleMatchesViewedUser
+        guard !post.isAnonymous else { return false }
+
+        let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+        let cleanedPostUserID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard (!normalizedHandle.isEmpty && normalizedHandle != "you" && normalizedHandle != Self.anonymousHandle) || (!cleanedPostUserID.isEmpty && cleanedPostUserID == cleanedViewedUserID) else {
+            return false
+        }
+
+        let handleMatchesViewedUser = !normalizedViewed.isEmpty
+            && normalizedViewed != "you"
+            && normalizedHandle == normalizedViewed
+
+        let userIDMatchesViewedUser = !cleanedViewedUserID.isEmpty
+            && !cleanedPostUserID.isEmpty
+            && cleanedPostUserID == cleanedViewedUserID
+
+        let matchesViewed = handleMatchesViewedUser || userIDMatchesViewedUser
+
+        // Only use current-user ownership fallback when the viewed profile is the signed-in profile.
+        if viewingOwnProfile {
+            let securedViewedUsername = isUsernameCredentialSecured(normalizedViewed)
+            let ownedBySignedInUser = isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: signedInUsername)
+            let handleMatchAllowed = handleMatchesViewedUser && securedViewedUsername
+            return handleMatchAllowed || ownedBySignedInUser || userIDMatchesViewedUser
+        }
+
+        return matchesViewed
     }
 
     static func postsWithSavedState(_ posts: [MockPost], savedPostIDs: [String]) -> [MockPost] {
@@ -10715,7 +18516,11 @@ struct ContentView: View {
         var seen = Set<String>()
         var ordered: [String] = []
 
-        for candidate in [firestoreID, String(localPostID)] {
+        let numericLocalID = String(localPostID)
+        let numericOnlyLocalID = numericLocalID.filter { $0.isNumber }
+        let documentCandidates = [firestoreID, String(localPostID), numericOnlyLocalID]
+
+        for candidate in documentCandidates {
             let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, !seen.contains(trimmed) else { continue }
             seen.insert(trimmed)
@@ -10731,38 +18536,37 @@ struct ContentView: View {
             return authenticatedID
         }
 
-        let accountSignedIn = UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey)
-        let savedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
-        let savedPassword = UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? ""
-
-        if Self.shouldRestoreSavedAccount(accountSignedIn: accountSignedIn, savedEmail: savedEmail, savedPassword: savedPassword) {
-            do {
-                let user = try await FirebaseSpotService.shared.signIn(email: savedEmail, password: savedPassword)
-                persistResolvedUserID(user.uid)
-                await MainActor.run {
-                    hydratePersistedIdentity()
-                }
-                return user.uid
-            } catch {
-                print("Spot restored auth sign-in failed: \(error)")
-            }
+        let currentUsername = preferredPersistedUsername()
+        if !currentUsername.isEmpty,
+           let resolvedFromUsername = try? await FirebaseSpotService.shared.resolveUserID(username: currentUsername),
+           !resolvedFromUsername.isEmpty {
+            persistResolvedUserID(resolvedFromUsername)
+            return resolvedFromUsername
         }
 
-        currentUserID = ""
-        UserDefaults.standard.removeObject(forKey: "spot_firebase_user_id")
-        return ""
+        do {
+            let identityUsername = currentUsername.isEmpty ? "user" : currentUsername
+            let user = try await FirebaseSpotService.shared.ensureAuthenticatedUser(
+                username: identityUsername,
+                displayName: profileName.isEmpty ? identityUsername : profileName,
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
+            persistResolvedUserID(user.uid)
+            return user.uid
+        } catch {
+            print("Spot username-linked anonymous auth fallback failed: \(error)")
+            let stableDeviceID = FirebaseSpotService.makeStableDeviceUserID()
+            currentUserID = stableDeviceID
+            UserDefaults.standard.set(stableDeviceID, forKey: "spot_firebase_user_id")
+            return stableDeviceID
+        }
     }
 
     private func persistCurrentUsername() async {
-        guard isSignedInToAccount else {
-            usernameAvailabilityMessage = "Sign up first to claim a username"
-            usernameAvailabilityIsAvailable = false
-            return
-        }
-
         let cleanedUsername = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedUsername = FirebaseSpotService.normalizeUsername(cleanedUsername)
-        let currentSavedUsername = FirebaseSpotService.normalizeUsername(accountUsername)
+        let normalizedUsername = capUsernameInput(cleanedUsername)
+        let currentSavedUsername = capUsernameInput(accountUsername)
 
         guard !normalizedUsername.isEmpty else {
             usernameAvailabilityMessage = "Choose a username"
@@ -10779,19 +18583,29 @@ struct ContentView: View {
         do {
             let userID = await ensureAuthenticatedUserRecord()
             guard !userID.isEmpty else {
-                usernameAvailabilityMessage = "Save your account first"
+                usernameAvailabilityMessage = "Could not create a user identity for this username"
                 usernameAvailabilityIsAvailable = false
                 return
             }
 
-            let existingAccount = try await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+            let isAvailableInFirestore = try await FirebaseSpotService.shared.checkUsernameAvailability(
+                username: normalizedUsername,
+                currentUserID: userID
+            )
+            guard isAvailableInFirestore else {
+                usernameAvailabilityMessage = "Taken by another account"
+                usernameAvailabilityIsAvailable = false
+                return
+            }
+
+            let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
             let displayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? normalizedUsername : profileName
             try await FirebaseSpotService.shared.saveUserProfile(
                 userID: userID,
                 username: normalizedUsername,
                 displayName: displayName,
-                bio: existingAccount.bio,
-                photoURL: existingAccount.profilePhotoURL
+                bio: existingAccount?.bio,
+                photoURL: existingAccount?.profilePhotoURL
             )
 
             profileUsername = normalizedUsername
@@ -10799,7 +18613,18 @@ struct ContentView: View {
             usernameAvailabilityMessage = "Saved"
             usernameAvailabilityIsAvailable = true
             UserDefaults.standard.set(normalizedUsername, forKey: accountUsernameDefaultsKey)
-            applyUserProfileToOwnPosts(username: normalizedUsername, displayName: profileName)
+            rememberUsernameAliases([normalizedUsername, currentSavedUsername])
+            applyUserProfileToOwnPosts(
+                username: normalizedUsername,
+                displayName: profileName,
+                previousUsernames: [currentSavedUsername, accountUsername]
+            )
+            upsertSavedAccount(
+                email: accountEmail,
+                username: normalizedUsername,
+                displayName: profileName,
+                profilePhotoURL: profilePhotoRemoteURL
+            )
             activeSettingsEditor = nil
         } catch {
             usernameAvailabilityMessage = "Taken or invalid"
@@ -10809,34 +18634,44 @@ struct ContentView: View {
     }
 
     private func resolveUserIDForPosting() async -> String? {
+        if !resolvedSignedInState {
+            if let authenticatedID = try? FirebaseSpotService.shared.currentUserID(), !authenticatedID.isEmpty {
+                persistResolvedUserID(authenticatedID)
+                return authenticatedID
+            }
+
+            do {
+                let anonymousUser = try await FirebaseSpotService.shared.signInAnonymously()
+                persistResolvedUserID(anonymousUser.uid)
+                return anonymousUser.uid
+            } catch {
+                print("Spot anonymous posting auth failed: \(error)")
+                return nil
+            }
+        }
+
         if let authenticatedID = try? FirebaseSpotService.shared.currentUserID(), !authenticatedID.isEmpty {
             persistResolvedUserID(authenticatedID)
             return authenticatedID
         }
 
-        let accountSignedIn = UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey)
-        let savedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
-        let savedPassword = UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? ""
-
-        if Self.shouldRestoreSavedAccount(accountSignedIn: accountSignedIn, savedEmail: savedEmail, savedPassword: savedPassword) {
-            do {
-                let user = try await FirebaseSpotService.shared.signIn(email: savedEmail, password: savedPassword)
-                persistResolvedUserID(user.uid)
-                return user.uid
-            } catch {
-                print("Spot post auth restore failed: \(error)")
-            }
-        }
-
+        let currentUsername = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
         do {
-            let anonymousUser = try await FirebaseSpotService.shared.signInAnonymously()
+            let identityUsername = currentUsername.isEmpty ? "user" : currentUsername
+            let anonymousUser = try await FirebaseSpotService.shared.ensureAuthenticatedUser(
+                username: identityUsername,
+                displayName: profileName.isEmpty ? identityUsername : profileName,
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
             persistResolvedUserID(anonymousUser.uid)
             return anonymousUser.uid
         } catch {
-            print("Spot anonymous posting auth failed: \(error)")
-            let fallbackID = FirebaseSpotService.makeStableDeviceUserID()
-            persistResolvedUserID(fallbackID)
-            return fallbackID
+            print("Spot posting ensureAuthenticatedUser failed: \(error)")
+            if let uid = try? FirebaseSpotService.shared.currentUserID(), !uid.isEmpty {
+                return uid
+            }
+            return nil
         }
     }
 
@@ -10878,6 +18713,7 @@ struct ContentView: View {
 
         do {
             let existingAccount = try await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+            let nameSaveAliasCandidates = rememberedUsernameAliases() + [existingAccount.username, accountUsername, profileUsername]
             try await FirebaseSpotService.shared.saveUserProfile(
                 userID: userID,
                 username: normalizedUsername,
@@ -10885,8 +18721,23 @@ struct ContentView: View {
                 bio: nil,
                 photoURL: existingAccount.profilePhotoURL
             )
+            try await FirebaseSpotService.shared.updateAuthorDisplayNameForPosts(
+                authorID: userID,
+                displayName: resolvedDisplayName
+            )
             UserDefaults.standard.set(cleanedName, forKey: profileNameDefaultsKey)
-            applyUserProfileToOwnPosts(username: normalizedUsername, displayName: resolvedDisplayName)
+            rememberUsernameAliases(nameSaveAliasCandidates)
+            applyUserProfileToOwnPosts(
+                username: normalizedUsername,
+                displayName: resolvedDisplayName,
+                previousUsernames: nameSaveAliasCandidates
+            )
+            upsertSavedAccount(
+                email: accountEmail,
+                username: normalizedUsername,
+                displayName: resolvedDisplayName,
+                profilePhotoURL: profilePhotoRemoteURL
+            )
             
             await MainActor.run {
                 profileNameSaveMessage = "Saved"
@@ -10907,39 +18758,109 @@ struct ContentView: View {
             return authenticatedID
         }
 
-        let accountSignedIn = UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey)
-        let savedEmail = UserDefaults.standard.string(forKey: accountEmailDefaultsKey) ?? ""
-        let savedPassword = UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? ""
-
-        if Self.shouldRestoreSavedAccount(accountSignedIn: accountSignedIn, savedEmail: savedEmail, savedPassword: savedPassword) {
-            do {
-                let user = try await FirebaseSpotService.shared.signIn(email: savedEmail, password: savedPassword)
-                persistResolvedUserID(user.uid)
-                return user.uid
-            } catch {
-                print("Spot saved account restoration failed before profile photo upload: \(error)")
-            }
+        let currentUsername = preferredPersistedUsername()
+        if !currentUsername.isEmpty,
+           let resolvedFromUsername = try? await FirebaseSpotService.shared.resolveUserID(username: currentUsername),
+           !resolvedFromUsername.isEmpty {
+            persistResolvedUserID(resolvedFromUsername)
+            return resolvedFromUsername
         }
 
-        return nil
+        do {
+            let identityUsername = currentUsername.isEmpty ? "user" : currentUsername
+            let user = try await FirebaseSpotService.shared.ensureAuthenticatedUser(
+                username: identityUsername,
+                displayName: profileName.isEmpty ? identityUsername : profileName,
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
+            persistResolvedUserID(user.uid)
+            return user.uid
+        } catch {
+            print("Spot saved identity restoration failed before profile photo upload: \(error)")
+            let stableDeviceID = FirebaseSpotService.makeStableDeviceUserID()
+            currentUserID = stableDeviceID
+            UserDefaults.standard.set(stableDeviceID, forKey: "spot_firebase_user_id")
+            return stableDeviceID
+        }
     }
 
-    private func persistCurrentProfilePhoto() async {
+    private func ensureCurrentUserProfilePhotoPublishedIfNeeded(userID: String) async -> String? {
+        let currentRemote = profilePhotoRemoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !currentRemote.isEmpty {
+            return currentRemote
+        }
+
+        let cachedLocalPhoto = Self.cachedImage(forKey: profilePhotoDefaultsKey)
+        guard let localImage = cachedLocalPhoto,
+              let imageData = localImage.jpegData(compressionQuality: 0.85) else {
+            return nil
+        }
+
+        do {
+            let uploadedPhotoURL = try await FirebaseSpotService.shared.uploadMedia(
+                data: imageData,
+                folder: "profilePhotos",
+                fileName: "profile_\(UUID().uuidString).jpg"
+            )
+
+            let validUsername = await resolvedUsernameForProfileSave(userID: userID)
+            let displayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "User" : profileName
+            let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+            try await FirebaseSpotService.shared.saveUserProfile(
+                userID: userID,
+                username: validUsername,
+                displayName: displayName,
+                bio: existingAccount?.bio,
+                photoURL: uploadedPhotoURL
+            )
+
+            await MainActor.run {
+                profilePhotoRemoteURL = uploadedPhotoURL
+                profilePhotoImage = localImage
+                profilePhotoPreviewImage = localImage
+                pendingProfilePhotoSelection = nil
+                UserDefaults.standard.set(false, forKey: profilePhotoPendingSyncDefaultsKey)
+                UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
+                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
+                applyProfilePhotoURLToOwnPosts(uploadedPhotoURL)
+                upsertSavedAccount(
+                    email: accountEmail,
+                    username: profileUsername,
+                    displayName: profileName,
+                    profilePhotoURL: uploadedPhotoURL,
+                    preserveExistingPhoto: false
+                )
+            }
+
+            return uploadedPhotoURL
+        } catch {
+            print("Spot ensureCurrentUserProfilePhotoPublishedIfNeeded failed: \(error)")
+            return nil
+        }
+    }
+
+    private func persistCurrentProfilePhoto(cropScale: CGFloat = 1.0, cropOffset: CGSize = .zero) async {
         let imageToSave = profilePhotoPreviewImage ?? profilePhotoImage
-        guard let image = imageToSave,
-              let imageData = image.jpegData(compressionQuality: 0.85) else {
+        guard let image = imageToSave else {
+            return
+        }
+
+        let adjustedImage = renderedProfilePhoto(image: image, cropScale: cropScale, cropOffset: cropOffset)
+        guard let imageData = adjustedImage.jpegData(compressionQuality: 0.85) else {
             return
         }
 
         // Persist locally first so the selected photo survives restarts even if remote sync fails.
-        Self.persistImage(image, forKey: profilePhotoDefaultsKey)
+        Self.persistImage(adjustedImage, forKey: profilePhotoDefaultsKey)
         await MainActor.run {
             UserDefaults.standard.set(imageData, forKey: profilePhotoDefaultsKey)
             UserDefaults.standard.set(true, forKey: profilePhotoPendingSyncDefaultsKey)
+            UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
-            profilePhotoImage = image
-            profilePhotoPreviewImage = image
-            pendingProfilePhotoSelection = image
+            profilePhotoImage = adjustedImage
+            profilePhotoPreviewImage = adjustedImage
+            pendingProfilePhotoSelection = adjustedImage
             profilePhotoText = ""
         }
 
@@ -10957,24 +18878,33 @@ struct ContentView: View {
             let photoURL = try await FirebaseSpotService.shared.uploadMedia(data: imageData, folder: "profilePhotos", fileName: fileName)
             let validUsername = await resolvedUsernameForProfileSave(userID: userID)
             let displayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "User" : profileName
+            let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
             try await FirebaseSpotService.shared.saveUserProfile(
                 userID: userID,
                 username: validUsername,
                 displayName: displayName,
-                bio: nil,
+                bio: existingAccount?.bio,
                 photoURL: photoURL
             )
-            Self.persistImage(image, forKey: profilePhotoDefaultsKey)
+            Self.persistImage(adjustedImage, forKey: profilePhotoDefaultsKey)
             await MainActor.run {
                 profilePhotoRemoteURL = photoURL
-                profilePhotoImage = image
-                profilePhotoPreviewImage = image
+                profilePhotoImage = adjustedImage
+                profilePhotoPreviewImage = adjustedImage
                 pendingProfilePhotoSelection = nil
                 profilePhotoText = ""
                 UserDefaults.standard.set(imageData, forKey: profilePhotoDefaultsKey)
                 UserDefaults.standard.set(false, forKey: profilePhotoPendingSyncDefaultsKey)
+                UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
                 UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
                 applyProfilePhotoURLToOwnPosts(photoURL)
+                upsertSavedAccount(
+                    email: accountEmail,
+                    username: profileUsername,
+                    displayName: profileName,
+                    profilePhotoURL: photoURL,
+                    preserveExistingPhoto: false
+                )
             }
             isProfilePhotoUploadPending = false
         } catch {
@@ -10986,46 +18916,123 @@ struct ContentView: View {
         }
     }
 
-    private func removeCurrentProfilePhoto() async {
-        guard let userID = await requireSavedAuthenticatedUserID() else {
-            await MainActor.run {
-                accountAuthMessage = "Sign in or save your account before removing the profile photo."
+    @MainActor
+    private func clearProfilePhotoLocally() {
+        profilePhotoRemoteURL = ""
+        profilePhotoImage = nil
+        profilePhotoPreviewImage = nil
+        pendingProfilePhotoSelection = nil
+        profilePhotoText = "YO"
+        profilePhotoItem = nil
+        profilePhotoCropScale = 1.0
+        profilePhotoCropOffset = .zero
+
+        Task {
+            guard let userID = await requireSavedAuthenticatedUserID() else { return }
+            do {
+                let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+                try await FirebaseSpotService.shared.saveUserProfile(
+                    userID: userID,
+                    username: profileUsername.isEmpty ? (accountUsername.isEmpty ? "user" : accountUsername) : profileUsername,
+                    displayName: profileName.isEmpty ? (profileUsername.isEmpty ? "User" : profileUsername) : profileName,
+                    bio: existingAccount?.bio,
+                    photoURL: nil
+                )
+                try await FirebaseSpotService.shared.updateAuthorProfilePhotoForPosts(authorID: userID, photoURL: nil)
+            } catch {
+                print("Spot profile photo clear sync failed: \(error)")
             }
+        }
+        UserDefaults.standard.removeObject(forKey: profilePhotoDefaultsKey)
+        UserDefaults.standard.set(false, forKey: profilePhotoPendingSyncDefaultsKey)
+        UserDefaults.standard.set(true, forKey: profilePhotoRemovalPendingDefaultsKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
+        applyProfilePhotoURLToOwnPosts(nil)
+        upsertSavedAccount(
+            email: accountEmail,
+            username: profileUsername,
+            displayName: profileName,
+            profilePhotoURL: nil,
+            preserveExistingPhoto: false
+        )
+    }
+
+    private func removeCurrentProfilePhoto() async {
+        await MainActor.run {
+            clearProfilePhotoLocally()
+            accountAuthMessage = "Profile photo removed."
+            activeSettingsEditor = nil
+        }
+
+        guard let userID = await requireSavedAuthenticatedUserID() else {
             return
         }
 
         let validUsername = await resolvedUsernameForProfileSave(userID: userID)
         let displayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "User" : profileName
+        let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
 
         do {
             try await FirebaseSpotService.shared.saveUserProfile(
                 userID: userID,
                 username: validUsername,
                 displayName: displayName,
-                bio: nil,
+                bio: existingAccount?.bio,
                 photoURL: nil
             )
             await MainActor.run {
-                profilePhotoRemoteURL = ""
-                profilePhotoImage = nil
-                profilePhotoPreviewImage = nil
-                pendingProfilePhotoSelection = nil
-                profilePhotoText = "YO"
-                profilePhotoItem = nil
-                profilePhotoCropScale = 1.0
-                profilePhotoCropOffset = .zero
-                UserDefaults.standard.removeObject(forKey: profilePhotoDefaultsKey)
-                UserDefaults.standard.set(false, forKey: profilePhotoPendingSyncDefaultsKey)
-                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
-                applyProfilePhotoURLToOwnPosts(nil)
+                UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
             }
         } catch {
             print("Spot profile photo removal error: \(error)")
+            await MainActor.run {
+                accountAuthMessage = "Profile photo removed on this device. Cloud update will retry later."
+            }
+        }
+    }
+
+    private func renderedProfilePhoto(image: UIImage, cropScale: CGFloat, cropOffset: CGSize) -> UIImage {
+        let canvasSize: CGFloat = 1200
+        let previewSize: CGFloat = 280
+        let safeScale = max(0.3, min(2.5, cropScale))
+        let offsetMultiplier = canvasSize / previewSize
+        let translatedOffset = CGSize(
+            width: cropOffset.width * offsetMultiplier,
+            height: cropOffset.height * offsetMultiplier
+        )
+
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return image }
+
+        let fitRatio = min(canvasSize / imageSize.width, canvasSize / imageSize.height)
+        let fittedSize = CGSize(width: imageSize.width * fitRatio, height: imageSize.height * fitRatio)
+        let scaledSize = CGSize(width: fittedSize.width * safeScale, height: fittedSize.height * safeScale)
+        let origin = CGPoint(
+            x: (canvasSize - scaledSize.width) / 2 + translatedOffset.width,
+            y: (canvasSize - scaledSize.height) / 2 + translatedOffset.height
+        )
+
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasSize, height: canvasSize), format: rendererFormat)
+
+        return renderer.image { context in
+            UIColor.systemBackground.setFill()
+            context.fill(CGRect(origin: .zero, size: CGSize(width: canvasSize, height: canvasSize)))
+            image.draw(in: CGRect(origin: origin, size: scaledSize))
         }
     }
 
     private func loadCurrentUserProfileFromRecord() async {
         if isProfilePhotoUploadPending || pendingProfilePhotoSelection != nil {
+            return
+        }
+
+        guard resolvedSignedInState else {
+            await MainActor.run {
+                remainingBoosts = 0
+                UserDefaults.standard.removeObject(forKey: remainingBoostsDefaultsKey)
+            }
             return
         }
 
@@ -11041,11 +19048,26 @@ struct ContentView: View {
             let resolvedFollowingCount = liveCounts?.following ?? account.followingCount
             await MainActor.run {
                 startCurrentUserProfileLiveListener(for: userID)
-                let normalizedUsername = FirebaseSpotService.normalizeUsername(account.username)
+                let verifiedPhone = (account.phoneNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !verifiedPhone.isEmpty {
+                    phoneNumber = verifiedPhone
+                    pendingPhoneNumber = verifiedPhone
+                    backupPhoneNumber = verifiedPhone
+                    backupPendingPhoneNumber = verifiedPhone
+                    UserDefaults.standard.set(verifiedPhone, forKey: phoneNumberDefaultsKey)
+                }
+
+                let storedUsername = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? selectedSavedAccount?.username ?? ""
+                let normalizedUsername = Self.preferredAccountUsername(
+                    storedUsername: storedUsername,
+                    firebaseUsername: account.username
+                )
                 if !normalizedUsername.isEmpty {
                     profileUsername = normalizedUsername
                     accountUsername = normalizedUsername
+                    signInUsername = normalizedUsername
                     UserDefaults.standard.set(normalizedUsername, forKey: accountUsernameDefaultsKey)
+                    rememberUsernameAliases([normalizedUsername])
                 }
 
                 let savedDisplayName = UserDefaults.standard.string(forKey: profileNameDefaultsKey) ?? ""
@@ -11065,16 +19087,27 @@ struct ContentView: View {
                     UserDefaults.standard.set(firebaseDisplayName, forKey: profileNameDefaultsKey)
                 }
 
-                let normalizedSavedUsername = FirebaseSpotService.normalizeUsername(account.username)
-                if !normalizedSavedUsername.isEmpty {
-                    profileUsername = normalizedSavedUsername
-                    accountUsername = normalizedSavedUsername
-                    UserDefaults.standard.set(normalizedSavedUsername, forKey: accountUsernameDefaultsKey)
+                upsertSavedAccount(
+                    email: accountEmail,
+                    username: profileUsername,
+                    displayName: profileName,
+                    profilePhotoURL: account.profilePhotoURL,
+                    preserveExistingPhoto: false
+                )
+
+                let liveUsername = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+                let liveDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !liveUsername.isEmpty {
+                    applyUserProfileToOwnPosts(
+                        username: liveUsername,
+                        displayName: liveDisplayName.isEmpty ? "You" : liveDisplayName
+                    )
                 }
 
                 let fetchedPhotoURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 let currentPhotoURL = profilePhotoRemoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
                 let hasPendingLocalPhotoSync = UserDefaults.standard.bool(forKey: profilePhotoPendingSyncDefaultsKey)
+                let hasPendingLocalPhotoRemoval = UserDefaults.standard.bool(forKey: profilePhotoRemovalPendingDefaultsKey)
                 let cachedLocalPhoto = Self.cachedImage(forKey: profilePhotoDefaultsKey)
                 let lastLocalPhotoWriteAt = UserDefaults.standard.double(forKey: profilePhotoLastWriteAtDefaultsKey)
                 let writeIsRecent = Date().timeIntervalSince1970 - lastLocalPhotoWriteAt < 20
@@ -11083,13 +19116,73 @@ struct ContentView: View {
                     && !fetchedPhotoURL.isEmpty
                     && currentPhotoURL != fetchedPhotoURL
                 let shouldProtectPendingLocalPhoto = hasPendingLocalPhotoSync && cachedLocalPhoto != nil
-                let shouldProtectLocalPhoto = shouldProtectRecentPhotoSelection || shouldProtectPendingLocalPhoto
+                let shouldProtectPendingLocalRemoval = hasPendingLocalPhotoRemoval
+                    && cachedLocalPhoto == nil
+                    && !fetchedPhotoURL.isEmpty
+                let shouldProtectLocalPhoto = shouldProtectRecentPhotoSelection || shouldProtectPendingLocalPhoto || shouldProtectPendingLocalRemoval
 
                 if shouldProtectLocalPhoto {
                     // Avoid replacing a freshly selected local photo with a stale server response.
                     applyProfilePhotoURLToOwnPosts(currentPhotoURL)
                 } else {
                     profilePhotoRemoteURL = fetchedPhotoURL
+                }
+
+                let shouldSyncLocalPhotoToCloud = Self.shouldSyncLocalProfilePhotoToCloud(
+                    fetchedRemoteURL: fetchedPhotoURL,
+                    cachedLocalPhotoExists: cachedLocalPhoto != nil,
+                    hasPendingSync: hasPendingLocalPhotoSync,
+                    hasRemovalPending: hasPendingLocalPhotoRemoval,
+                    isUploadInFlight: isProfilePhotoUploadPending
+                )
+                if shouldSyncLocalPhotoToCloud {
+                    Task {
+                        guard let localImage = cachedLocalPhoto else { return }
+                        guard let imageData = localImage.jpegData(compressionQuality: 0.85) else { return }
+
+                        guard let userID = await requireSavedAuthenticatedUserID(), !userID.isEmpty else { return }
+
+                        do {
+                            let photoURL = try await FirebaseSpotService.shared.uploadMedia(
+                                data: imageData,
+                                folder: "profilePhotos",
+                                fileName: "profile_\(UUID().uuidString).jpg"
+                            )
+                            let validUsername = await resolvedUsernameForProfileSave(userID: userID)
+                            let displayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "User" : profileName
+                            let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+                            try await FirebaseSpotService.shared.saveUserProfile(
+                                userID: userID,
+                                username: validUsername,
+                                displayName: displayName,
+                                bio: existingAccount?.bio,
+                                photoURL: photoURL
+                            )
+                            await MainActor.run {
+                                profilePhotoRemoteURL = photoURL
+                                profilePhotoImage = localImage
+                                profilePhotoPreviewImage = localImage
+                                pendingProfilePhotoSelection = nil
+                                UserDefaults.standard.set(false, forKey: profilePhotoPendingSyncDefaultsKey)
+                                UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
+                                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: profilePhotoLastWriteAtDefaultsKey)
+                                applyProfilePhotoURLToOwnPosts(photoURL)
+                                upsertSavedAccount(
+                                    email: accountEmail,
+                                    username: profileUsername,
+                                    displayName: profileName,
+                                    profilePhotoURL: photoURL,
+                                    preserveExistingPhoto: false
+                                )
+                            }
+                        } catch {
+                            print("Spot local profile photo cloud sync failed: \(error)")
+                        }
+                    }
+                }
+
+                if fetchedPhotoURL.isEmpty {
+                    UserDefaults.standard.set(false, forKey: profilePhotoRemovalPendingDefaultsKey)
                 }
 
                 if !shouldProtectLocalPhoto,
@@ -11130,11 +19223,20 @@ struct ContentView: View {
                 applyProfilePhotoURLToOwnPosts(resolvedPostPhotoURL)
                 currentUserFollowerCount = max(0, resolvedFollowerCount)
                 currentUserFollowingCount = max(0, resolvedFollowingCount)
+                remainingBoosts = max(0, account.remainingBoosts)
+                UserDefaults.standard.set(max(0, account.remainingBoosts), forKey: remainingBoostsDefaultsKey)
 
-                posts = Self.postsWithSavedState(posts, savedPostIDs: account.savedPostIDs)
+                var hydratedWithSavedState = Self.postsWithSavedState(posts, savedPostIDs: account.savedPostIDs)
+                hydratedWithSavedState = applySavedStateOverrides(to: hydratedWithSavedState)
+                posts = hydratedWithSavedState
+                reconcileSavedPostTimestamps(using: hydratedWithSavedState)
             }
         } catch {
             print("Spot profile hydrate error: \(error)")
+            await MainActor.run {
+                remainingBoosts = 0
+                UserDefaults.standard.removeObject(forKey: remainingBoostsDefaultsKey)
+            }
         }
     }
 
@@ -11147,28 +19249,43 @@ struct ContentView: View {
         )
     }
 
-    @MainActor
-    private func applyUserProfileToOwnPosts(username: String, displayName: String) {
-        let resolvedAuthorID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+    static func updatedPostsForAuthorIdentity(
+        posts: [MockPost],
+        authorID: String,
+        username: String,
+        previousUsernames: [String] = [],
+        displayName: String
+    ) -> [MockPost] {
+        let resolvedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedUsername = FirebaseSpotService.normalizeUsername(username)
         let resolvedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalDisplayName = resolvedDisplayName.isEmpty ? resolvedUsername : resolvedDisplayName
-        
-        guard !resolvedUsername.isEmpty else { return }
+
+        guard !resolvedUsername.isEmpty, resolvedUsername != "you", resolvedUsername != Self.anonymousHandle else { return posts }
+
+        var candidateUsernames: Set<String> = [resolvedUsername]
+        for candidate in previousUsernames {
+            let normalizedCandidate = FirebaseSpotService.normalizeUsername(candidate)
+            if !normalizedCandidate.isEmpty, normalizedCandidate != "you", normalizedCandidate != Self.anonymousHandle {
+                candidateUsernames.insert(normalizedCandidate)
+            }
+        }
 
         func shouldUpdateAuthor(for post: MockPost) -> Bool {
             guard !post.isAnonymous else { return false }
 
             let postAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !resolvedAuthorID.isEmpty, postAuthorID == resolvedAuthorID {
-                return true
+
+            if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty {
+                return postAuthorID == resolvedAuthorID
             }
 
             let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
-            return !postUsername.isEmpty && postUsername == resolvedUsername
+            guard !postUsername.isEmpty, postUsername != "you", postUsername != Self.anonymousHandle else { return false }
+            return candidateUsernames.contains(postUsername)
         }
 
-        posts = posts.map { post in
+        return posts.map { post in
             guard shouldUpdateAuthor(for: post) else { return post }
 
             var updatedPost = post
@@ -11176,22 +19293,148 @@ struct ContentView: View {
             updatedPost.author = finalDisplayName
             return updatedPost
         }
+    }
+
+    @MainActor
+    private func applyUserProfileToOwnPosts(username: String, displayName: String, previousUsernames: [String] = []) {
+        let resolvedUsername = FirebaseSpotService.normalizeUsername(username)
+        guard !resolvedUsername.isEmpty else { return }
+
+        posts = Self.updatedPostsForAuthorIdentity(
+            posts: posts,
+            authorID: currentUserID,
+            username: resolvedUsername,
+            previousUsernames: previousUsernames,
+            displayName: displayName
+        )
+
+        var candidateUsernames: Set<String> = [resolvedUsername]
+        for candidate in previousUsernames {
+            let normalizedCandidate = FirebaseSpotService.normalizeUsername(candidate)
+            if !normalizedCandidate.isEmpty {
+                candidateUsernames.insert(normalizedCandidate)
+            }
+        }
 
         if let selected = selectedProfilePost, !selected.isAnonymous {
-            if shouldUpdateAuthor(for: selected) {
+            let selectionMatches = {
+                let postAuthorID = selected.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+                let postUsername = FirebaseSpotService.normalizeUsername(selected.handle)
+                let resolvedAuthorID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !resolvedAuthorID.isEmpty, postAuthorID == resolvedAuthorID {
+                    return true
+                }
+                return !postUsername.isEmpty && candidateUsernames.contains(postUsername)
+            }()
+
+            if selectionMatches {
                 var updatedSelected = selected
                 updatedSelected.handle = resolvedUsername
-                updatedSelected.author = finalDisplayName
+                updatedSelected.author = displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? resolvedUsername : displayName
                 selectedProfilePost = updatedSelected
             }
         }
 
         if let pending = pendingSharePost, !pending.isAnonymous {
-            if shouldUpdateAuthor(for: pending) {
+            let pendingMatches = {
+                let postAuthorID = pending.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+                let postUsername = FirebaseSpotService.normalizeUsername(pending.handle)
+                let resolvedAuthorID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !resolvedAuthorID.isEmpty, postAuthorID == resolvedAuthorID {
+                    return true
+                }
+                return !postUsername.isEmpty && candidateUsernames.contains(postUsername)
+            }()
+
+            if pendingMatches {
                 var updatedPending = pending
                 updatedPending.handle = resolvedUsername
-                updatedPending.author = finalDisplayName
+                updatedPending.author = displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? resolvedUsername : displayName
                 pendingSharePost = updatedPending
+            }
+        }
+    }
+
+    @MainActor
+    private func updateAuthorAgeForOwnPosts(age: String) {
+        let cleanedAge = age.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newAge: String? = cleanedAge.isEmpty ? nil : cleanedAge
+
+        let activeUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let activeUsername = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
+
+        posts = posts.map { post in
+            guard !post.isAnonymous else { return post }
+            guard Self.isPostOwnedByUser(post, currentUserID: activeUserID, currentUsername: activeUsername) else { return post }
+            var updated = post
+            updated.authorAge = newAge
+            return updated
+        }
+
+        if let selected = selectedProfilePost, !selected.isAnonymous,
+           Self.isPostOwnedByUser(selected, currentUserID: activeUserID, currentUsername: activeUsername) {
+            var updatedSelected = selected
+            updatedSelected.authorAge = newAge
+            selectedProfilePost = updatedSelected
+        }
+
+        if let pending = pendingSharePost, !pending.isAnonymous,
+           Self.isPostOwnedByUser(pending, currentUserID: activeUserID, currentUsername: activeUsername) {
+            var updatedPending = pending
+            updatedPending.authorAge = newAge
+            pendingSharePost = updatedPending
+        }
+
+        // Propagate age update to Firestore for all non-anonymous posts owned by user
+        let userIDToUpdate = (try? FirebaseSpotService.shared.currentUserID()) ?? activeUserID
+        if !userIDToUpdate.isEmpty {
+            Task {
+                try? await FirebaseSpotService.shared.updateAuthorAgeForPosts(
+                    authorID: userIDToUpdate,
+                    age: newAge
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func updateAuthorPositionForOwnPosts(position: String) {
+        let cleanedPosition = position.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newPosition: String? = cleanedPosition.isEmpty ? nil : cleanedPosition
+
+        let activeUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let activeUsername = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
+
+        posts = posts.map { post in
+            guard !post.isAnonymous else { return post }
+            guard Self.isPostOwnedByUser(post, currentUserID: activeUserID, currentUsername: activeUsername) else { return post }
+            var updated = post
+            updated.authorPosition = newPosition
+            return updated
+        }
+
+        if let selected = selectedProfilePost, !selected.isAnonymous,
+           Self.isPostOwnedByUser(selected, currentUserID: activeUserID, currentUsername: activeUsername) {
+            var updatedSelected = selected
+            updatedSelected.authorPosition = newPosition
+            selectedProfilePost = updatedSelected
+        }
+
+        if let pending = pendingSharePost, !pending.isAnonymous,
+           Self.isPostOwnedByUser(pending, currentUserID: activeUserID, currentUsername: activeUsername) {
+            var updatedPending = pending
+            updatedPending.authorPosition = newPosition
+            pendingSharePost = updatedPending
+        }
+
+        // Propagate position update to Firestore for all non-anonymous posts owned by user
+        let userIDToUpdate = (try? FirebaseSpotService.shared.currentUserID()) ?? activeUserID
+        if !userIDToUpdate.isEmpty {
+            Task {
+                try? await FirebaseSpotService.shared.updateAuthorPositionForPosts(
+                    authorID: userIDToUpdate,
+                    position: newPosition
+                )
             }
         }
     }
@@ -11223,12 +19466,18 @@ struct ContentView: View {
             guard !post.isAnonymous else { return false }
 
             let postAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !resolvedAuthorID.isEmpty, postAuthorID == resolvedAuthorID {
-                return true
+            if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty {
+                return postAuthorID == resolvedAuthorID
             }
 
-            guard !resolvedUsername.isEmpty else { return false }
+            // Do not clobber another user's post if author IDs are present and different
+            if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty, postAuthorID != resolvedAuthorID {
+                return false
+            }
+
+            guard !resolvedUsername.isEmpty, resolvedUsername != "you", resolvedUsername != Self.anonymousHandle else { return false }
             let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
+            guard !postUsername.isEmpty, postUsername != "you", postUsername != Self.anonymousHandle else { return false }
             return postUsername == resolvedUsername
         }
 
@@ -11238,6 +19487,12 @@ struct ContentView: View {
             var updatedPost = post
             updatedPost.authorProfilePhotoURL = resolvedURL
             return updatedPost
+        }
+
+        if resolvedAuthorID == activeUserID() || (!resolvedUsername.isEmpty && resolvedUsername == FirebaseSpotService.normalizeUsername(profileUsername)) {
+            if let resolvedURL {
+                profilePhotoRemoteURL = resolvedURL
+            }
         }
 
         if let selected = selectedProfilePost, shouldUpdate(selected) {
@@ -11277,7 +19532,7 @@ struct ContentView: View {
     }
 
     private func refreshActivePostAuthorPhotos(force: Bool = false) async {
-        let snapshot = await MainActor.run { () -> (authorIDs: [String], currentPhotoByAuthorID: [String: String], now: TimeInterval)? in
+        let snapshot = await MainActor.run { () -> (targets: [(userID: String, username: String, key: String)], currentPhotoByKey: [String: String], now: TimeInterval)? in
             let now = Date().timeIntervalSince1970
             if isActiveAuthorPhotoRefreshInFlight { return nil }
             if !force && (now - lastActiveAuthorPhotoRefreshAt) < 6 { return nil }
@@ -11285,44 +19540,66 @@ struct ContentView: View {
             let activePosts = posts.filter { !$0.isAnonymous }
             guard !activePosts.isEmpty else { return nil }
 
-            var currentPhotoByAuthorID: [String: String] = [:]
+            var currentPhotoByKey: [String: String] = [:]
+            var targets: [(userID: String, username: String, key: String)] = []
+            var seenTargets: Set<String> = []
+
             for post in activePosts {
                 let authorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !authorID.isEmpty else { continue }
+                let username = FirebaseSpotService.normalizeUsername(post.handle)
+                let key = authorID.isEmpty ? "u:\(username)" : "id:\(authorID)"
+                if key.isEmpty || !seenTargets.insert(key).inserted { continue }
 
                 let currentURL = (post.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                currentPhotoByAuthorID[authorID] = currentURL
+                currentPhotoByKey[key] = currentURL
+                targets.append((userID: authorID, username: username, key: key))
             }
 
-            let authorIDs = Array(currentPhotoByAuthorID.keys)
-            guard !authorIDs.isEmpty else { return nil }
+            guard !targets.isEmpty else { return nil }
 
             isActiveAuthorPhotoRefreshInFlight = true
-            return (authorIDs, currentPhotoByAuthorID, now)
+            return (targets, currentPhotoByKey, now)
         }
 
         guard let snapshot else { return }
 
-        let resolvedPhotoUpdates = await withTaskGroup(of: (String, String?)?.self, returning: [(String, String?)].self) { group in
-            for authorID in snapshot.authorIDs {
+        let resolvedPhotoUpdates = await withTaskGroup(of: (String, String, String?)?.self, returning: [(String, String, String?)].self) { group in
+            for target in snapshot.targets {
                 group.addTask {
                     do {
-                        let account = try await FirebaseSpotService.shared.fetchUserAccount(userID: authorID)
-                        let fetchedURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                        let existingURL = snapshot.currentPhotoByAuthorID[authorID] ?? ""
-
-                        if fetchedURL != existingURL {
-                            return (authorID, fetchedURL.isEmpty ? nil : fetchedURL)
+                        let resolvedUserID: String
+                        if !target.userID.isEmpty {
+                            resolvedUserID = target.userID
+                        } else if !target.username.isEmpty {
+                            resolvedUserID = (try await FirebaseSpotService.shared.resolveUserID(username: target.username)) ?? ""
+                        } else {
+                            resolvedUserID = ""
                         }
+
+                        let account: FirebaseUserAccountRecord
+                        if !resolvedUserID.isEmpty {
+                            account = try await FirebaseSpotService.shared.fetchUserAccount(userID: resolvedUserID)
+                        } else if !target.username.isEmpty {
+                            let fallbackUserID = (try await FirebaseSpotService.shared.resolveUserID(username: target.username)) ?? ""
+                            guard !fallbackUserID.isEmpty else { return nil }
+                            account = try await FirebaseSpotService.shared.fetchUserAccount(userID: fallbackUserID)
+                        } else {
+                            return nil
+                        }
+
+                        let fetchedURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let existingURL = snapshot.currentPhotoByKey[target.key] ?? ""
+
+                        let shouldUpdate = fetchedURL != existingURL || (existingURL.isEmpty && !fetchedURL.isEmpty)
+                        guard shouldUpdate else { return nil }
+                        return (account.uid, target.username, fetchedURL.isEmpty ? nil : fetchedURL)
                     } catch {
                         return nil
                     }
-
-                    return nil
                 }
             }
 
-            var updates: [(String, String?)] = []
+            var updates: [(String, String, String?)] = []
             for await result in group {
                 guard let result else { continue }
                 updates.append(result)
@@ -11332,8 +19609,8 @@ struct ContentView: View {
 
         await MainActor.run {
             for update in resolvedPhotoUpdates {
-                applyProfilePhotoURLToPosts(authorUserID: update.0, username: nil, photoURL: update.1)
-                prefetchRemoteAvatarIfNeeded(update.1)
+                applyProfilePhotoURLToPosts(authorUserID: update.0, username: update.1, photoURL: update.2)
+                prefetchRemoteAvatarIfNeeded(update.2)
             }
 
             lastActiveAuthorPhotoRefreshAt = snapshot.now
@@ -11397,9 +19674,12 @@ struct ContentView: View {
             ownerHandle: currentHandle,
             ownerName: displayName
         )
+        let hydratedWithCachedEngagement = applyCachedEngagementSnapshots(to: hydrated)
 
         if userID.isEmpty {
-            posts = hydrated
+            let hydratedWithOverrides = applySavedStateOverrides(to: hydratedWithCachedEngagement)
+            posts = hydratedWithOverrides
+            reconcileSavedPostTimestamps(using: hydratedWithOverrides)
             prefetchProfilesForVisiblePostAuthors()
             Task {
                 await refreshActivePostAuthorPhotos(force: true)
@@ -11409,9 +19689,14 @@ struct ContentView: View {
 
         do {
             let account = try await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
-            posts = Self.postsWithSavedState(hydrated, savedPostIDs: account.savedPostIDs)
+            var hydratedWithSavedState = Self.postsWithSavedState(hydratedWithCachedEngagement, savedPostIDs: account.savedPostIDs)
+            hydratedWithSavedState = applySavedStateOverrides(to: hydratedWithSavedState)
+            posts = hydratedWithSavedState
+            reconcileSavedPostTimestamps(using: hydratedWithSavedState)
         } catch {
-            posts = hydrated
+            let hydratedWithOverrides = applySavedStateOverrides(to: hydratedWithCachedEngagement)
+            posts = hydratedWithOverrides
+            reconcileSavedPostTimestamps(using: hydratedWithOverrides)
             print("Spot account hydrate failed while loading posts: \(error)")
         }
 
@@ -11419,6 +19704,85 @@ struct ContentView: View {
         Task {
             await refreshActivePostAuthorPhotos(force: true)
         }
+    }
+
+    // MARK: - Smart Feed Buffer & Injection Engine
+
+    private func handleFeedScrollYChange(_ scrollY: CGFloat) {
+        if (scrollY <= 15 || topVisibleFeedIndex <= 0) && !unseenNewPostsAboveIDs.isEmpty {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                flushUnseenNewPostsAbove()
+            }
+        }
+    }
+
+    private func recordPostCardVisibility(index: Int, postID: Int, totalCount: Int) {
+        visibleFeedPostIndices.insert(index)
+        topVisibleFeedIndex = visibleFeedPostIndices.min() ?? 0
+        bottomVisibleFeedIndex = visibleFeedPostIndices.max() ?? 0
+
+        if index == 0 && !unseenNewPostsAboveIDs.isEmpty {
+            flushUnseenNewPostsAbove()
+        }
+
+        if index >= max(0, totalCount - 3), feedLoadedCount < totalCount {
+            feedLoadedCount = min(feedLoadedCount + feedWindowSize, totalCount)
+        }
+    }
+
+    private func recordPostCardInvisibility(index: Int, postID: Int) {
+        visibleFeedPostIndices.remove(index)
+        topVisibleFeedIndex = visibleFeedPostIndices.min() ?? 0
+        bottomVisibleFeedIndex = visibleFeedPostIndices.max() ?? 0
+    }
+
+    private func newPostsAbovePillButton(scrollProxy: ScrollViewProxy, feedTopInset: CGFloat) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                flushUnseenNewPostsAbove()
+                if let firstID = feedRankedPostIDs.first {
+                    scrollProxy.scrollTo(homeFeedPostScrollID(firstID), anchor: .top)
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+
+                Text("\(unseenNewPostsAboveIDs.count) new post\(unseenNewPostsAboveIDs.count == 1 ? "" : "s")")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Color.black.opacity(0.92))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.22), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, max(12, feedTopInset + 6))
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    @MainActor
+    private func flushUnseenNewPostsAbove() {
+        guard !pendingBufferedPosts.isEmpty || !unseenNewPostsAboveIDs.isEmpty else {
+            showNewPostsAbovePill = false
+            return
+        }
+
+        if !pendingBufferedPosts.isEmpty {
+            posts = pendingBufferedPosts
+            pendingBufferedPosts = []
+        }
+
+        unseenNewPostsAboveIDs = []
+        showNewPostsAbovePill = false
     }
 
     @MainActor
@@ -11432,7 +19796,63 @@ struct ContentView: View {
             ownerHandle: currentHandle,
             ownerName: displayName
         )
-        posts = hydrated
+        let hydratedWithCachedEngagement = applyCachedEngagementSnapshots(to: hydrated)
+        let hydratedWithOverrides = applySavedStateOverrides(to: hydratedWithCachedEngagement)
+
+        var mergedByID: [Int: MockPost] = [:]
+        for post in posts {
+            mergedByID[post.id] = post
+        }
+
+        for post in hydratedWithOverrides {
+            if let existing = mergedByID[post.id] {
+                var next = post
+                next.isSaved = existing.isSaved
+                next.isLiked = existing.isLiked
+                next.comments = existing.comments.count > post.comments.count ? existing.comments : post.comments
+                next.viewCount = max(existing.viewCount, post.viewCount)
+                next.savedCount = max(existing.savedCount, post.savedCount)
+                next.shareCount = max(existing.shareCount, post.shareCount)
+                next.likes = max(existing.likes, post.likes)
+                next.peakEngagementScore = max(existing.peakEngagementScore, post.peakEngagementScore, next.realEngagementScore)
+                mergedByID[post.id] = next
+            } else {
+                mergedByID[post.id] = post
+            }
+        }
+
+        let mergedPosts = Array(mergedByID.values).sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+
+        let existingIDs = Set(posts.map(\.id))
+        let newIncoming = hydratedWithOverrides.filter { !existingIDs.contains($0.id) }
+
+        if posts.isEmpty || (topVisibleFeedIndex <= 0 && feedRawScrollY <= 20) {
+            posts = mergedPosts
+            unseenNewPostsAboveIDs = []
+            pendingBufferedPosts = []
+            showNewPostsAbovePill = false
+        } else if !newIncoming.isEmpty {
+            pendingBufferedPosts = mergedPosts
+            let newIDs = newIncoming.map(\.id)
+
+            var updatedUnseen = unseenNewPostsAboveIDs
+            for id in newIDs {
+                if !updatedUnseen.contains(id) {
+                    updatedUnseen.append(id)
+                }
+            }
+            unseenNewPostsAboveIDs = updatedUnseen
+            showNewPostsAbovePill = !unseenNewPostsAboveIDs.isEmpty
+        } else {
+            posts = mergedPosts
+        }
+
+        reconcileSavedPostTimestamps(using: hydratedWithOverrides)
         prefetchProfilesForVisiblePostAuthors()
         Task {
             await refreshActivePostAuthorPhotos(force: true)
@@ -11460,21 +19880,63 @@ struct ContentView: View {
         realtimeFeedListener = nil
     }
 
+    private func resolvedAccountUserIDForPersistence() async -> String? {
+        let authUserIDRaw = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
+        let authUserID = authUserIDRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !authUserID.isEmpty && !FirebaseSpotService.isDeviceFallbackUserID(authUserID) {
+            return authUserID
+        }
+
+        let activeUsername = FirebaseSpotService.normalizeUsername(profileUsername.isEmpty ? accountUsername : profileUsername)
+        if !activeUsername.isEmpty,
+           let resolvedID = try? await FirebaseSpotService.shared.resolveUserID(username: activeUsername),
+           !resolvedID.isEmpty,
+           !FirebaseSpotService.isDeviceFallbackUserID(resolvedID) {
+            return resolvedID
+        }
+
+        if !activeUsername.isEmpty && resolvedSignedInState {
+            let fallbackDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? activeUsername
+                : profileName
+            do {
+                let authUser = try await FirebaseSpotService.shared.ensureAuthenticatedUser(
+                    username: activeUsername,
+                    displayName: fallbackDisplayName,
+                    bio: nil,
+                    photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+                )
+                let uid = authUser.uid.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !uid.isEmpty, !FirebaseSpotService.isDeviceFallbackUserID(uid) else {
+                    return nil
+                }
+                return uid
+            } catch {
+                print("Spot account persistence resolution failed: \(error)")
+            }
+        }
+
+        return nil
+    }
+
     private func persistUserAccountActivity(for post: MockPost, saved: Bool? = nil, flagged: Bool? = nil, locationName: String? = nil) {
         Task {
-            let userID = await ensureAuthenticatedUserRecord()
+            guard let accountUserID = await resolvedAccountUserIDForPersistence() else {
+                print("Spot user activity save skipped: no authenticated account user id")
+                return
+            }
 
             do {
                 if let saved {
-                    try await FirebaseSpotService.shared.saveUserSavedPost(userID: userID, postID: String(post.id), saved: saved)
+                    try await FirebaseSpotService.shared.saveUserSavedPost(userID: accountUserID, postID: String(post.id), saved: saved)
                 }
 
                 if let flagged {
-                    try await FirebaseSpotService.shared.saveUserFlaggedPost(userID: userID, postID: String(post.id), flagged: flagged)
+                    try await FirebaseSpotService.shared.saveUserFlaggedPost(userID: accountUserID, postID: String(post.id), flagged: flagged)
                 }
 
                 if let locationName {
-                    try await FirebaseSpotService.shared.saveUserLocationHistory(userID: userID, locationName: locationName)
+                    try await FirebaseSpotService.shared.saveUserLocationHistory(userID: accountUserID, locationName: locationName)
                 }
             } catch {
                 print("Spot user activity save error: \(error)")
@@ -11482,29 +19944,100 @@ struct ContentView: View {
         }
     }
 
-    private func toggleSavedState(for post: MockPost) {
-        if let index = posts.firstIndex(where: { $0.id == post.id }) {
-            posts[index].isSaved.toggle()
-            if posts[index].isSaved {
-                posts[index].savedCount += 1
-            } else {
-                posts[index].savedCount = max(0, posts[index].savedCount - 1)
+    private func applySavedStateOverrides(to source: [MockPost]) -> [MockPost] {
+        source.map { post in
+            guard let override = savedStateOverridesByPostID[post.id] else {
+                return post
             }
-            pendingSharePost = posts[index].isSaved ? posts[index] : nil
-            persistUserAccountActivity(for: posts[index], saved: posts[index].isSaved)
 
-            let postIDForEngagement = posts[index].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? String(posts[index].id)
-                : posts[index].firestoreID
-            let updatedSavedCount = posts[index].savedCount
-            Task {
-                try? await FirebaseSpotService.shared.updatePostEngagement(
-                    postID: postIDForEngagement,
-                    savedCount: updatedSavedCount
-                )
+            var updated = post
+            updated.isSaved = override
+            return updated
+        }
+    }
+
+    private func reconcileSavedPostTimestamps(using source: [MockPost]) {
+        let savedIDs = Set(source.filter { $0.isSaved }.map(\.id))
+        var next = savedPostTimestampsByPostID.filter { savedIDs.contains($0.key) }
+
+        for post in source where post.isSaved {
+            if next[post.id] == nil {
+                next[post.id] = post.createdAt.timeIntervalSince1970
             }
-        } else {
+        }
+
+        savedPostTimestampsByPostID = next
+    }
+
+    private func toggleSavedState(for post: MockPost) {
+        let targetKey = postAdminPinStorageKey(post)
+        let matchingIndices = posts.indices.filter { postAdminPinStorageKey(posts[$0]) == targetKey }
+        guard let representativeIndex = matchingIndices.first else {
             pendingSharePost = nil
+            return
+        }
+
+        let representativePost = posts[representativeIndex]
+        let isOwnPost = Self.isPostOwnedByUser(
+            representativePost,
+            currentUserID: currentUserID,
+            currentUsername: profileUsername
+        )
+
+        let nextSavedState = !posts[representativeIndex].isSaved
+        let updatedSavedCount = isOwnPost
+            ? posts[representativeIndex].savedCount
+            : max(0, posts[representativeIndex].savedCount + (nextSavedState ? 1 : -1))
+        let now = Date().timeIntervalSince1970
+
+        if nextSavedState {
+            MetricFeedMLEngine.shared.recordInteraction(post: posts[representativeIndex], signal: .save, allPosts: posts)
+        }
+
+        for index in matchingIndices {
+            posts[index].isSaved = nextSavedState
+            posts[index].savedCount = updatedSavedCount
+            savedStateOverridesByPostID[posts[index].id] = nextSavedState
+
+            if nextSavedState {
+                savedPostTimestampsByPostID[posts[index].id] = now
+            } else {
+                savedPostTimestampsByPostID.removeValue(forKey: posts[index].id)
+            }
+        }
+
+        if var selected = selectedProfilePost, postAdminPinStorageKey(selected) == targetKey {
+            selected.isSaved = nextSavedState
+            selected.savedCount = updatedSavedCount
+            selectedProfilePost = selected
+            cacheEngagementSnapshot(for: selected)
+        }
+
+        if var pending = pendingSharePost, postAdminPinStorageKey(pending) == targetKey {
+            pending.isSaved = nextSavedState
+            pending.savedCount = updatedSavedCount
+            pendingSharePost = nextSavedState ? pending : nil
+        } else {
+            pendingSharePost = nextSavedState ? posts[representativeIndex] : nil
+        }
+
+        persistUserAccountActivity(for: posts[representativeIndex], saved: nextSavedState)
+        cacheEngagementSnapshot(for: posts[representativeIndex])
+
+        let postIDForEngagement = posts[representativeIndex].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? String(posts[representativeIndex].id)
+            : posts[representativeIndex].firestoreID
+        if !isOwnPost {
+            Task {
+                do {
+                    try await FirebaseSpotService.shared.updatePostEngagement(
+                        postID: postIDForEngagement,
+                        savedCount: updatedSavedCount
+                    )
+                } catch {
+                    print("Spot save engagement update failed for post \(postIDForEngagement): \(error)")
+                }
+            }
         }
     }
 
@@ -11513,36 +20046,49 @@ struct ContentView: View {
             persistViewedPostIDs()
         }
 
-        if let index = posts.firstIndex(where: { $0.id == updatedPost.id }) {
-            var next = updatedPost
+        MetricFeedMLEngine.shared.recordPostView(
+            post: updatedPost,
+            durationSeconds: Double(updatedPost.timeViewedSeconds),
+            allPosts: posts,
+            nearbyPlaces: nearbyPlaces
+        )
+
+        func mergeTracked(existing: MockPost, incoming: MockPost) -> MockPost {
+            var next = incoming
             if next.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                next.firestoreID = posts[index].firestoreID
+                next.firestoreID = existing.firestoreID
             }
-            posts[index] = next
+
+            // Multiple surfaces can report the same post (boosted/pinned across feeds).
+            // Merge engagement monotonically so stale snapshots cannot clobber newer totals.
+            next.viewCount = max(existing.viewCount, incoming.viewCount)
+            next.timeViewedSeconds = max(existing.timeViewedSeconds, incoming.timeViewedSeconds)
+            next.savedCount = max(existing.savedCount, incoming.savedCount)
+            next.shareCount = max(existing.shareCount, incoming.shareCount)
+            next.likes = max(existing.likes, incoming.likes)
+            next.peakEngagementScore = max(existing.peakEngagementScore, incoming.peakEngagementScore, next.realEngagementScore)
+
+            // Preserve user-toggle states that may update independently.
+            next.isSaved = existing.isSaved
+            next.isLiked = existing.isLiked
+            return next
+        }
+
+        if let index = posts.firstIndex(where: { $0.id == updatedPost.id }) {
+            posts[index] = mergeTracked(existing: posts[index], incoming: updatedPost)
+            cacheEngagementSnapshot(for: posts[index])
         }
 
         if let selected = selectedProfilePost, selected.id == updatedPost.id {
-            var next = selected
-            next.viewCount = updatedPost.viewCount
-            next.timeViewedSeconds = updatedPost.timeViewedSeconds
-            if !updatedPost.firestoreID.isEmpty {
-                next.firestoreID = updatedPost.firestoreID
-            }
-            selectedProfilePost = next
+            selectedProfilePost = mergeTracked(existing: selected, incoming: updatedPost)
         }
 
         if let pending = pendingSharePost, pending.id == updatedPost.id {
-            var next = pending
-            next.viewCount = updatedPost.viewCount
-            next.timeViewedSeconds = updatedPost.timeViewedSeconds
-            if !updatedPost.firestoreID.isEmpty {
-                next.firestoreID = updatedPost.firestoreID
-            }
-            pendingSharePost = next
+            pendingSharePost = mergeTracked(existing: pending, incoming: updatedPost)
         }
     }
 
-    private func deletePost(_ post: MockPost) {
+    private func deletePost(_ post: MockPost, adminDeleteCode: String? = nil) {
         let deletedPostID = post.id
         let removedIndices = posts.indices.filter { posts[$0].id == deletedPostID }
         let reinsertIndex = removedIndices.min() ?? posts.count
@@ -11550,6 +20096,15 @@ struct ContentView: View {
 
         posts.removeAll { $0.id == deletedPostID }
         reportedPostIds.remove(post.id)
+        for key in reportedStorageKeys(for: post) {
+            reportedPostKeys.remove(key)
+        }
+        adminFlaggedPostsByKey.removeValue(forKey: adminFlaggedStorageKey(for: post))
+        for key in reportedStorageKeys(for: post) {
+            adminFlaggedPostsByKey.removeValue(forKey: key)
+        }
+        persistReportedPostKeys()
+        persistAdminFlaggedPostsByKey()
         let userID = post.authorUserID.isEmpty ? activeUserID() : post.authorUserID
         let candidatePostIDs = Self.deleteCandidatePostIDs(firestoreID: post.firestoreID, localPostID: deletedPostID)
         Task {
@@ -11557,7 +20112,7 @@ struct ContentView: View {
 
             for candidatePostID in candidatePostIDs {
                 do {
-                    try await FirebaseSpotService.shared.deletePost(postID: candidatePostID, authorID: userID)
+                    try await FirebaseSpotService.shared.deletePost(postID: candidatePostID, authorID: userID, adminDeleteCode: adminDeleteCode)
                     deletedRemotely = true
                     break
                 } catch {
@@ -11591,7 +20146,43 @@ struct ContentView: View {
 
     private func reportPost(_ post: MockPost) {
         reportedPostIds.insert(post.id)
+        for key in reportedStorageKeys(for: post) {
+            reportedPostKeys.insert(key)
+        }
+        let now = Date().timeIntervalSince1970
+        adminFlaggedPostsByKey[adminFlaggedStorageKey(for: post)] = now
+        for key in reportedStorageKeys(for: post) {
+            adminFlaggedPostsByKey[key] = now
+        }
+        pruneExpiredAdminFlaggedPosts()
+        persistReportedPostKeys()
+        persistAdminFlaggedPostsByKey()
         persistUserAccountActivity(for: post, flagged: true)
+    }
+
+    private func unlockAdminModerationFeedIfAuthorized() {
+        let entered = adminModerationPasswordInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard entered == Self.adminModerationUnlockCode else {
+            adminModerationPasswordError = "Incorrect password."
+            adminModerationPasswordInput = ""
+            return
+        }
+
+        adminModerationPasswordError = ""
+        adminModerationPasswordInput = ""
+        activeSettingsEditor = nil
+        pruneExpiredAdminFlaggedPosts()
+        currentScreen = .adminFlaggedPosts
+    }
+
+    private func adminDeleteFlaggedPostPermanently(_ post: MockPost) {
+        adminModerationActionMessage = "Post deleted permanently."
+        deletePost(post, adminDeleteCode: "9999")
+    }
+
+    private func adminRegisterBanPlaceholder(for post: MockPost, days: Int) {
+        let handle = displayUsername(post.handle)
+        adminModerationActionMessage = "Ban queued for \(handle) (\(days) days). Duration enforcement update coming soon."
     }
 
     private func reportUser(_ user: FakeUserProfile) {
@@ -11608,20 +20199,73 @@ struct ContentView: View {
         selectedChatThread = messages[index]
     }
 
+    private var readChatThreadIDs: Set<String> {
+        let list = UserDefaults.standard.stringArray(forKey: "spot_read_chat_ids") ?? []
+        return Set(list)
+    }
+
+    private func markChatThreadAsRead(_ thread: DirectMessageThread) {
+        let identifier = !thread.chatID.isEmpty ? thread.chatID : "\(thread.id)"
+        var set = readChatThreadIDs
+        set.insert(identifier)
+        UserDefaults.standard.set(Array(set), forKey: "spot_read_chat_ids")
+    }
+
+    private func isChatThreadRead(_ thread: DirectMessageThread) -> Bool {
+        let identifier = !thread.chatID.isEmpty ? thread.chatID : "\(thread.id)"
+        return readChatThreadIDs.contains(identifier)
+    }
+
+    private var deletedChatIDs: Set<String> {
+        get {
+            let list = UserDefaults.standard.stringArray(forKey: "spot_deleted_chat_ids") ?? []
+            return Set(list)
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: "spot_deleted_chat_ids")
+        }
+    }
+
     private func deleteChatThread(_ thread: DirectMessageThread) {
+        if !thread.chatID.isEmpty {
+            var set = deletedChatIDs
+            set.insert(thread.chatID)
+            UserDefaults.standard.set(Array(set), forKey: "spot_deleted_chat_ids")
+        }
         messages.removeAll { $0.id == thread.id }
         if selectedChatThread?.id == thread.id {
             selectedChatThread = nil
         }
         currentScreen = .messages
+        recalculateUnreadDirectMessageCount()
     }
 
     private func sharePostToFriends(_ post: MockPost) {
+        MetricFeedMLEngine.shared.recordInteraction(post: post, signal: .share, allPosts: posts)
+
+        let isOwnPost = Self.isPostOwnedByUser(
+            post,
+            currentUserID: currentUserID,
+            currentUsername: profileUsername
+        )
+
         if let index = posts.firstIndex(where: { $0.id == post.id }) {
-            posts[index].recordShare()
+            if !isOwnPost {
+                posts[index].recordShare()
+            }
+            cacheEngagementSnapshot(for: posts[index])
             let updatedShareCount = posts[index].shareCount
-            Task {
-                try? await FirebaseSpotService.shared.updatePostEngagement(postID: String(post.id), shareCount: updatedShareCount)
+            let postIDForEngagement = posts[index].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? String(posts[index].id)
+                : posts[index].firestoreID
+            if !isOwnPost {
+                Task {
+                    do {
+                        try await FirebaseSpotService.shared.updatePostEngagement(postID: postIDForEngagement, shareCount: updatedShareCount)
+                    } catch {
+                        print("Spot share engagement update failed for post \(postIDForEngagement): \(error)")
+                    }
+                }
             }
         }
 
@@ -11642,6 +20286,7 @@ struct ContentView: View {
             )
         )
         chatMessages[thread.id] = updatedMessages
+        refreshThreadPreview(for: thread.id)
         pendingSharePost = nil
         chatComposerText = ""
     }
@@ -11652,21 +20297,56 @@ struct ContentView: View {
         return "I wanted to share this with you: \(title) — \(location)\n\(post.body)"
     }
 
-    private func openDM(with user: FakeUserProfile) {
-        if let existingIndex = messages.firstIndex(where: { $0.username.lowercased() == user.username.lowercased() || $0.participant.lowercased() == user.name.lowercased() }) {
+    private func openDM(with user: FakeUserProfile, startsAnonymous: Bool = false) {
+        MetricFeedMLEngine.shared.recordInteraction(forUser: user, signal: .messageTap, allPosts: posts)
+
+        let targetUsername = user.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? (user.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "user" : user.name)
+            : user.username
+
+        if let existingIndex = messages.firstIndex(where: {
+            ($0.username.lowercased() == targetUsername.lowercased() || $0.participant.lowercased() == user.name.lowercased() || (!user.userID.isEmpty && $0.participantUserID == user.userID))
+            && $0.isAnonymousConversation == startsAnonymous
+        }) {
+            messages[existingIndex].username = targetUsername
+            if !user.name.isEmpty {
+                messages[existingIndex].participant = user.name
+            }
+            if !user.userID.isEmpty {
+                messages[existingIndex].participantUserID = user.userID
+            }
+            if messages[existingIndex].chatID.isEmpty, !user.userID.isEmpty, let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty {
+                messages[existingIndex].chatID = FirebaseSpotService.chatID(for: [currentUID, user.userID], isAnonymous: startsAnonymous)
+            }
             selectedChatThread = messages[existingIndex]
         } else {
+            let initialChatID = {
+                if !user.userID.isEmpty, let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty {
+                    return FirebaseSpotService.chatID(for: [currentUID, user.userID], isAnonymous: startsAnonymous)
+                }
+                return ""
+            }()
+
             let created = DirectMessageThread(
                 id: Int.random(in: 100...9999),
-                participant: user.name,
-                username: user.username,
-                preview: pendingSharePost != nil ? shareTextFor(pendingSharePost!) : "Hey, I wanted to say hi.",
+                participant: user.name.isEmpty ? targetUsername : user.name,
+                username: targetUsername,
+                preview: "No messages yet",
                 time: "Now",
                 unread: 0,
-                isIncoming: false
+                isIncoming: false,
+                isAnonymousConversation: startsAnonymous,
+                participantUserID: user.userID,
+                chatID: initialChatID
             )
             messages.insert(created, at: 0)
             selectedChatThread = created
+        }
+
+        if let selectedThread = selectedChatThread {
+            Task {
+                await fetchDirectMessagesForThread(selectedThread)
+            }
         }
 
         if let post = pendingSharePost {
@@ -11755,21 +20435,43 @@ struct PollEditorPreview: View {
 }
 
 struct ShimmerModifier: ViewModifier {
-    @State private var isAnimating = false
+    @State private var shimmerPosition: CGFloat = -1.0
+    @State private var animationTask: Task<Void, Never>? = nil
 
     func body(content: Content) -> some View {
         content
             .overlay(
                 GeometryReader { geo in
+                    let bandWidth = max(geo.size.width * 0.6, 32.0)
+                    let travel = max(geo.size.width + bandWidth, 120.0)
+
                     LinearGradient(
-                        colors: [Color.clear, Color.white.opacity(0.5), Color.clear],
+                        colors: [Color.clear, Color.white.opacity(0.55), Color.clear],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
-                    .frame(width: geo.size.width * 0.6)
-                    .offset(x: isAnimating ? geo.size.width * 0.7 : -geo.size.width * 0.7)
-                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false), value: isAnimating)
-                    .onAppear { isAnimating = true }
+                    .frame(width: bandWidth)
+                    .offset(x: shimmerPosition * travel * 0.5)
+                    .animation(.easeInOut(duration: 1.1), value: shimmerPosition)
+                    .onAppear {
+                        animationTask?.cancel()
+                        shimmerPosition = -1.0
+                        withAnimation(.easeInOut(duration: 1.1)) {
+                            shimmerPosition = 1.0
+                        }
+                        animationTask = Task {
+                            try? await Task.sleep(nanoseconds: UInt64(1_100_000_000))
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run {
+                                shimmerPosition = -1.0
+                            }
+                        }
+                    }
+                    .onDisappear {
+                        animationTask?.cancel()
+                        animationTask = nil
+                        shimmerPosition = -1.0
+                    }
                 }
             )
             .mask(content)
@@ -11803,34 +20505,38 @@ struct PollVoteButton: View {
     let tint: Color
     let action: () -> Void
 
-    private var percent: Double {
-        let total = max(totalVotes, 1)
-        return Double(count) / Double(total) * 100
+    private var backgroundColor: Color {
+        isSelected ? (tint == .black ? .black : .white) : .white
+    }
+
+    private var labelColor: Color {
+        isSelected ? (tint == .black ? .white : .black) : .black
     }
 
     var body: some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(label)
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("\(count) votes • \(String(format: "%.0f", percent))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(labelColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? tint : .secondary)
-                    .frame(width: 18, height: 18)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(labelColor)
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 9)
-            .padding(.horizontal, 10)
-            .background(isSelected ? tint.opacity(0.14) : Color(.secondarySystemBackground))
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(backgroundColor)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black, lineWidth: 1.2)
+            )
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -11841,21 +20547,31 @@ struct PieChartView: View {
     let votes: [Int]
     let colorSeed: Int
 
-    static func legacyPalette() -> [Color] {
-        [
-            Color(red: 0.12, green: 0.43, blue: 0.87),
-            Color(red: 0.54, green: 0.31, blue: 0.85),
-            Color(red: 0.20, green: 0.58, blue: 0.47),
-            Color(red: 0.90, green: 0.33, blue: 0.62)
-        ]
+    static func blackWhitePalette(seed: Int, count: Int = 2) -> [Color] {
+        let first: Color = abs(seed) % 2 == 0 ? .black : .white
+        let second: Color = first == .black ? .white : .black
+        var palette: [Color] = [first, second]
+        if count <= 2 {
+            return Array(palette.prefix(count))
+        }
+        return Array(repeating: first, count: max(0, count - 2)) + [second]
     }
 
     private var palette: [Color] {
-        Self.legacyPalette()
+        Self.blackWhitePalette(seed: colorSeed, count: max(votes.count, 2))
+    }
+
+    private var normalizedVotes: [Int] {
+        let cleaned = votes.map { max(0, $0) }
+        guard !cleaned.isEmpty else { return [] }
+        if cleaned.reduce(0, +) == 0 {
+            return Array(repeating: 1, count: cleaned.count)
+        }
+        return cleaned
     }
 
     private var total: Int {
-        max(votes.reduce(0, +), 1)
+        normalizedVotes.reduce(0, +)
     }
 
     private var segments: [(value: Int, color: Color, start: Double, end: Double)] {
@@ -11865,7 +20581,7 @@ struct PieChartView: View {
         var runningStart = 0.0
         var results: [(Int, Color, Double, Double)] = []
 
-        for (index, value) in votes.enumerated() {
+        for (index, value) in normalizedVotes.enumerated() {
             let ratio = totalValue == 0 ? 0.0 : Double(value) / totalValue
             let color = availableColors.indices.contains(index) ? availableColors[index] : availableColors[index % max(availableColors.count, 1)]
             let segment = (value: value, color: color, start: runningStart, end: runningStart + ratio * 360.0)
@@ -11882,7 +20598,7 @@ struct PieChartView: View {
             let radius = min(geometry.size.width, geometry.size.height) / 2
 
             ZStack {
-                if votes.isEmpty || total == 0 {
+                if normalizedVotes.isEmpty || total == 0 {
                     Circle()
                         .fill(Color(.secondarySystemBackground))
                 } else {
@@ -11911,17 +20627,27 @@ struct PieChartView: View {
     }
 }
 
+private struct NoPressedStateButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 1.0 : 1.0)
+    }
+}
+
 struct LocationSearchSuggestion: Identifiable, Hashable {
     let id: String
     let title: String
     let subtitle: String
+    let distanceText: String
     let value: String
 
-    init(title: String, subtitle: String = "", value: String? = nil) {
-        self.id = title
+    init(title: String, subtitle: String = "", distanceText: String = "", value: String? = nil) {
+        let resolvedValue = value ?? title
+        self.id = [title, subtitle, distanceText, resolvedValue].joined(separator: "||")
         self.title = title
         self.subtitle = subtitle
-        self.value = value ?? title
+        self.distanceText = distanceText
+        self.value = resolvedValue
     }
 }
 
@@ -11936,15 +20662,17 @@ struct LocationField: View {
         VStack(alignment: .leading, spacing: 8) {
             if !title.isEmpty {
                 Text(title)
-                    .font(.caption)
+                    .font(.custom("Sacramento-Regular", size: 22))
                     .foregroundStyle(.secondary)
             }
 
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 TextField(placeholder, text: $text)
+                    .font(.custom("Sacramento-Regular", size: 24))
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
 
@@ -11953,49 +20681,22 @@ struct LocationField: View {
                         text = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
                             .foregroundStyle(.secondary)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 14)
             .frame(height: 52)
             .frame(maxWidth: .infinity)
-            .background(Color.gray.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !suggestions.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(suggestions.prefix(5).enumerated()), id: \ .element.id) { _, suggestion in
-                        Button {
-                            text = suggestion.value
-                            onSuggestionSelected?(suggestion.value)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(suggestion.title)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.primary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                if !suggestion.subtitle.isEmpty {
-                                    Text(suggestion.subtitle)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.top, 4)
-            }
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+            )
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -12200,13 +20901,16 @@ struct FakeUserProfile: Identifiable {
 
 struct DirectMessageThread: Identifiable {
     let id: Int
-    let participant: String
-    let username: String
+    var participant: String
+    var username: String
     var preview: String
     var time: String
     let unread: Int
     let isIncoming: Bool
     var isPinned: Bool = false
+    var isAnonymousConversation: Bool = false
+    var participantUserID: String = ""
+    var chatID: String = ""
 
     var initials: String {
         let components = participant.split(separator: " ")
@@ -12224,11 +20928,49 @@ struct ChatMessage: Identifiable {
 }
 
 struct MockPost: Identifiable {
+    static let followingPinnedPost = MockPost(
+        id: 99999999,
+        author: "Spot",
+        handle: "spot",
+        authorUserID: "spot_official",
+        authorProfilePhotoURL: nil,
+        authorAge: nil,
+        authorPosition: nil,
+        type: "General",
+        location: "Following",
+        title: "Welcome to Following",
+        body: "Follow users across Spot to see all their latest posts and updates right here in your Following feed!",
+        url: "",
+        accent: "#000000",
+        tag: "Pinned",
+        likes: 0,
+        viewCount: 0,
+        timeViewedSeconds: 0,
+        savedCount: 0,
+        shareCount: 0,
+        isLiked: false,
+        comments: [],
+        sentTo: [],
+        isSaved: false,
+        pollOptions: [],
+        pollVotes: [],
+        currentUserPollSelection: nil,
+        mediaImage: nil,
+        mediaURLs: [],
+        sourceURL: nil,
+        tags: ["Following"],
+        isBoosted: false,
+        postedInLocations: ["Following"],
+        createdAt: Date()
+    )
+
     let id: Int
     var author: String
     var handle: String
     let authorUserID: String
     var authorProfilePhotoURL: String?
+    var authorAge: String? = nil
+    var authorPosition: String? = nil
     let type: String
     let location: String
     let title: String
@@ -12243,6 +20985,7 @@ struct MockPost: Identifiable {
     var isSaved: Bool = false
     var pollOptions: [String] = []
     var pollVotes: [Int] = []
+    var currentUserPollSelection: Int? = nil
     var mediaImage: UIImage? = nil
     var mediaURLs: [String] = []
     var sourceURL: String? = nil
@@ -12323,6 +21066,8 @@ struct MockPost: Identifiable {
         handle: String,
         authorUserID: String = "",
         authorProfilePhotoURL: String? = nil,
+        authorAge: String? = nil,
+        authorPosition: String? = nil,
         type: String,
         location: String,
         title: String,
@@ -12342,6 +21087,7 @@ struct MockPost: Identifiable {
         isSaved: Bool = false,
         pollOptions: [String] = [],
         pollVotes: [Int] = [],
+        currentUserPollSelection: Int? = nil,
         mediaImage: UIImage? = nil,
         mediaURLs: [String] = [],
         sourceURL: String? = nil,
@@ -12357,6 +21103,8 @@ struct MockPost: Identifiable {
         self.handle = handle
         self.authorUserID = authorUserID
         self.authorProfilePhotoURL = authorProfilePhotoURL
+        self.authorAge = authorAge
+        self.authorPosition = authorPosition
         self.type = type
         self.location = location
         self.title = title
@@ -12371,6 +21119,7 @@ struct MockPost: Identifiable {
         self.isSaved = isSaved
         self.pollOptions = pollOptions
         self.pollVotes = pollVotes
+        self.currentUserPollSelection = currentUserPollSelection
         self.mediaImage = mediaImage
         self.mediaURLs = mediaURLs
         self.sourceURL = sourceURL
@@ -12413,7 +21162,7 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
         playerLayer.videoGravity = .resizeAspectFill
         playerLayer.contentsScale = UIScreen.main.scale
         playerLayer.frame = container.bounds
-        playerLayer.backgroundColor = UIColor.black.cgColor
+        playerLayer.backgroundColor = UIColor.secondarySystemBackground.cgColor
         playerLayer.needsDisplayOnBoundsChange = true
         container.layer.addSublayer(playerLayer)
 
@@ -12437,6 +21186,7 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
         context.coordinator.isActive = isActive
         context.coordinator.attachPlaybackLoopObserver(for: item)
         context.coordinator.attachBufferObservers(for: item)
+        context.coordinator.timeControlObserver?.invalidate()
         context.coordinator.timeControlObserver = player.observe(\.timeControlStatus, options: [.initial, .new]) { observedPlayer, _ in
             DispatchQueue.main.async {
                 guard let observedItem = observedPlayer.currentItem else {
@@ -12493,6 +21243,7 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
             context.coordinator.lastRestartToken = restartToken
             context.coordinator.attachPlaybackLoopObserver(for: replacementItem)
             context.coordinator.attachBufferObservers(for: replacementItem)
+            context.coordinator.statusObserver?.invalidate()
             context.coordinator.statusObserver = replacementItem.observe(\.status, options: [.initial, .new]) { observedItem, _ in
                 DispatchQueue.main.async {
                     guard context.coordinator.isActive else {
@@ -12529,10 +21280,8 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
 
     func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
         coordinator.player?.pause()
-        coordinator.detachPlaybackLoopObserver()
-        coordinator.detachBufferObservers()
-        coordinator.statusObserver = nil
-        coordinator.timeControlObserver = nil
+        coordinator.player?.replaceCurrentItem(with: nil)
+        coordinator.clearObservers()
         coordinator.playerLayer?.removeFromSuperlayer()
         coordinator.loadingIndicator?.removeFromSuperview()
         coordinator.player = nil
@@ -12554,6 +21303,15 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
         var likelyToKeepUpObserver: NSKeyValueObservation?
         var bufferFullObserver: NSKeyValueObservation?
         var loopObserver: NSObjectProtocol?
+
+        func clearObservers() {
+            statusObserver?.invalidate()
+            statusObserver = nil
+            timeControlObserver?.invalidate()
+            timeControlObserver = nil
+            detachBufferObservers()
+            detachPlaybackLoopObserver()
+        }
 
         func attemptPlaybackIfReady(player: AVPlayer, item: AVPlayerItem) {
             guard item.status == .readyToPlay else { return }
@@ -12604,7 +21362,9 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
         }
 
         func detachBufferObservers() {
+            likelyToKeepUpObserver?.invalidate()
             likelyToKeepUpObserver = nil
+            bufferFullObserver?.invalidate()
             bufferFullObserver = nil
         }
 
@@ -12633,24 +21393,34 @@ private struct LoopingVideoPlayer: UIViewRepresentable {
 struct PostCardView: View {
     @Binding var post: MockPost
     var isOwnPost: Bool = false
+    var tracksViewEngagement: Bool = true
     var currentUserProfilePhotoImage: UIImage? = nil
     var showsAuthorLine: Bool = true
+    var prefersDeleteAction: Bool = false
     var videoPlaybackEnabled: Bool? = nil
     var showProfileLocationBadge: Bool = false
     var isReported: Bool = false
     var onSend: () -> Void = {}
     var onSave: (MockPost) -> Void = { _ in }
     var onDelete: (() -> Void)? = nil
+    var onAdminForceDelete: (String) -> Void = { _ in }
     var onReport: (() -> Void)? = nil
     var onProfileTap: () -> Void = {}
     var onMessageTap: () -> Void = {}
+    var onMapFocusTap: (MockPost) -> Void = { _ in }
     var onViewTracked: (MockPost) -> Void = { _ in }
 
     @State private var selectedPollIndex: Int? = nil
     @State private var audioPlaybackPlayer: AVAudioPlayer? = nil
 
     private var currentSelectedPollIndex: Int? {
-        selectedPollIndex ?? post.pollVotes.firstIndex(where: { $0 > 0 })
+        if let selectedPollIndex {
+            return selectedPollIndex
+        }
+        guard let storedSelection = post.currentUserPollSelection, storedSelection >= 0, storedSelection < pollVotes.count else {
+            return nil
+        }
+        return storedSelection
     }
     @State private var isAudioPostPlaying = false
     @State private var audioPlaybackDotCount = 1
@@ -12666,14 +21436,29 @@ struct PostCardView: View {
     @State private var guideVisibleStepCount = 1
     @State private var showHiringContactOptions = false
     @State private var isExpandedListingImagePresented = false
+    @State private var selectedListingImageIndex = 0
     @State private var isVideoPlaybackActive = false
     @State private var videoPlaybackRestartToken = 0
     @State private var showAdminPinCodePrompt = false
     @State private var adminPinCodeInput = ""
     @State private var adminPinErrorMessage = ""
+    @State private var suppressNextProfileTap = false
     @Environment(\.openURL) private var openURL
 
     private static let liveViewRegistrationIntervalSeconds = 4
+    private static let adminVideoMetricPinCodeDefaultsKey = "spot_admin_video_metric_pin_code"
+    private static let adminVideoMetricPinnedPostsAtDefaultsKey = "spot_admin_video_metric_pinned_posts_at"
+    private static let adminVideoNonMetricPinCodeDefaultsKey = "spot_admin_video_non_metric_pin_code"
+    private static let adminVideoNonMetricPinnedPostsAtDefaultsKey = "spot_admin_video_non_metric_pinned_posts_at"
+    private static let adminProfilePinCodeDefaultsKey = "spot_admin_profile_pin_code"
+    private static let adminProfilePinnedPostsAtDefaultsKey = "spot_admin_profile_pinned_posts_at"
+    private static let adminMapTopPinCodeDefaultsKey = "spot_admin_map_top_pin_code"
+    private static let adminForceDeletePinCodeDefaultsKey = "spot_admin_force_delete_pin_code"
+    private static let adminPinMapTopMarker = "spot:map-top"
+
+    private var shouldTrackViews: Bool {
+        tracksViewEngagement && Self.shouldCountView(isOwnPost: isOwnPost, showsAuthorLine: showsAuthorLine)
+    }
 
     private var pollChoices: [String] {
         post.pollOptions.count >= 2 ? Array(post.pollOptions.prefix(2)) : ["Yes", "No"]
@@ -12695,43 +21480,87 @@ struct PostCardView: View {
         return fallback.isEmpty ? nil : fallback
     }
 
+    private enum ListingGalleryItem {
+        case remote(String)
+        case local(UIImage)
+    }
+
+    private var listingGalleryItems: [ListingGalleryItem] {
+        if !post.mediaURLs.isEmpty {
+            return post.mediaURLs
+                .compactMap { url in
+                    let cleaned = url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !cleaned.isEmpty else { return nil }
+                    return ListingGalleryItem.remote(cleaned)
+                }
+        }
+
+        if let image = post.mediaImage {
+            return [.local(image)]
+        }
+
+        return []
+    }
+
+    static func clampedGallerySelectionIndex(_ current: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return max(0, min(current, count - 1))
+    }
+
     private func voteForPoll(index: Int) {
+        if currentSelectedPollIndex != nil {
+            return
+        }
+
+        MetricFeedMLEngine.shared.recordInteraction(post: post, signal: .pollVote, allPosts: [])
+
+        let previousVotes = post.pollVotes
+        let previousSelection = selectedPollIndex
+        let previousStoredSelection = post.currentUserPollSelection
+
         let result = PollVoteLogic.updatedVotes(
             currentVotes: post.pollVotes.count >= 2 ? post.pollVotes : [0, 0],
-            previousSelection: selectedPollIndex ?? post.pollVotes.firstIndex(where: { $0 > 0 }),
+            previousSelection: selectedPollIndex,
             nextSelection: index
         )
 
         // Update local UI immediately with optimistic update
         post.pollVotes = result.votes
         selectedPollIndex = result.selected
+        post.currentUserPollSelection = result.selected
         onViewTracked(post)
 
-        let postIDForVote = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? String(post.id)
-            : post.firestoreID
+        let firestorePostID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !firestorePostID.isEmpty else {
+            // Local/mock posts do not have a backend document to update.
+            return
+        }
 
         Task {
             do {
-                let updatedVotes = try await FirebaseSpotService.shared.registerPollVote(postID: postIDForVote, optionIndex: index)
+                let voteResult = try await FirebaseSpotService.shared.registerPollVote(postID: firestorePostID, optionIndex: index)
                 await MainActor.run {
                     // Update with server response to ensure consistency
-                    post.pollVotes = updatedVotes
-                    selectedPollIndex = index
+                    post.pollVotes = voteResult.votes
+                    selectedPollIndex = voteResult.selectedIndex
+                    post.currentUserPollSelection = voteResult.selectedIndex
                     onViewTracked(post)
                 }
             } catch {
                 print("Spot poll vote save error: \(error)")
-                // On error, revert the local vote by restoring previous state
-                let previousSelection = selectedPollIndex ?? post.pollVotes.firstIndex(where: { $0 > 0 })
-                selectedPollIndex = previousSelection
+                // On error, revert optimistic vote state.
+                Task { @MainActor in
+                    post.pollVotes = previousVotes
+                    selectedPollIndex = previousSelection
+                    post.currentUserPollSelection = previousStoredSelection
+                }
             }
         }
     }
 
     static func shouldCountView(isOwnPost: Bool, showsAuthorLine: Bool) -> Bool {
-        // Suppress self-views while browsing your own profile posts.
-        return !(isOwnPost && !showsAuthorLine)
+        // Never count self-views toward engagement scoring.
+        return !isOwnPost
     }
 
     static func shouldExpandMediaOnTap(forType type: String, hasMediaImage: Bool) -> Bool {
@@ -12766,10 +21595,10 @@ struct PostCardView: View {
 
     private var effectiveVideoCardSize: CGSize {
         if isVideoPost, showsAuthorLine {
-            // Keep the card inside feed padding so parent layout width doesn't inflate.
-            let desiredWidth = max(300.0, UIScreen.main.bounds.width - 16.0)
-            let desiredHeight = min(760.0, max(540.0, UIScreen.main.bounds.height * 0.72))
-            return CGSize(width: desiredWidth, height: desiredHeight)
+            // Flexible card width centered inside container
+            let desiredWidth = UIScreen.main.bounds.width - 20.0
+            let fixedHeight: CGFloat = 580.0
+            return CGSize(width: desiredWidth, height: fixedHeight)
         }
         return mediaCardSize
     }
@@ -12780,12 +21609,13 @@ struct PostCardView: View {
             .filter { !$0.isEmpty }
 
         for candidate in candidates {
-            if candidate.hasPrefix("http://") || candidate.hasPrefix("https://") || candidate.hasPrefix("file://") || candidate.hasPrefix("/") || candidate.hasPrefix("~/") {
+            let lower = candidate.lowercased()
+            if lower.hasPrefix("http://") || lower.hasPrefix("https://") || lower.hasPrefix("file://") || lower.hasPrefix("/") || lower.hasPrefix("~/") {
                 return candidate
             }
         }
 
-        return candidates.first
+        return nil
     }
 
     private var resolvedVideoPlaybackURL: URL? {
@@ -12904,7 +21734,7 @@ struct PostCardView: View {
     }
 
     private var displayedEngagementScore: Double {
-        guard Self.shouldCountView(isOwnPost: isOwnPost, showsAuthorLine: showsAuthorLine), viewStartedAt != nil else {
+        guard shouldTrackViews, viewStartedAt != nil else {
             return post.engagementScore
         }
 
@@ -12933,16 +21763,20 @@ struct PostCardView: View {
             : trackedPost.firestoreID
 
         Task {
-            try? await FirebaseSpotService.shared.updatePostEngagement(
-                postID: postIDForEngagement,
-                viewCount: trackedPost.viewCount,
-                totalViewDurationSeconds: trackedPost.timeViewedSeconds
-            )
+            do {
+                try await FirebaseSpotService.shared.updatePostEngagement(
+                    postID: postIDForEngagement,
+                    viewCount: trackedPost.viewCount,
+                    totalViewDurationSeconds: trackedPost.timeViewedSeconds
+                )
+            } catch {
+                print("Spot view engagement update failed for post \(postIDForEngagement): \(error)")
+            }
         }
     }
 
     private func registerLiveViewBatch(viewsToAdd: Int, durationSeconds: Int) {
-        guard viewsToAdd > 0 || durationSeconds > 0 else { return }
+        guard shouldTrackViews, (viewsToAdd > 0 || durationSeconds > 0) else { return }
 
         var trackedPost = post
         trackedPost.viewCount += max(0, viewsToAdd)
@@ -12953,6 +21787,25 @@ struct PostCardView: View {
     }
 
     private func playAudioFile(_ audioURL: URL) {
+        if isAudioPostPlaying, let activePlayer = audioPlaybackPlayer, activePlayer.isPlaying {
+            activePlayer.pause()
+            isAudioPostPlaying = false
+            audioDotsAnimationTask?.cancel()
+            audioDotsAnimationTask = nil
+            return
+        }
+
+        if let activePlayer = audioPlaybackPlayer, !activePlayer.isPlaying {
+            let isAtEnd = activePlayer.duration > 0 && activePlayer.currentTime >= (activePlayer.duration - 0.1)
+            if isAtEnd {
+                activePlayer.currentTime = 0
+            }
+            if activePlayer.play() {
+                startAudioPlaybackDotsAnimation()
+                return
+            }
+        }
+
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [])
@@ -12984,6 +21837,8 @@ struct PostCardView: View {
                             && activePlayer.currentTime >= (activePlayer.duration - 0.05)
 
                         if activePlayer === player && reachedPlaybackEnd {
+                            activePlayer.pause()
+                            activePlayer.currentTime = 0
                             stopAudioPlaybackDotsAnimation()
                         }
                     }
@@ -13016,8 +21871,12 @@ struct PostCardView: View {
     private func stopAudioPlaybackDotsAnimation() {
         isAudioPostPlaying = false
         audioPlaybackDotCount = 1
-        audioPlaybackPlayer?.stop()
-        audioPlaybackPlayer = nil
+        if let player = audioPlaybackPlayer {
+            player.pause()
+            if player.duration > 0 && player.currentTime >= (player.duration - 0.1) {
+                player.currentTime = 0
+            }
+        }
         audioDotsAnimationTask?.cancel()
         audioDotsAnimationTask = nil
         audioPlaybackStopTask?.cancel()
@@ -13138,10 +21997,46 @@ struct PostCardView: View {
         return saved.isEmpty ? "2626" : saved
     }
 
+    private func resolvedAdminNearestPOIPinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: "spot_admin_nearest_poi_pin_code") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "3737" : saved
+    }
+
+    private func resolvedAdminVideoMetricPinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: Self.adminVideoMetricPinCodeDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "7373" : saved
+    }
+
+    private func resolvedAdminVideoNonMetricPinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: Self.adminVideoNonMetricPinCodeDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "7474" : saved
+    }
+
+    private func resolvedAdminProfilePinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: Self.adminProfilePinCodeDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "1717" : saved
+    }
+
+    private func resolvedAdminMapTopPinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: Self.adminMapTopPinCodeDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "1818" : saved
+    }
+
     private func resolvedAdminUnpinCode() -> String {
         let saved = (UserDefaults.standard.string(forKey: "spot_admin_unpin_code") ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return saved.isEmpty ? "0007" : saved
+    }
+
+    private func resolvedAdminForceDeletePinCode() -> String {
+        let saved = (UserDefaults.standard.string(forKey: Self.adminForceDeletePinCodeDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? "9999" : saved
     }
 
     private func adminPinStorageKey(for post: MockPost) -> String {
@@ -13169,13 +22064,20 @@ struct PostCardView: View {
         }
     }
 
-    private func persistAdminPinForCurrentPost(applyToAllNonMetricFeeds: Bool = false) {
+    private func persistAdminPinForCurrentPost(applyToAllNonMetricFeeds: Bool = false, applyToNearestPOIOnly: Bool = false) {
         let key = adminPinStorageKey(for: post)
         var realmMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_by_realm") as? [String: String] ?? [:]
         var timestampMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_at") as? [String: Double] ?? [:]
 
         let metricRealm = ContentView.normalizedLocationRealm("Metric")
-        let targetRealm = applyToAllNonMetricFeeds ? "spot:all-non-metric" : metricRealm
+        let targetRealm: String
+        if applyToNearestPOIOnly {
+            targetRealm = "spot:nearest-poi"
+        } else if applyToAllNonMetricFeeds {
+            targetRealm = "spot:all-non-metric"
+        } else {
+            targetRealm = metricRealm
+        }
 
         realmMap[key] = targetRealm
         let pinnedAt = Date().timeIntervalSince1970
@@ -13186,7 +22088,71 @@ struct PostCardView: View {
 
         syncAdminPinStateToSharedStore(realm: targetRealm, pinnedAt: pinnedAt)
 
-        adminPinErrorMessage = applyToAllNonMetricFeeds ? "Pinned to all non-Metric feeds" : "Pinned to Metric top"
+        if applyToNearestPOIOnly {
+            adminPinErrorMessage = "Pinned to nearest POI feeds"
+        } else if applyToAllNonMetricFeeds {
+            adminPinErrorMessage = "Pinned to all non-Metric feeds"
+        } else {
+            adminPinErrorMessage = "Pinned to Metric top"
+        }
+        onViewTracked(post)
+    }
+
+    private func persistAdminProfilePinForCurrentPost() {
+        let key = adminPinStorageKey(for: post)
+        var profileTimestampMap = UserDefaults.standard.dictionary(forKey: Self.adminProfilePinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+        profileTimestampMap[key] = Date().timeIntervalSince1970
+        UserDefaults.standard.set(profileTimestampMap, forKey: Self.adminProfilePinnedPostsAtDefaultsKey)
+
+        adminPinErrorMessage = "Pinned in profile"
+        onViewTracked(post)
+    }
+
+    private func persistAdminVideoMetricPinForCurrentPost() {
+        guard post.type == "Video" else {
+            adminPinErrorMessage = "This pin works for video posts only"
+            return
+        }
+
+        let key = adminPinStorageKey(for: post)
+        var videoTimestampMap = UserDefaults.standard.dictionary(forKey: Self.adminVideoMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+        videoTimestampMap[key] = Date().timeIntervalSince1970
+        UserDefaults.standard.set(videoTimestampMap, forKey: Self.adminVideoMetricPinnedPostsAtDefaultsKey)
+
+        adminPinErrorMessage = "Pinned in Video Metric feed"
+        onViewTracked(post)
+    }
+
+    private func persistAdminVideoNonMetricPinForCurrentPost() {
+        guard post.type == "Video" else {
+            adminPinErrorMessage = "This pin works for video posts only"
+            return
+        }
+
+        let key = adminPinStorageKey(for: post)
+        var videoTimestampMap = UserDefaults.standard.dictionary(forKey: Self.adminVideoNonMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+        videoTimestampMap[key] = Date().timeIntervalSince1970
+        UserDefaults.standard.set(videoTimestampMap, forKey: Self.adminVideoNonMetricPinnedPostsAtDefaultsKey)
+
+        adminPinErrorMessage = "Pinned in non-Metric video feeds"
+        onViewTracked(post)
+    }
+
+    private func persistAdminMapTopPinForCurrentPost() {
+        let key = adminPinStorageKey(for: post)
+        var realmMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_by_realm") as? [String: String] ?? [:]
+        var timestampMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_at") as? [String: Double] ?? [:]
+
+        let pinnedAt = Date().timeIntervalSince1970
+        realmMap[key] = Self.adminPinMapTopMarker
+        timestampMap[key] = pinnedAt
+
+        UserDefaults.standard.set(realmMap, forKey: "spot_admin_pinned_posts_by_realm")
+        UserDefaults.standard.set(timestampMap, forKey: "spot_admin_pinned_posts_at")
+
+        syncAdminPinStateToSharedStore(realm: Self.adminPinMapTopMarker, pinnedAt: pinnedAt)
+
+        adminPinErrorMessage = "Pinned to map top"
         onViewTracked(post)
     }
 
@@ -13194,16 +22160,26 @@ struct PostCardView: View {
         let key = adminPinStorageKey(for: post)
         var realmMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_by_realm") as? [String: String] ?? [:]
         var timestampMap = UserDefaults.standard.dictionary(forKey: "spot_admin_pinned_posts_at") as? [String: Double] ?? [:]
+        var videoMetricMap = UserDefaults.standard.dictionary(forKey: Self.adminVideoMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+        var videoNonMetricMap = UserDefaults.standard.dictionary(forKey: Self.adminVideoNonMetricPinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
+        var profileTimestampMap = UserDefaults.standard.dictionary(forKey: Self.adminProfilePinnedPostsAtDefaultsKey) as? [String: Double] ?? [:]
 
-        realmMap.removeValue(forKey: key)
-        timestampMap.removeValue(forKey: key)
+        let removedFeedPin = realmMap.removeValue(forKey: key) != nil || timestampMap.removeValue(forKey: key) != nil
+        let removedVideoMetricPin = videoMetricMap.removeValue(forKey: key) != nil
+        let removedVideoNonMetricPin = videoNonMetricMap.removeValue(forKey: key) != nil
+        let removedProfilePin = profileTimestampMap.removeValue(forKey: key) != nil
 
         UserDefaults.standard.set(realmMap, forKey: "spot_admin_pinned_posts_by_realm")
         UserDefaults.standard.set(timestampMap, forKey: "spot_admin_pinned_posts_at")
+        UserDefaults.standard.set(videoMetricMap, forKey: Self.adminVideoMetricPinnedPostsAtDefaultsKey)
+        UserDefaults.standard.set(videoNonMetricMap, forKey: Self.adminVideoNonMetricPinnedPostsAtDefaultsKey)
+        UserDefaults.standard.set(profileTimestampMap, forKey: Self.adminProfilePinnedPostsAtDefaultsKey)
 
-        syncAdminPinStateToSharedStore(realm: nil, pinnedAt: nil)
+        if removedFeedPin {
+            syncAdminPinStateToSharedStore(realm: nil, pinnedAt: nil)
+        }
 
-        adminPinErrorMessage = "Pin removed"
+        adminPinErrorMessage = (removedFeedPin || removedVideoMetricPin || removedVideoNonMetricPin || removedProfilePin) ? "Pin removed" : "No pin found"
         onViewTracked(post)
     }
 
@@ -13228,8 +22204,50 @@ struct PostCardView: View {
             return
         }
 
+        if entered == resolvedAdminNearestPOIPinCode() {
+            persistAdminPinForCurrentPost(applyToNearestPOIOnly: true)
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
+        if entered == resolvedAdminVideoMetricPinCode() {
+            persistAdminVideoMetricPinForCurrentPost()
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
+        if entered == resolvedAdminVideoNonMetricPinCode() {
+            persistAdminVideoNonMetricPinForCurrentPost()
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
+        if entered == resolvedAdminProfilePinCode() {
+            persistAdminProfilePinForCurrentPost()
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
+        if entered == resolvedAdminMapTopPinCode() {
+            persistAdminMapTopPinForCurrentPost()
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
         if entered == resolvedAdminUnpinCode() {
             removeAdminPinForCurrentPost()
+            adminPinCodeInput = ""
+            showAdminPinCodePrompt = false
+            return
+        }
+
+        if entered == resolvedAdminForceDeletePinCode() {
+            onAdminForceDelete(entered)
             adminPinCodeInput = ""
             showAdminPinCodePrompt = false
             return
@@ -13238,90 +22256,163 @@ struct PostCardView: View {
         adminPinErrorMessage = "Invalid admin code"
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 8) {
-                if showsAuthorLine {
-                    HStack(alignment: .center, spacing: 10) {
-                        ZStack {
-                            if !post.isAnonymous,
-                               isOwnPost,
-                               let localProfilePhoto = currentUserProfilePhotoImage {
-                                Image(uiImage: localProfilePhoto)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 34, height: 34)
-                                    .clipShape(Circle())
-                            } else if let rawURL = post.authorProfilePhotoURL,
-                               let avatarURL = URL(string: rawURL),
-                               !rawURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                AsyncImage(url: avatarURL) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 34, height: 34)
-                                            .clipShape(Circle())
-                                    default:
-                                        Circle()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                            .frame(width: 34, height: 34)
-                                            .overlay(
-                                                Text(String(post.author.prefix(2)).uppercased())
-                                                    .font(.caption.weight(.bold))
-                                                    .foregroundStyle(.black)
-                                            )
-                                    }
-                                }
-                            } else {
+    private var authorHeaderView: some View {
+        let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
+        let authorIdentityText: String = post.isAnonymous
+            ? ""
+            : (normalizedHandle.isEmpty ? "@user" : "@\(normalizedHandle)")
+        let authorIdentityColor: Color = post.isAnonymous ? .secondary : ContentView.usernameGoldColor
+
+        let ageText = post.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let shouldShowAge = !post.isAnonymous && !ageText.isEmpty
+        let positionText = post.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let shouldShowPosition = !post.isAnonymous && !positionText.isEmpty
+
+        let resolvedPhotoURL = post.authorProfilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return Button {
+            guard !post.isAnonymous else { return }
+            suppressNextProfileTap = true
+            onProfileTap()
+        } label: {
+            HStack(alignment: .center, spacing: 8) {
+                if post.isAnonymous {
+                    Image(systemName: "theatermasks.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(ContentView.usernameGoldColor)
+                } else {
+                    if isOwnPost, let localImg = currentUserProfilePhotoImage {
+                        Image(uiImage: localImg)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                    } else if !resolvedPhotoURL.isEmpty, let url = URL(string: resolvedPhotoURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable()
+                                   .scaledToFill()
+                                   .frame(width: 32, height: 32)
+                                   .clipShape(Circle())
+                            default:
                                 Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 34, height: 34)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 32, height: 32)
                                     .overlay(
-                                        Text(String(post.author.prefix(2)).uppercased())
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.black)
+                                        Text(String(normalizedHandle.prefix(2)).uppercased())
+                                            .font(.caption2.weight(.bold))
+                                            .foregroundStyle(.secondary)
                                     )
                             }
                         }
-                        .overlay(
-                            Circle()
-                                .stroke(Color.black.opacity(0.13), lineWidth: 0.8)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.72), lineWidth: 0.5)
-                                .padding(0.6)
-                        )
-                        .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
-                        .blur(radius: post.isAnonymous ? 8 : 0)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(post.isAnonymous ? "Anonymous" : post.author)
-                                .font(.headline)
-                            Text(post.isAnonymous ? "Identity hidden" : (post.handle.hasPrefix("@") ? post.handle : "@\(post.handle)"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .blur(radius: post.isAnonymous ? 8 : 0)
-
-                        Spacer()
+                    } else {
+                        Circle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text(String(normalizedHandle.prefix(2)).uppercased())
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                            )
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 8)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(authorIdentityText)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(authorIdentityColor)
+
+                        if shouldShowAge || shouldShowPosition {
+                            HStack(alignment: .center, spacing: 6) {
+                                if shouldShowAge {
+                                    Text(ageText)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color(.systemGray))
+                                }
+
+                                if shouldShowAge && shouldShowPosition {
+                                    Rectangle()
+                                        .fill(Color.black)
+                                        .frame(width: 1, height: 10)
+                                }
+
+                                if shouldShowPosition {
+                                    Text(positionText)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color(.systemGray))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 8)
+    }
+
+    @ViewBuilder
+    private func authorSmallAvatarView(size: CGFloat) -> some View {
+        let remotePhotoURL = (post.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+
+            if isOwnPost, let localImage = currentUserProfilePhotoImage {
+                Image(uiImage: localImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
+                AsyncImage(url: avatarURL) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable()
+                           .scaledToFill()
+                           .frame(width: size, height: size)
+                           .clipShape(Circle())
+                    default:
+                        emptyAuthorSmallAvatar(size: size)
+                    }
+                }
+            } else {
+                emptyAuthorSmallAvatar(size: size)
+            }
+        }
+    }
+
+    private func emptyAuthorSmallAvatar(size: CGFloat) -> some View {
+        Circle()
+            .fill(Color.white)
+            .frame(width: size, height: size)
+            .overlay(
+                Circle()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 0.8)
+            )
+            .overlay(
+                Image(systemName: "person.fill")
+                    .font(.system(size: size * 0.45, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.45))
+            )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                if showsAuthorLine {
+                    authorHeaderView
                 }
 
                 if post.type == "Photo" || post.type == "Photo/Video" {
@@ -13333,7 +22424,8 @@ struct PostCardView: View {
 
                         if !post.body.isEmpty {
                             Text(post.body)
-                                .font(.subheadline)
+                                .font(.body)
+                                .lineSpacing(6)
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -13342,7 +22434,7 @@ struct PostCardView: View {
                     }
                 } else if isVideoPost {
                     VStack(alignment: .leading, spacing: 10) {
-                        ZStack(alignment: .bottomLeading) {
+                        ZStack(alignment: .center) {
                             if let videoURL = resolvedVideoPlaybackURL {
                                 LoopingVideoPlayer(
                                     url: videoURL,
@@ -13351,17 +22443,18 @@ struct PostCardView: View {
                                     restartToken: videoPlaybackRestartToken
                                 )
                                     .frame(width: effectiveVideoCardSize.width, height: effectiveVideoCardSize.height)
-                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     .contentShape(Rectangle())
                             } else {
                                 mediaCardImageView()
                             }
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                         if !post.body.isEmpty {
                             Text(post.body)
-                                .font(.subheadline)
+                                .font(.body)
+                                .lineSpacing(6)
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -13375,11 +22468,6 @@ struct PostCardView: View {
                     let routeBrandingLabel = (route?.isRunBranding ?? false) ? "run" : "trip"
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(post.title.isEmpty ? "\(post.author)'s \(routeBrandingLabel)" : post.title)
-                            .font(.headline.weight(.semibold))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-
                         LiveRouteMiniMapView(
                             startName: start,
                             endName: end,
@@ -13419,13 +22507,6 @@ struct PostCardView: View {
                     let visibleCount = min(max(guideVisibleStepCount, 1), totalSteps)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        if !post.title.isEmpty {
-                            Text(post.title)
-                                .font(.headline.weight(.semibold))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 8)
-                        }
-
                         if !post.body.isEmpty {
                             Text(post.body)
                                 .font(.subheadline)
@@ -13537,107 +22618,167 @@ struct PostCardView: View {
                     let email = details?.email ?? ""
                     let phoneDigits = WorkPostCodec.sanitizedPhoneDigits(phone)
                     let primaryItem = items.first ?? ""
+                    let largeListingImageWidth = min(UIScreen.main.bounds.width - 48, 360.0)
+                    let largeListingImageHeight = min(340.0, max(240.0, largeListingImageWidth * 0.85))
+                    let galleryItems = listingGalleryItems
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Spacer(minLength: 0)
-                            Text(formattedPrice)
-                                .font(.headline.weight(.bold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.15))
-                                .clipShape(Capsule())
-                        }
-                        .padding(.horizontal, 8)
-
-                        HStack(alignment: .center, spacing: 12) {
-                            Group {
-                                if let image = post.mediaImage {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 88, height: 88)
-                                        .clipped()
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        .onTapGesture {
-                                            if Self.shouldExpandMediaOnTap(forType: post.type, hasMediaImage: post.mediaImage != nil) {
-                                                isExpandedListingImagePresented = true
+                    VStack(alignment: .leading, spacing: 10) {
+                        Group {
+                            if !galleryItems.isEmpty {
+                                let safeSelection = Self.clampedGallerySelectionIndex(selectedListingImageIndex, count: galleryItems.count)
+                                ZStack(alignment: .topTrailing) {
+                                    TabView(selection: Binding(
+                                        get: { Self.clampedGallerySelectionIndex(selectedListingImageIndex, count: galleryItems.count) },
+                                        set: { selectedListingImageIndex = Self.clampedGallerySelectionIndex($0, count: galleryItems.count) }
+                                    )) {
+                                        ForEach(Array(galleryItems.enumerated()), id: \.offset) { index, item in
+                                            Group {
+                                                switch item {
+                                                case .remote(let remoteURL):
+                                                    AsyncImage(url: URL(string: remoteURL)) { phase in
+                                                        switch phase {
+                                                        case .success(let image):
+                                                            image
+                                                                .resizable()
+                                                                .scaledToFill()
+                                                                .frame(width: largeListingImageWidth, height: largeListingImageHeight)
+                                                                .clipped()
+                                                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                                        case .empty, .failure:
+                                                            RoundedRectangle(cornerRadius: 16)
+                                                                .fill(Color(.secondarySystemBackground))
+                                                                .frame(width: largeListingImageWidth, height: largeListingImageHeight)
+                                                                .overlay(
+                                                                    Image(systemName: "photo")
+                                                                        .font(.title2)
+                                                                        .foregroundStyle(.secondary)
+                                                                )
+                                                        @unknown default:
+                                                            RoundedRectangle(cornerRadius: 16)
+                                                                .fill(Color(.secondarySystemBackground))
+                                                                .frame(width: largeListingImageWidth, height: largeListingImageHeight)
+                                                        }
+                                                    }
+                                                case .local(let image):
+                                                    Image(uiImage: image)
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                        .frame(width: largeListingImageWidth, height: largeListingImageHeight)
+                                                        .clipped()
+                                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                                }
                                             }
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                if Self.shouldExpandMediaOnTap(forType: post.type, hasMediaImage: !galleryItems.isEmpty) {
+                                                    selectedListingImageIndex = Self.clampedGallerySelectionIndex(index, count: galleryItems.count)
+                                                    isExpandedListingImagePresented = true
+                                                }
+                                            }
+                                            .tag(index)
                                         }
-                                } else {
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color(.secondarySystemBackground))
-                                        .frame(width: 88, height: 88)
-                                        .overlay(
-                                            Image(systemName: "photo")
-                                                .foregroundStyle(.secondary)
-                                        )
-                                }
-                            }
+                                    }
+                                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                                    .frame(width: largeListingImageWidth, height: largeListingImageHeight)
 
-                            VStack(alignment: .leading, spacing: 6) {
-                                if !primaryItem.isEmpty {
-                                    Text(primaryItem)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .lineLimit(3)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    VStack(alignment: .trailing, spacing: 6) {
+                                        Text(formattedPrice)
+                                            .font(.caption.weight(.bold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Color.green)
+                                            .foregroundStyle(.white)
+                                            .clipShape(Capsule())
+                                            .shadow(color: Color.black.opacity(0.18), radius: 3, x: 0, y: 1)
+
+                                        if galleryItems.count > 1 {
+                                            Text("\(safeSelection + 1)/\(galleryItems.count)")
+                                                .font(.caption2.weight(.bold))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 5)
+                                                .background(Color.black.opacity(0.55))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                    .padding(10)
                                 }
+                            } else {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(width: largeListingImageWidth, height: largeListingImageHeight)
+                                    .overlay(
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "photo")
+                                                .font(.title2)
+                                                .foregroundStyle(.secondary)
+                                            Text("Listing photo")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    )
                             }
-                            .frame(maxWidth: .infinity, minHeight: 88, alignment: .center)
                         }
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.horizontal, 8)
 
-                        if !phoneDigits.isEmpty,
-                           let callURL = URL(string: "tel://\(phoneDigits)") {
-                            Link(destination: callURL) {
-                                Text("Contact seller")
-                                    .font(.subheadline.weight(.semibold))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Color(.systemGray5))
-                                    .foregroundStyle(.black)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 8)
+                        if !primaryItem.isEmpty {
+                            Text(primaryItem)
+                                .font(.body)
+                                .lineSpacing(6)
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 8)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else if post.type == "Poll" {
                     VStack(alignment: .leading, spacing: 16) {
                         if !post.title.isEmpty {
                             Text(post.title)
-                                .font(.headline.weight(.semibold))
+                                .font(.body)
+                                .lineSpacing(6)
                                 .foregroundStyle(.primary)
-                                .lineSpacing(4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 8)
                                 .padding(.top, 6)
                         }
 
+                        let pollColors = PieChartView.blackWhitePalette(seed: post.id, count: 2)
+
                         HStack(alignment: .center, spacing: 14) {
                             VStack(alignment: .leading, spacing: 10) {
-                                PollVoteButton(
-                                    label: pollChoices[0],
-                                    count: pollVotes[0],
-                                    totalVotes: pollVotes.reduce(0, +),
-                                    isSelected: currentSelectedPollIndex == 0,
-                                    tint: Color(red: 0.12, green: 0.43, blue: 0.87)
-                                ) {
-                                    voteForPoll(index: 0)
+                                if currentSelectedPollIndex == 1 {
+                                } else {
+                                    PollVoteButton(
+                                        label: pollChoices[0],
+                                        count: pollVotes[0],
+                                        totalVotes: pollVotes.reduce(0, +),
+                                        isSelected: currentSelectedPollIndex == 0,
+                                        tint: pollColors[0]
+                                    ) {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                            voteForPoll(index: 0)
+                                        }
+                                    }
+                                    .disabled(currentSelectedPollIndex != nil)
                                 }
 
-                                PollVoteButton(
-                                    label: pollChoices[1],
-                                    count: pollVotes[1],
-                                    totalVotes: pollVotes.reduce(0, +),
-                                    isSelected: currentSelectedPollIndex == 1,
-                                    tint: Color(red: 0.54, green: 0.31, blue: 0.85)
-                                ) {
-                                    voteForPoll(index: 1)
+                                if currentSelectedPollIndex == 0 {
+                                } else {
+                                    PollVoteButton(
+                                        label: pollChoices[1],
+                                        count: pollVotes[1],
+                                        totalVotes: pollVotes.reduce(0, +),
+                                        isSelected: currentSelectedPollIndex == 1,
+                                        tint: pollColors.indices.contains(1) ? pollColors[1] : pollColors[0]
+                                    ) {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                            voteForPoll(index: 1)
+                                        }
+                                    }
+                                    .disabled(currentSelectedPollIndex != nil)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -13650,71 +22791,83 @@ struct PostCardView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 8)
+
+                        if !post.body.isEmpty {
+                            Text(post.body)
+                                .font(.body)
+                                .lineSpacing(6)
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 8)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 6)
                 } else if post.type == "Audio" {
-                    let audioBlockMinHeight = showsAuthorLine ? 52.0 : 80.0
-                    let audioBlockPadding: CGFloat = showsAuthorLine ? 2.0 : 8.0
+                    let audioPostFrameHeight: CGFloat = 80.0
 
                     VStack(alignment: .center, spacing: 0) {
                         Spacer(minLength: 0)
 
-                        HStack(alignment: .center, spacing: 12) {
+                        HStack(alignment: .center, spacing: 0) {
+                            Spacer(minLength: 0)
+
                             Button {
-                                if let audioSource = resolvedAudioPlaybackSource {
+                                if isAudioPostPlaying {
+                                    stopAudioPlaybackDotsAnimation()
+                                } else if let audioSource = resolvedAudioPlaybackSource {
                                     playAudioPost(from: audioSource)
                                 }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
+                                    Image(systemName: isAudioPostPlaying ? "pause.fill" : "play.fill")
                                         .font(.caption.weight(.bold))
-                                    if isAudioPostPlaying {
-                                        Text("Playing audio")
-                                            .font(.caption.weight(.semibold))
-                                    } else {
-                                        Text("Play audio")
-                                            .font(.caption.weight(.semibold))
-                                    }
+                                    Text(isAudioPostPlaying ? "Pause audio" : "Play audio")
+                                        .font(.caption.weight(.semibold))
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 10)
-                                .foregroundStyle(.black)
-                                .background(Color.white)
+                                .foregroundStyle(.white)
+                                .background(Color.black)
                                 .clipShape(Capsule())
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.black, lineWidth: 1.2)
-                                )
-                                .shadow(color: Color.black.opacity(0.08), radius: 3, x: 0, y: 1)
+                                .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
                             }
                             .buttonStyle(.plain)
 
-                            Spacer()
+                            Spacer(minLength: 0)
                         }
-                        .padding(.leading, 8)
                         .frame(maxWidth: .infinity, alignment: .center)
 
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, minHeight: audioBlockMinHeight, alignment: .center)
-                    .padding(.vertical, audioBlockPadding)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: audioPostFrameHeight)
+                    .padding(.vertical, 6)
                 } else if post.type == "Song" {
                     let hasSongArtwork = post.mediaImage != nil
                     let hasSongDescription = !post.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
                     if !hasSongArtwork && !hasSongDescription {
-                        VStack(alignment: .center, spacing: 6) {
-                            HStack(alignment: .center, spacing: 12) {
+                        let compactAudioSongHeight: CGFloat = 80.0
+
+                        VStack(alignment: .center, spacing: 0) {
+                            Spacer(minLength: 0)
+
+                            HStack(alignment: .center, spacing: 0) {
+                                Spacer(minLength: 0)
+
                                 Button {
-                                    if let audioSource = resolvedAudioPlaybackSource {
+                                    if isAudioPostPlaying {
+                                        stopAudioPlaybackDotsAnimation()
+                                    } else if let audioSource = resolvedAudioPlaybackSource {
                                         playAudioPost(from: audioSource)
                                     }
                                 } label: {
                                     HStack(spacing: 8) {
-                                        Image(systemName: "play.fill")
+                                        Image(systemName: isAudioPostPlaying ? "pause.fill" : "play.fill")
                                             .font(.caption.weight(.bold))
-                                        Text(isAudioPostPlaying ? "Playing song" : "Play song")
+                                        Text(isAudioPostPlaying ? "Pause song" : "Play song")
                                             .font(.caption.weight(.semibold))
                                     }
                                     .padding(.horizontal, 12)
@@ -13730,15 +22883,15 @@ struct PostCardView: View {
                                 }
                                 .buttonStyle(.plain)
 
-                                Spacer()
+                                Spacer(minLength: 0)
                             }
-                            .padding(.leading, 8)
                             .frame(maxWidth: .infinity, alignment: .center)
 
-                            Spacer(minLength: 3)
+                            Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 52, alignment: .center)
-                        .padding(.bottom, 2)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: compactAudioSongHeight)
+                        .padding(.vertical, 6)
                     } else {
                         VStack(alignment: .leading, spacing: 10) {
                             if let artwork = post.mediaImage {
@@ -13761,26 +22914,24 @@ struct PostCardView: View {
                             }
 
                             Button {
-                                if let audioSource = resolvedAudioPlaybackSource {
+                                if isAudioPostPlaying {
+                                    stopAudioPlaybackDotsAnimation()
+                                } else if let audioSource = resolvedAudioPlaybackSource {
                                     playAudioPost(from: audioSource)
                                 }
                             } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
+                                    Image(systemName: isAudioPostPlaying ? "pause.fill" : "play.fill")
                                         .font(.caption.weight(.bold))
-                                    Text(isAudioPostPlaying ? "Playing song" : "Play song")
+                                    Text(isAudioPostPlaying ? "Pause song" : "Play song")
                                         .font(.caption.weight(.semibold))
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 10)
-                                .foregroundStyle(.black)
-                                .background(Color.white)
+                                .foregroundStyle(.white)
+                                .background(Color.black)
                                 .clipShape(Capsule())
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.black, lineWidth: 1.2)
-                                )
-                                .shadow(color: Color.black.opacity(0.08), radius: 3, x: 0, y: 1)
+                                .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
                             }
                             .buttonStyle(.plain)
                             .padding(.horizontal, 8)
@@ -13790,28 +22941,27 @@ struct PostCardView: View {
                     }
                 } else if post.type == "Text" {
                     if showsAuthorLine {
-                        // Feed view: text posts are naturally sized
                         Text(post.body)
                             .font(.body)
                             .lineSpacing(6)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 2)
-                            .padding(.bottom, 6)
-                            .padding(.leading, 8)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 8)
                     } else {
-                        // Profile view: left-aligned text, vertically centered within post container
-                        VStack {
-                            Spacer()
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 0)
+
                             Text(post.body)
                                 .font(.body)
                                 .lineSpacing(6)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .padding(.leading, 8)
-                            Spacer()
+                                .padding(.horizontal, 8)
+
+                            Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 70)
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .center)
                     }
                 } else if post.type == "Link" {
                     VStack(alignment: .leading, spacing: 12) {
@@ -13826,11 +22976,12 @@ struct PostCardView: View {
 
                         if !post.body.isEmpty {
                             Text(post.body)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .font(.body)
+                                .lineSpacing(6)
+                                .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .padding(.leading, 8)
+                                .padding(.horizontal, 8)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -13859,12 +23010,11 @@ struct PostCardView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                guard !post.isAnonymous else { return }
-                if Self.shouldExpandMediaOnTap(forType: post.type, hasMediaImage: post.mediaImage != nil) {
-                    isExpandedListingImagePresented = true
+                if suppressNextProfileTap {
+                    suppressNextProfileTap = false
                     return
                 }
-                onProfileTap()
+                onMapFocusTap(post)
             }
             .onLongPressGesture(minimumDuration: 0.55) {
                 adminPinErrorMessage = ""
@@ -13872,41 +23022,83 @@ struct PostCardView: View {
                 showAdminPinCodePrompt = true
             }
 
-            postActionRow
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(spacing: 2) {
+                postActionRow
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .padding(.horizontal, 8)
-        .background(Color(red: 0.972, green: 0.982, blue: 0.995))
-        .overlay(
-            Rectangle()
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
-        )
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.09))
-                .frame(height: 0.6)
-                .padding(.horizontal, 8)
-        }
-        .clipShape(Rectangle())
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.vertical, 2)
         .sheet(isPresented: $isExpandedListingImagePresented) {
-            if let expandedImage = post.mediaImage {
+            let galleryItems = listingGalleryItems
+            if !galleryItems.isEmpty {
+                let safeSelection = Self.clampedGallerySelectionIndex(selectedListingImageIndex, count: galleryItems.count)
                 ZStack {
                     Color.black.opacity(0.8)
                         .ignoresSafeArea()
 
-                    Image(uiImage: expandedImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.9,
-                               maxHeight: UIScreen.main.bounds.height * 0.8)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.white.opacity(0.9), lineWidth: 2)
-                        )
-                        .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 8)
+                    TabView(selection: Binding(
+                        get: { Self.clampedGallerySelectionIndex(selectedListingImageIndex, count: galleryItems.count) },
+                        set: { selectedListingImageIndex = Self.clampedGallerySelectionIndex($0, count: galleryItems.count) }
+                    )) {
+                        ForEach(Array(galleryItems.indices), id: \.self) { index in
+                            let item = galleryItems[index]
+                            switch item {
+                            case .remote(let remoteURL):
+                                AsyncImage(url: URL(string: remoteURL)) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: UIScreen.main.bounds.width * 0.9,
+                                                   maxHeight: UIScreen.main.bounds.height * 0.8)
+                                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    case .empty, .failure:
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 18)
+                                                .fill(Color.gray.opacity(0.25))
+                                                .frame(maxWidth: UIScreen.main.bounds.width * 0.9,
+                                                       maxHeight: UIScreen.main.bounds.height * 0.8)
+                                            Image(systemName: "photo")
+                                                .font(.title)
+                                                .foregroundStyle(.white)
+                                        }
+                                    @unknown default:
+                                        Color.clear
+                                    }
+                                }
+                            case .local(let image):
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: UIScreen.main.bounds.width * 0.9,
+                                           maxHeight: UIScreen.main.bounds.height * 0.8)
+                                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.96,
+                           maxHeight: UIScreen.main.bounds.height * 0.82)
+
+                    HStack {
+                        Spacer()
+                        Text("\(safeSelection + 1)/\(galleryItems.count)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.black.opacity(0.45))
+                            .clipShape(Capsule())
+                            .padding(.top, 18)
+                            .padding(.trailing, 18)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
                     Button {
                         isExpandedListingImagePresented = false
@@ -13928,31 +23120,6 @@ struct PostCardView: View {
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            VStack(alignment: .trailing, spacing: 8) {
-                if showProfileLocationBadge, let locationTag = profileLocationBadgeText {
-                    HStack(spacing: 4) {
-                        Image(systemName: "mappin.and.ellipse")
-                            .font(.caption2)
-                        Text(locationTag)
-                            .font(.caption2.weight(.semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color.white)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.black.opacity(0.18), lineWidth: 1)
-                    )
-                }
-
-            }
-            .padding(.top, 8)
-            .padding(.trailing, 8)
-        }
         .confirmationDialog("Delete this post?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 effectiveDeleteAction?()
@@ -13969,7 +23136,7 @@ struct PostCardView: View {
             }
         } message: {
             if adminPinErrorMessage.isEmpty {
-                Text("Enter code: 0420 pins Metric top, 2626 pins all non-Metric feeds, 0007 unpins.")
+                Text("Enter code: 0420 pins Metric top, 2626 pins all non-Metric feeds, 7373 pins Video Metric feed, 7474 pins non-Metric video feeds, 1717 pins profile flow, 1818 pins map top, 0007 unpins, 9999 permanently deletes post.")
             } else {
                 Text(adminPinErrorMessage)
             }
@@ -13983,7 +23150,7 @@ struct PostCardView: View {
             } else if isVideoPost {
                 isVideoPlaybackActive = false
             }
-            viewStartedAt = Date()
+            viewStartedAt = shouldTrackViews ? Date() : nil
             liveViewElapsedSeconds = 0
             liveViewSessionElapsedSeconds = 0
             liveViewSessionBaseDurationSeconds = post.timeViewedSeconds
@@ -13994,7 +23161,7 @@ struct PostCardView: View {
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
-                        guard Self.shouldCountView(isOwnPost: isOwnPost, showsAuthorLine: showsAuthorLine) else {
+                        guard shouldTrackViews else {
                             return
                         }
 
@@ -14020,8 +23187,7 @@ struct PostCardView: View {
             guideVisibleStepCount = 1
 
             if viewStartedAt != nil {
-                if Self.shouldCountView(isOwnPost: isOwnPost, showsAuthorLine: showsAuthorLine), liveViewElapsedSeconds > 0 {
-                    // Keep legacy behavior: if the user viewed for any remaining time, count one final view.
+                if shouldTrackViews, liveViewElapsedSeconds > 0 {
                     registerLiveViewBatch(viewsToAdd: 1, durationSeconds: liveViewElapsedSeconds)
                 }
                 viewStartedAt = nil
@@ -14056,40 +23222,47 @@ struct PostCardView: View {
     }
 
     private var effectiveDeleteAction: (() -> Void)? {
-        (isOwnPost && !showsAuthorLine) ? onDelete : nil
+        (prefersDeleteAction ? onDelete : nil)
     }
 
     private var postActionRow: some View {
-        HStack(spacing: 10) {
+        let showsDeleteAction = effectiveDeleteAction != nil
+        let targetIconSize: CGFloat = 12
+
+        return HStack(spacing: 10) {
             HStack(spacing: 10) {
-                Button {
-                    onSave(post)
-                } label: {
-                    Circle()
-                        .strokeBorder(Color(.systemGray4), lineWidth: 1.2)
-                        .frame(width: 18, height: 18)
-                        .background(
+                if !prefersDeleteAction {
+                    Button {
+                        onSave(post)
+                    } label: {
+                        ZStack {
                             Circle()
-                                .fill(post.isSaved ? Color(.systemGray4) : Color.clear)
-                        )
+                                .strokeBorder(Color(.systemGray), lineWidth: 1.2)
+                                .frame(width: targetIconSize, height: targetIconSize)
+                            Circle()
+                                .fill(post.isSaved ? Color(.systemGray) : Color.clear)
+                                .frame(width: targetIconSize, height: targetIconSize)
+                        }
+                        .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Button {
                     onSend()
                 } label: {
                     Image(systemName: "arrowshape.turn.up.right.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: targetIconSize, weight: .semibold))
+                        .foregroundStyle(Color(.systemGray))
                 }
                 .buttonStyle(.plain)
 
-                if isOwnPost && !showsAuthorLine {
+                if showsDeleteAction {
                     Button {
                         showDeleteConfirmation = true
                     } label: {
                         Text("Delete")
-                            .font(.caption.weight(.medium))
+                            .font(.system(size: targetIconSize, weight: .semibold))
                             .foregroundStyle(Color(.systemGray))
                     }
                     .buttonStyle(.plain)
@@ -14098,8 +23271,8 @@ struct PostCardView: View {
                         onReport?()
                     } label: {
                         Image(systemName: "flag")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isReported ? Color.secondary : Color.black.opacity(0.8))
+                            .font(.system(size: targetIconSize, weight: .semibold))
+                            .foregroundStyle(Color(.systemGray))
                     }
                     .buttonStyle(.plain)
                 }
@@ -14109,17 +23282,14 @@ struct PostCardView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                HStack(spacing: 6) {
+                HStack(alignment: .center, spacing: 3) {
                     Text(formatCompactNumber(displayedEngagementScore))
-                        .font(.caption2.weight(.semibold))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Color(.systemGray))
+                        .offset(x: -4, y: 1.5)
                     TrendLineView()
-                        .frame(width: 18, height: 10)
+                        .frame(width: 14, height: 8)
                 }
-
-                Text(post.relativeTimestampText)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(Color(.systemGray2))
             }
             .frame(alignment: .trailing)
             .padding(.trailing, 8)
@@ -14151,14 +23321,14 @@ func formatFollowerCount(_ value: Int) -> String {
 private struct TrendLineView: View {
     var body: some View {
         Path { path in
-            path.move(to: CGPoint(x: 0, y: 8))
-            path.addLine(to: CGPoint(x: 4, y: 6))
-            path.addLine(to: CGPoint(x: 8, y: 4))
-            path.addLine(to: CGPoint(x: 12, y: 5))
-            path.addLine(to: CGPoint(x: 18, y: 2))
+            path.move(to: CGPoint(x: 0, y: 11))
+            path.addLine(to: CGPoint(x: 5, y: 8))
+            path.addLine(to: CGPoint(x: 9, y: 5))
+            path.addLine(to: CGPoint(x: 14, y: 7))
+            path.addLine(to: CGPoint(x: 22, y: 2))
         }
-        .stroke(Color.green, lineWidth: 1.5)
-        .frame(width: 18, height: 10)
+        .stroke(Color.green, lineWidth: 1.8)
+        .frame(width: 22, height: 13)
     }
 }
 
@@ -14175,6 +23345,324 @@ extension Color {
         let b = Double(rgb & 0xFF) / 255
 
         self.init(red: r, green: g, blue: b)
+    }
+}
+
+// MARK: - Machine Learning Metric Recommendation Engine
+
+enum MLSignalType: String, Codable {
+    case view
+    case like
+    case save
+    case share
+    case pollVote
+    case profileTap
+    case messageTap
+    case mapFocus
+
+    var weight: Double {
+        switch self {
+        case .view: return 1.0
+        case .like: return 3.0
+        case .save: return 4.0
+        case .share: return 4.5
+        case .pollVote: return 3.0
+        case .profileTap: return 2.5
+        case .messageTap: return 3.5
+        case .mapFocus: return 2.0
+        }
+    }
+}
+
+struct UserMLProfile: Codable {
+    var mediaTypeWeights: [String: Double] = [:]
+    var photoTotalViewSeconds: Double = 0.0
+    var photoViewCount: Int = 0
+    var videoTotalViewSeconds: Double = 0.0
+    var videoViewCount: Int = 0
+    var textOtherTotalViewSeconds: Double = 0.0
+    var textOtherViewCount: Int = 0
+
+    var profileTapCountByUsername: [String: Int] = [:]
+    var authorKarmaSum: Double = 0.0
+    var authorKarmaCount: Int = 0
+    var authorPostTypeCounts: [String: Int] = [:]
+    var authorLocationCounts: [String: Int] = [:]
+
+    var locationViewCount: [String: Int] = [:]
+    var highPostDensityViews: Int = 0
+    var lowPostDensityViews: Int = 0
+
+    var freshPostViewSeconds: Double = 0.0
+    var olderPostViewSeconds: Double = 0.0
+
+    var totalInteractionCount: Int = 0
+    var categorySampleCounts: [String: Int] = [:]
+
+    var photoDwellRatio: Double {
+        let avgPhoto = photoViewCount > 0 ? (photoTotalViewSeconds / Double(photoViewCount)) : 0.0
+        let avgVideo = videoViewCount > 0 ? (videoTotalViewSeconds / Double(videoViewCount)) : 0.0
+        let sum = avgPhoto + avgVideo
+        if sum <= 0.01 { return 0.5 }
+        return avgPhoto / sum
+    }
+
+    var averageAuthorKarmaAffinity: Double {
+        guard authorKarmaCount > 0 else { return 500.0 }
+        return authorKarmaSum / Double(authorKarmaCount)
+    }
+
+    var recencyPreferenceIndex: Double {
+        let total = freshPostViewSeconds + olderPostViewSeconds
+        if total <= 1.0 { return 0.2 }
+        let freshRatio = freshPostViewSeconds / total
+        return (freshRatio * 2.0) - 1.0
+    }
+
+    var densityPreferenceIndex: Double {
+        let total = highPostDensityViews + lowPostDensityViews
+        if total == 0 { return 0.0 }
+        let highRatio = Double(highPostDensityViews) / Double(total)
+        return (highRatio * 2.0) - 1.0
+    }
+}
+
+final class MetricFeedMLEngine {
+    static let shared = MetricFeedMLEngine()
+
+    private let defaultsKey = "spot_ml_user_profile_v2"
+    private var profile: UserMLProfile
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: defaultsKey),
+           let decoded = try? JSONDecoder().decode(UserMLProfile.self, from: data) {
+            self.profile = decoded
+        } else {
+            self.profile = UserMLProfile()
+        }
+    }
+
+    private func saveProfile() {
+        if let encoded = try? JSONEncoder().encode(profile) {
+            UserDefaults.standard.set(encoded, forKey: defaultsKey)
+        }
+    }
+
+    // MARK: - Telemetry Signal Recorders
+
+    func recordPostView(post: MockPost, durationSeconds: Double, allPosts: [MockPost], nearbyPlaces: [NearbyPlace] = []) {
+        guard durationSeconds > 0.2 else { return }
+
+        let ageHours = max(0.1, Date().timeIntervalSince(post.createdAt) / 3600.0)
+        if ageHours < 6.0 {
+            profile.freshPostViewSeconds += durationSeconds
+        } else if ageHours >= 24.0 {
+            profile.olderPostViewSeconds += durationSeconds
+        }
+
+        let isPhoto = post.type == "Photo" || post.type == "Photo/Video"
+        let isVideo = post.type == "Video"
+        if isPhoto {
+            profile.photoTotalViewSeconds += durationSeconds
+            profile.photoViewCount += 1
+        } else if isVideo {
+            profile.videoTotalViewSeconds += durationSeconds
+            profile.videoViewCount += 1
+        } else {
+            profile.textOtherTotalViewSeconds += durationSeconds
+            profile.textOtherViewCount += 1
+        }
+
+        let currentWeight = profile.mediaTypeWeights[post.type, default: 1.0]
+        let delta: Double
+        if durationSeconds < 1.0 {
+            delta = -0.5
+        } else if durationSeconds >= 4.0 {
+            delta = 1.5
+        } else {
+            delta = 0.5
+        }
+        profile.mediaTypeWeights[post.type] = max(0.1, (currentWeight * 0.92) + (delta * 0.08))
+
+        if !allPosts.isEmpty {
+            let realm = post.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            let postCountInRealm = allPosts.filter { $0.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == realm }.count
+            if postCountInRealm >= 4 {
+                profile.highPostDensityViews += 1
+            } else {
+                profile.lowPostDensityViews += 1
+            }
+        }
+
+        profile.categorySampleCounts[post.type, default: 0] += 1
+        profile.totalInteractionCount += 1
+
+        saveProfile()
+    }
+
+    func recordInteraction(post: MockPost, signal: MLSignalType, allPosts: [MockPost]) {
+        profile.totalInteractionCount += 1
+        profile.categorySampleCounts[post.type, default: 0] += 1
+
+        let currentWeight = profile.mediaTypeWeights[post.type, default: 1.0]
+        profile.mediaTypeWeights[post.type] = currentWeight + signal.weight
+
+        let realmKey = post.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !realmKey.isEmpty {
+            profile.locationViewCount[realmKey, default: 0] += Int(signal.weight * 2.0)
+        }
+
+        saveProfile()
+    }
+
+    func recordInteraction(forUser targetUser: FakeUserProfile, signal: MLSignalType, allPosts: [MockPost]) {
+        profile.totalInteractionCount += 1
+
+        let handle = targetUser.username.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !handle.isEmpty {
+            profile.profileTapCountByUsername[handle, default: 0] += Int(signal.weight)
+        }
+
+        let userPosts = allPosts.filter { $0.handle.lowercased() == handle || (!targetUser.userID.isEmpty && $0.authorUserID == targetUser.userID) }
+        for p in userPosts {
+            profile.authorPostTypeCounts[p.type, default: 0] += 1
+            let loc = p.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            if !loc.isEmpty {
+                profile.authorLocationCounts[loc, default: 0] += 1
+            }
+        }
+
+        saveProfile()
+    }
+
+    func recordProfileTap(profile targetProfile: FakeUserProfile, originPost: MockPost?, authorPosts: [MockPost], isOwnProfile: Bool = false) {
+        guard !isOwnProfile else { return }
+        profile.totalInteractionCount += 1
+
+        let handle = targetProfile.username.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !handle.isEmpty {
+            profile.profileTapCountByUsername[handle, default: 0] += 1
+        }
+
+        let authorTotalEngagement = authorPosts.reduce(0.0) { $0 + $1.engagementScore }
+        if !authorPosts.isEmpty {
+            profile.authorKarmaSum += (authorTotalEngagement / Double(authorPosts.count))
+            profile.authorKarmaCount += 1
+        }
+
+        for p in authorPosts {
+            profile.authorPostTypeCounts[p.type, default: 0] += 1
+            let loc = p.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            if !loc.isEmpty {
+                profile.authorLocationCounts[loc, default: 0] += 1
+            }
+        }
+
+        saveProfile()
+    }
+
+    // MARK: - Multi-Factor Recommendation Scoring
+
+    func calculateMLScore(for post: MockPost, userCoordinate: CLLocationCoordinate2D?, activeLocation: String, allPosts: [MockPost], nearbyPlaces: [NearbyPlace] = []) -> Double {
+        var score: Double = 0.0
+
+        // 1. Media Type Affinity (0 - 6,000 pts)
+        let mediaWeight = profile.mediaTypeWeights[post.type, default: 1.0]
+        let maxMediaWeight = max(1.0, profile.mediaTypeWeights.values.max() ?? 1.0)
+        let normalizedMediaAffinity = mediaWeight / maxMediaWeight
+        score += normalizedMediaAffinity * 6_000.0
+
+        // 2. Photo vs Video Dwell Preference (0 - 5,000 pts)
+        let isPhoto = post.type == "Photo" || post.type == "Photo/Video"
+        let isVideo = post.type == "Video"
+        let dwellRatio = profile.photoDwellRatio
+        if isPhoto {
+            score += dwellRatio * 5_000.0
+        } else if isVideo {
+            score += (1.0 - dwellRatio) * 5_000.0
+        } else {
+            score += 2_500.0
+        }
+
+        // 3. Author Karma Alignment (0 - 4,500 pts)
+        let authorKarma = post.engagementScore
+        let targetKarma = profile.averageAuthorKarmaAffinity
+        let karmaDelta = abs(authorKarma - targetKarma)
+        let karmaMatchScore = max(0.0, 1.0 - (karmaDelta / max(1.0, targetKarma * 2.0)))
+        score += karmaMatchScore * 4_500.0
+
+        // 4. Author Profile & Post Type Similarity (0 - 7,000 pts)
+        let authorHandle = post.handle.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileTaps = profile.profileTapCountByUsername[authorHandle, default: 0]
+        if profileTaps > 0 {
+            score += min(5_000.0, Double(profileTaps) * 1_500.0)
+        }
+        let authorTypeHits = profile.authorPostTypeCounts[post.type, default: 0]
+        if authorTypeHits > 0 {
+            score += min(2_000.0, Double(authorTypeHits) * 500.0)
+        }
+
+        // 5. Author Location Affinity (0 - 4,000 pts)
+        let postLoc = post.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let locHits = profile.authorLocationCounts[postLoc, default: 0]
+        if locHits > 0 {
+            score += min(4_000.0, Double(locHits) * 1_000.0)
+        }
+
+        // 6. User Location & Proximity Match (0 - 6,000 pts)
+        if let userCoord = userCoordinate {
+            let matchedNearby = nearbyPlaces.first(where: {
+                $0.name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == postLoc
+            })
+            if let matchedNearby {
+                let distMiles = NearbyPlaceLoader.haversineMiles(
+                    from: userCoord,
+                    to: CLLocationCoordinate2D(latitude: matchedNearby.latitude, longitude: matchedNearby.longitude)
+                )
+                score += max(0.0, 6_000.0 - (distMiles * 300.0))
+            }
+        }
+        let locViews = profile.locationViewCount[postLoc, default: 0]
+        if locViews > 0 {
+            score += min(3_000.0, Double(locViews) * 250.0)
+        }
+
+        // 7. Location Density Alignment (0 - 4,000 pts)
+        let realmCount = allPosts.filter { $0.location.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == postLoc }.count
+        let isDenseRealm = realmCount >= 4
+        let densityPref = profile.densityPreferenceIndex
+        if isDenseRealm {
+            score += max(0.0, (1.0 + densityPref) * 2_000.0)
+        } else {
+            score += max(0.0, (1.0 - densityPref) * 2_000.0)
+        }
+
+        // 8. Recency Sensitivity Index (0 - 8,000 pts)
+        let ageHours = max(0.1, Date().timeIntervalSince(post.createdAt) / 3600.0)
+        let recencyPref = profile.recencyPreferenceIndex
+        if ageHours < 12.0 {
+            score += max(0.0, (1.0 + recencyPref) * 4_000.0)
+        } else {
+            score += max(0.0, (1.0 - recencyPref) * 2_500.0)
+        }
+
+        // 9. Information Gain / Multi-Armed Bandit Exploration Bonus (0 - 4,000 pts)
+        let totalN = Double(max(1, profile.totalInteractionCount))
+        let sampleN = Double(profile.categorySampleCounts[post.type, default: 0])
+        let ucbBonus = 3_500.0 * sqrt(log(totalN + 10.0) / (sampleN + 1.0))
+        score += min(4_000.0, ucbBonus)
+
+        return score
+    }
+
+    func weighPredictionOutcomes(topCandidateScores: [Double]) -> Double {
+        guard topCandidateScores.count >= 2 else { return 1.0 }
+        let sorted = topCandidateScores.sorted(by: >)
+        let diff = sorted[0] - sorted[1]
+        if diff < 1_000.0 {
+            return 1.35
+        }
+        return 1.0
     }
 }
 

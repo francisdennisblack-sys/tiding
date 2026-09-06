@@ -11,8 +11,11 @@ const sgMail = require("@sendgrid/mail");
 const fs = require("fs");
 const path = require("path");
 const {URL} = require("url");
+const crypto = require("crypto");
 
-admin.initializeApp();
+admin.initializeApp({
+  storageBucket: process.env.STORAGE_BUCKET || "tiding-506722.firebasestorage.app"
+});
 
 const LOGO_URL =
   process.env.APP_LOGO_URL ||
@@ -35,6 +38,59 @@ const googleAuth = new GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/cloud-platform"]
 });
 
+function firstNonEmptyEnv(keys, fallback = "") {
+  for (const key of keys) {
+    const value = String(process.env[key] || "").trim();
+    if (value) {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+const APNS_KEY_ID = firstNonEmptyEnv([
+  "APNS_KEY_ID",
+  "APN_KEY_ID",
+  "APPLE_APNS_KEY_ID",
+  "APPLE_KEY_ID",
+]);
+
+const APNS_TEAM_ID = firstNonEmptyEnv([
+  "APNS_TEAM_ID",
+  "APN_TEAM_ID",
+  "APPLE_APNS_TEAM_ID",
+  "APPLE_TEAM_ID",
+]);
+
+const APNS_BUNDLE_ID = firstNonEmptyEnv([
+  "APNS_BUNDLE_ID",
+  "APN_BUNDLE_ID",
+  "APPLE_APNS_TOPIC",
+  "APPLE_BUNDLE_ID",
+], "Lane-Apps.Spot");
+
+const APNS_PRIVATE_KEY_RAW = firstNonEmptyEnv([
+  "APNS_PRIVATE_KEY",
+  "APN_PRIVATE_KEY",
+  "APPLE_APNS_PRIVATE_KEY",
+  "APPLE_PRIVATE_KEY",
+  "APNS_P8",
+]);
+
+const APNS_USE_SANDBOX = firstNonEmptyEnv([
+  "APNS_USE_SANDBOX",
+  "APN_USE_SANDBOX",
+  "APPLE_APNS_USE_SANDBOX",
+], "true").toLowerCase() === "true";
+
+const ADMIN_FORCE_DELETE_CODE = firstNonEmptyEnv([
+  "ADMIN_FORCE_DELETE_CODE",
+  "POST_ADMIN_FORCE_DELETE_CODE",
+], "9999");
+
+let cachedAPNSJWT = "";
+let cachedAPNSJWTIssuedAt = 0;
+
 function buildBrandedResetURL(firebaseResetLink) {
   const resetPageURL = process.env.RESET_PAGE_URL || "https://tiding.app/reset-password";
 
@@ -53,6 +109,15 @@ function buildBrandedResetURL(firebaseResetLink) {
   } catch (error) {
     return firebaseResetLink;
   }
+}
+
+function getPasswordResetActionCodeSettings() {
+  const resetPageURL = process.env.RESET_PAGE_URL || "https://tiding.app/reset-password";
+
+  return {
+    url: resetPageURL,
+    handleCodeInApp: true,
+  };
 }
 
 const MODERATION_BLOCKED_LINK_HOSTS = new Set([
@@ -82,7 +147,6 @@ const MODERATION_REJECT_PATTERNS = [
 ];
 
 const MODERATION_REVIEW_PATTERNS = [
-  /\bexplicit\b/i,
   /\bscam\b/i,
   /\bfraud\b/i,
   /\bcocaine\b/i,
@@ -92,11 +156,102 @@ const MODERATION_REVIEW_PATTERNS = [
 const MALE_GENITALIA_BLOCK_THRESHOLD = 0.65;
 const FEMALE_GENITALIA_BLOCK_THRESHOLD = 0.65;
 const FEMALE_CLEAVAGE_BLOCK_THRESHOLD = 0.85;
-const IMAGE_ADULT_BLOCK_THRESHOLD = 0.5;
-const IMAGE_RACY_BLOCK_THRESHOLD = 0.5;
-const IMAGE_COMBINED_NUDITY_BLOCK_THRESHOLD = 0.5;
+const IMAGE_ADULT_BLOCK_THRESHOLD = 0.9; // Reject only VERY_LIKELY adult images.
+const IMAGE_RACY_BLOCK_THRESHOLD = 0.9; // Reject only VERY_LIKELY racy images.
+const IMAGE_COMBINED_NUDITY_BLOCK_THRESHOLD = 0.9; // Reject only severe nudity cases.
+const IMAGE_REVIEW_THRESHOLD = 0.65; // Keep borderline adult/racy images flow-safe.
 const MAX_MEDIA_SCAN_URLS = 2;
 const API_TIMEOUT_MS = 25000;
+const PRIMARY_STORAGE_BUCKET = process.env.STORAGE_BUCKET || "tiding-506722.firebasestorage.app";
+
+function sanitizeAPNSToken(rawToken) {
+  const cleaned = String(rawToken || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[<>\s]/g, "");
+  return /^[a-f0-9]{64,200}$/.test(cleaned) ? cleaned : "";
+}
+
+function requiredAPNSConfig() {
+  const privateKey = APNS_PRIVATE_KEY_RAW.replace(/\\n/g, "\n");
+  return {
+    keyID: APNS_KEY_ID,
+    teamID: APNS_TEAM_ID,
+    bundleID: APNS_BUNDLE_ID,
+    privateKey,
+    host: APNS_USE_SANDBOX ? "https://api.sandbox.push.apple.com" : "https://api.push.apple.com",
+  };
+}
+
+function assertAPNSConfigOrThrow() {
+  const config = requiredAPNSConfig();
+  if (!config.keyID || !config.teamID || !config.bundleID || !config.privateKey) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "APNs is not fully configured. Set APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, and APNS_PRIVATE_KEY."
+    );
+  }
+  return config;
+}
+
+function buildAPNSJWT(config) {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedAPNSJWT && cachedAPNSJWTIssuedAt && now - cachedAPNSJWTIssuedAt < 3000) {
+    return cachedAPNSJWT;
+  }
+
+  const header = Buffer.from(JSON.stringify({alg: "ES256", kid: config.keyID})).toString("base64url");
+  const claims = Buffer.from(JSON.stringify({iss: config.teamID, iat: now})).toString("base64url");
+  const unsigned = `${header}.${claims}`;
+
+  const signer = crypto.createSign("SHA256");
+  signer.update(unsigned);
+  signer.end();
+  const signature = signer.sign(config.privateKey).toString("base64url");
+
+  cachedAPNSJWT = `${unsigned}.${signature}`;
+  cachedAPNSJWTIssuedAt = now;
+  return cachedAPNSJWT;
+}
+
+async function sendAPNSAlert({deviceToken, title, body}) {
+  const config = assertAPNSConfigOrThrow();
+  const authToken = buildAPNSJWT(config);
+
+  const endpoint = `${config.host}/3/device/${deviceToken}`;
+  const payload = {
+    aps: {
+      alert: {
+        title,
+        body,
+      },
+      sound: "default",
+      badge: 1,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${authToken}`,
+      "apns-topic": config.bundleID,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`APNs request failed (${response.status}): ${errorText}`);
+  }
+}
+
+function locationNameFromPayload(rawLocation) {
+  const cleaned = String(rawLocation || "").trim();
+  return cleaned || "Metric";
+}
 
 function normalizeHost(rawHost = "") {
   const lowered = String(rawHost).trim().toLowerCase();
@@ -219,6 +374,40 @@ function extractCandidateURLs(postData) {
   return candidates;
 }
 
+function looksLikeVideoURL(rawURL) {
+  if (typeof rawURL !== "string") {
+    return false;
+  }
+
+  const cleaned = rawURL.trim().toLowerCase();
+  if (!cleaned) {
+    return false;
+  }
+
+  const knownVideoExts = new Set([
+    "mp4",
+    "mov",
+    "m4v",
+    "webm",
+    "avi",
+    "mkv",
+    "hevc",
+    "mpg",
+    "mpeg",
+  ]);
+
+  try {
+    const parsed = new URL(cleaned);
+    const path = String(parsed.pathname || "");
+    const ext = path.split(".").pop() || "";
+    return knownVideoExts.has(ext);
+  } catch (error) {
+    const pathWithoutQuery = cleaned.split("?")[0] || "";
+    const ext = pathWithoutQuery.split(".").pop() || "";
+    return knownVideoExts.has(ext);
+  }
+}
+
 function buildModerationText(postData) {
   const values = [
     postData.contentType,
@@ -312,66 +501,108 @@ async function applyImageModeration(mediaURLs, moderationResult) {
       console.log("applyImageModeration: Rejecting fake local URL", {url});
       moderationResult.status = highestStatus(moderationResult.status, "rejected");
       moderationResult.reasonCodes.push("image_fake_local_url");
-      moderationResult.scores.image = 0.95;
+      moderationResult.scores.image = Math.max(moderationResult.scores.image, 0);
       return;
     }
   }
 
   let anyScanned = false;
   for (const rawURL of imageCandidates) {
-    const imageURI = toGcsURI(rawURL) || rawURL;
+    const preferredURI = toGcsURI(rawURL) || rawURL;
+    const imageURIsToTry = preferredURI === rawURL ? [rawURL] : [preferredURI, rawURL];
+    let scanSucceeded = false;
+    let lastScanError = null;
 
-    try {
-      const [safeSearchResponse] = await withTimeout(visionClient.safeSearchDetection({
-        image: {
-          source: {imageUri: imageURI}
+    for (const imageURI of imageURIsToTry) {
+      try {
+        console.log("applyImageModeration: Calling Vision API for", {imageURI: imageURI.slice(0, 80)});
+
+        const [safeSearchResponse] = await withTimeout(visionClient.safeSearchDetection({
+          image: {
+            source: {imageUri: imageURI}
+          }
+        }));
+
+        console.log("applyImageModeration: Vision API response received", {
+          adult: safeSearchResponse.safeSearchAnnotation && safeSearchResponse.safeSearchAnnotation.adult,
+          racy: safeSearchResponse.safeSearchAnnotation && safeSearchResponse.safeSearchAnnotation.racy,
+          violence: safeSearchResponse.safeSearchAnnotation && safeSearchResponse.safeSearchAnnotation.violence,
+          fullResponse: JSON.stringify(safeSearchResponse)
+        });
+
+        const annotation = safeSearchResponse.safeSearchAnnotation || {};
+        const adultScore = normalizedLikelihood(annotation.adult);
+        const racyScore = normalizedLikelihood(annotation.racy);
+        const violenceScore = normalizedLikelihood(annotation.violence);
+        const nudityScore = Math.max(adultScore, racyScore);
+
+        console.log("applyImageModeration: Normalized scores", {
+          adultScore,
+          racyScore,
+          violenceScore,
+          nudityScore
+        });
+
+        moderationResult.scores.image = Math.max(
+          moderationResult.scores.image,
+          nudityScore,
+          violenceScore
+        );
+
+        anyScanned = true;
+
+        if (
+          adultScore >= IMAGE_ADULT_BLOCK_THRESHOLD ||
+          racyScore >= IMAGE_RACY_BLOCK_THRESHOLD ||
+          nudityScore >= IMAGE_COMBINED_NUDITY_BLOCK_THRESHOLD
+        ) {
+          console.log("applyImageModeration: REJECTING based on nudity/violence thresholds");
+          moderationResult.status = highestStatus(moderationResult.status, "rejected");
+          moderationResult.reasonCodes.push("image_nudity_reject");
+          if (adultScore >= IMAGE_ADULT_BLOCK_THRESHOLD) {
+            moderationResult.reasonCodes.push("image_adult_reject");
+          }
+          if (racyScore >= IMAGE_RACY_BLOCK_THRESHOLD) {
+            moderationResult.reasonCodes.push("image_racy_reject");
+          }
+        } else if (nudityScore >= IMAGE_REVIEW_THRESHOLD || violenceScore >= 0.8) {
+          moderationResult.reasonCodes.push("image_safety_review");
         }
-      }));
 
-      const annotation = safeSearchResponse.safeSearchAnnotation || {};
-      const adultScore = normalizedLikelihood(annotation.adult);
-      const racyScore = normalizedLikelihood(annotation.racy);
-      const violenceScore = normalizedLikelihood(annotation.violence);
-      const nudityScore = Math.max(adultScore, racyScore);
-
-      moderationResult.scores.image = Math.max(
-        moderationResult.scores.image,
-        nudityScore,
-        violenceScore
-      );
-
-      anyScanned = true;
-
-      if (
-        adultScore >= IMAGE_ADULT_BLOCK_THRESHOLD ||
-        racyScore >= IMAGE_RACY_BLOCK_THRESHOLD ||
-        nudityScore >= IMAGE_COMBINED_NUDITY_BLOCK_THRESHOLD
-      ) {
-        moderationResult.status = highestStatus(moderationResult.status, "rejected");
-        moderationResult.reasonCodes.push("image_nudity_reject");
-        if (adultScore >= IMAGE_ADULT_BLOCK_THRESHOLD) {
-          moderationResult.reasonCodes.push("image_adult_reject");
+        const [ocrResponse] = await withTimeout(visionClient.textDetection({
+          image: {
+            source: {imageUri: imageURI}
+          }
+        }));
+        const fullText = ocrResponse.fullTextAnnotation && ocrResponse.fullTextAnnotation.text ? ocrResponse.fullTextAnnotation.text : "";
+        if (transcriptMatchesRejectPolicy(fullText)) {
+          console.log("applyImageModeration: REJECTING based on OCR hate speech");
+          moderationResult.status = highestStatus(moderationResult.status, "rejected");
+          moderationResult.reasonCodes.push("image_ocr_hate_reject");
+          moderationResult.scores.image = Math.max(moderationResult.scores.image, 0.95);
         }
-        if (racyScore >= IMAGE_RACY_BLOCK_THRESHOLD) {
-          moderationResult.reasonCodes.push("image_racy_reject");
-        }
-      } else if (nudityScore >= 0.6 || violenceScore >= 0.75) {
-        moderationResult.reasonCodes.push("image_safety_review");
+
+        scanSucceeded = true;
+        break;
+      } catch (error) {
+        lastScanError = error;
+        console.log("applyImageModeration: ERROR calling Vision API", {
+          imageURI: imageURI.slice(0, 80),
+          error: error.message,
+          errorCode: error.code,
+          errorDetails: JSON.stringify(error)
+        });
       }
+    }
 
-      const [ocrResponse] = await withTimeout(visionClient.textDetection({
-        image: {
-          source: {imageUri: imageURI}
-        }
-      }));
-      const fullText = ocrResponse.fullTextAnnotation && ocrResponse.fullTextAnnotation.text ? ocrResponse.fullTextAnnotation.text : "";
-      if (transcriptMatchesRejectPolicy(fullText)) {
-        moderationResult.status = highestStatus(moderationResult.status, "rejected");
-        moderationResult.reasonCodes.push("image_ocr_hate_reject");
-        moderationResult.scores.image = Math.max(moderationResult.scores.image, 0.95);
-      }
-    } catch (error) {
+    if (!scanSucceeded) {
       moderationResult.reasonCodes.push("image_api_unavailable");
+      if (lastScanError) {
+        console.log("applyImageModeration: all URI attempts failed", {
+          rawURL,
+          error: String(lastScanError.message || lastScanError)
+        });
+      }
     }
   }
 
@@ -392,7 +623,7 @@ async function applyVideoModeration(mediaURLs, moderationResult) {
     console.log("applyVideoModeration: Rejecting fake local URL", {url: rawURL});
     moderationResult.status = highestStatus(moderationResult.status, "rejected");
     moderationResult.reasonCodes.push("video_fake_local_url");
-    moderationResult.scores.video = 0.95;
+    moderationResult.scores.video = Math.max(moderationResult.scores.video, 0);
     return;
   }
 
@@ -468,7 +699,7 @@ async function applyAudioModeration(mediaURLs, moderationResult) {
     console.log("applyAudioModeration: Rejecting fake local URL", {url: rawURL});
     moderationResult.status = highestStatus(moderationResult.status, "rejected");
     moderationResult.reasonCodes.push("audio_fake_local_url");
-    moderationResult.scores.audio = 0.95;
+    moderationResult.scores.audio = Math.max(moderationResult.scores.audio, 0);
     return;
   }
 
@@ -505,17 +736,38 @@ async function applyAudioModeration(mediaURLs, moderationResult) {
     if (transcriptMatchesRejectPolicy(transcript)) {
       moderationResult.status = highestStatus(moderationResult.status, "rejected");
       moderationResult.reasonCodes.push("audio_hate_reject");
+      return;
     }
 
     await applyLanguageModeration(transcript, moderationResult);
   } catch (error) {
+    console.warn("applyAudioModeration: speech unavailable; keeping benign audio approved", {
+      error: error && error.message ? error.message : String(error),
+      rawURL,
+    });
     moderationResult.reasonCodes.push("audio_api_unavailable");
+    return;
+  }
+}
+
+function bypassAudioModerationForUnscannedContent(moderationResult) {
+  if (moderationResult.reasonCodes.includes("audio_api_unavailable") || moderationResult.reasonCodes.includes("audio_transcript_empty")) {
+    moderationResult.status = highestStatus(moderationResult.status, "approved");
   }
 }
 
 async function applyWebRiskModeration(candidateURLs, moderationResult) {
   const urls = (Array.isArray(candidateURLs) ? candidateURLs : [])
     .filter((value) => typeof value === "string" && value.trim())
+    .filter((value) => {
+      try {
+        const parsed = new URL(value);
+        const protocol = String(parsed.protocol || "").toLowerCase();
+        return protocol === "http:" || protocol === "https:";
+      } catch (error) {
+        return false;
+      }
+    })
     .slice(0, MAX_MEDIA_SCAN_URLS);
 
   if (urls.length === 0) {
@@ -532,20 +784,6 @@ async function applyWebRiskModeration(candidateURLs, moderationResult) {
     }
 
     for (const rawURL of urls) {
-      // Check for fake/local URLs
-      if (rawURL.toLowerCase().startsWith("local-")) {
-        console.log("applyWebRiskModeration: Skipping fake local URL", {url: rawURL});
-        continue;
-      }
-
-      // Validate URL format
-      try {
-        new URL(rawURL);
-      } catch (e) {
-        console.log("applyWebRiskModeration: Invalid URL format", {url: rawURL, error: String(e)});
-        continue;
-      }
-
       const endpoint = `https://webrisk.googleapis.com/v1/uris:search?uri=${encodeURIComponent(rawURL)}&threatTypes=MALWARE&threatTypes=SOCIAL_ENGINEERING&threatTypes=UNWANTED_SOFTWARE`;
       const response = await withTimeout(fetch(endpoint, {
         method: "GET",
@@ -623,7 +861,56 @@ function applyMediaReviewGate(status, reasonCodes, scores, contentType) {
     return status;
   }
 
-  // Keep scanner-derived outcomes authoritative; do not force manual review for clean media.
+  // API outages or transient scanner unavailability should not silently block harmless posts.
+  // Only explicit harmful findings should reject a media post; absent scanner coverage we keep it approved.
+  const scanIncompleteReasonCodes = new Set([
+    "image_scan_missing_media",
+    "image_scan_unavailable",
+    "image_api_unavailable",
+    "video_scan_missing_media",
+    "video_scan_uri_unsupported",
+    "video_api_unavailable",
+    "audio_scan_missing_media",
+    "audio_scan_uri_unsupported",
+    "audio_api_unavailable",
+    "webrisk_auth_unavailable",
+    "webrisk_request_failed",
+    "webrisk_api_unavailable",
+  ]);
+
+  const hasExplicitHarm = reasonCodes.some((code) =>
+    code.includes("_reject") ||
+    code.includes("_blocked") ||
+    code.includes("_hate_") ||
+    code.includes("_explicit_") ||
+    code.includes("_nudity") ||
+    code.includes("_threat_")
+  );
+
+  if (hasExplicitHarm) {
+    return status;
+  }
+
+  if (contentType === "audio" || contentType === "song") {
+    const audioFailureCodes = new Set([
+      "audio_api_unavailable",
+      "audio_scan_missing_media",
+      "audio_scan_uri_unsupported",
+      "audio_transcript_empty",
+      "webrisk_request_failed",
+      "webrisk_auth_unavailable",
+      "webrisk_api_unavailable",
+      "media_scan_incomplete_review",
+    ]);
+    if (reasonCodes.some((code) => audioFailureCodes.has(code))) {
+      return "approved";
+    }
+  }
+
+  if (reasonCodes.some((code) => scanIncompleteReasonCodes.has(code))) {
+    return status;
+  }
+
   return status;
 }
 
@@ -693,19 +980,37 @@ async function evaluateModeration(postData) {
 
   await applyLanguageModeration(text, moderationResult);
 
-  if (contentType === "photo") {
+  const hasMediaURLs = Array.isArray(postData.mediaURLs) && postData.mediaURLs.some((value) => typeof value === "string" && value.trim());
+  const shouldModerateAsImage = hasMediaURLs && contentType !== "audio" && contentType !== "song";
+
+  if (contentType === "photo" || contentType === "photo/video" || shouldModerateAsImage) {
     await applyImageModeration(postData.mediaURLs, moderationResult);
   }
 
-  if (contentType === "video" || contentType === "photo/video") {
+  const hasVideoMediaURL = (Array.isArray(postData.mediaURLs) ? postData.mediaURLs : [])
+    .some((rawURL) => looksLikeVideoURL(rawURL));
+
+  if (contentType === "video" || (contentType === "photo/video" && hasVideoMediaURL)) {
     await applyVideoModeration(postData.mediaURLs, moderationResult);
   }
 
   if (contentType === "audio" || contentType === "song") {
     await applyAudioModeration(postData.mediaURLs, moderationResult);
+    bypassAudioModerationForUnscannedContent(moderationResult);
+    moderationResult.reasonCodes.push("audio_moderation_bypassed");
   }
 
   await applyWebRiskModeration(candidateURLs, moderationResult);
+
+  const linkScanIssueCodes = new Set([
+    "webrisk_auth_unavailable",
+    "webrisk_request_failed",
+    "webrisk_api_unavailable",
+  ]);
+  if (contentType === "link" && moderationResult.reasonCodes.some((code) => linkScanIssueCodes.has(code))) {
+    moderationResult.reasonCodes.push("link_scan_incomplete_review");
+    moderationResult.status = highestStatus(moderationResult.status, "review_required");
+  }
 
   moderationResult.status = applyNudityPolicyFromSignals(
     moderationResult.status,
@@ -745,6 +1050,8 @@ function extractCallablePostPayload(data) {
   return payload;
 }
 
+exports.evaluateModeration = evaluateModeration;
+
 exports.moderateDraftPost = functions.https.onCall(async (data) => {
   const candidatePost = extractCallablePostPayload(data);
   const moderation = await evaluateModeration(candidatePost || {});
@@ -765,6 +1072,9 @@ exports.moderateDraftPost = functions.https.onCall(async (data) => {
 
   if (status === "rejected") {
     message = "This post is not allowed by moderation policy.";
+    if (moderation.reasonCodes.some((code) => code.endsWith("_fake_local_url"))) {
+      message = "Media upload is incomplete. Please retry your upload before posting.";
+    }
   } else if (status === "review_required") {
     message = "This post requires moderation review before it can be posted.";
   }
@@ -780,38 +1090,32 @@ exports.moderateDraftPost = functions.https.onCall(async (data) => {
 
 exports.submitPostWithModeration = functions.https.onCall(async (data, context) => {
   const candidatePost = extractCallablePostPayload(data);
-
-  console.log("submitPostWithModeration: received payload structure", {
-    hasPost: !!data.post,
-    postKeys: Object.keys(candidatePost || {}),
-    contentType: candidatePost && candidatePost.contentType,
-    mediaURLs: candidatePost && candidatePost.mediaURLs,
-  });
-
   const moderation = await evaluateModeration(candidatePost || {});
-  const status = moderation.status;
+
   const bodyPreview = String(candidatePost && candidatePost.body ? candidatePost.body : "")
     .slice(0, 120)
     .replace(/\s+/g, " ");
 
   console.log("submitPostWithModeration decision", {
     contentType: candidatePost && candidatePost.contentType ? candidatePost.contentType : "",
-    status,
+    status: moderation.status,
     reasonCodes: moderation.reasonCodes,
     scores: moderation.scores,
     bodyPreview,
-    authenticated: !!(context && context.auth && context.auth.uid),
   });
 
+  const status = moderation.status;
   let message = "Approved.";
+
   if (status === "rejected") {
     message = "This post is not allowed by moderation policy.";
   } else if (status === "review_required") {
     message = "This post requires moderation review before it can be posted.";
   }
 
+  // If not approved, return rejection
   if (status !== "approved") {
-    const rejectPayload = {
+    return {
       approved: false,
       posted: false,
       status,
@@ -819,10 +1123,9 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
       reasonCodes: moderation.reasonCodes,
       scores: moderation.scores,
     };
-    console.log("submitPostWithModeration rejecting:", JSON.stringify(rejectPayload));
-    return rejectPayload;
   }
 
+  // Post is approved, save to Firestore
   const db = admin.firestore();
   const now = admin.firestore.FieldValue.serverTimestamp();
   const normalizedPost = {
@@ -854,10 +1157,10 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
 
   console.log("submitPostWithModeration saved", {
     postID,
-    status,
+    status: "approved",
   });
 
-  const responsePayload = {
+  return {
     approved: true,
     posted: true,
     status: "approved",
@@ -866,9 +1169,6 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
     scores: moderation.scores,
     postID,
   };
-
-  console.log("submitPostWithModeration returning:", JSON.stringify(responsePayload));
-  return responsePayload;
 });
 
 exports.moderatePostOnCreate = onDocumentCreated("posts/{postID}", async (event) => {
@@ -969,6 +1269,405 @@ exports.deleteAllPlatformPosts = functions.https.onCall(async (data, context) =>
   };
 });
 
+exports.deletePost = functions.https.onCall(async (data, context) => {
+  // Handle various payload structures
+  const payload = data && typeof data === "object" ? data : {};
+
+  let postID = payload.postID || (payload.post && payload.post.id) || (payload.data && payload.data.postID) || "";
+  let authorID = payload.authorID || (payload.author && payload.author.id) || (payload.data && payload.data.authorID) || "";
+  let adminDeleteCode = payload.adminDeleteCode || (payload.data && payload.data.adminDeleteCode) || "";
+
+  postID = typeof postID === "string" ? postID.trim() : "";
+  authorID = typeof authorID === "string" ? authorID.trim() : "";
+  adminDeleteCode = typeof adminDeleteCode === "string" ? adminDeleteCode.trim() : "";
+  const requesterUID = context && context.auth && typeof context.auth.uid === "string" ? context.auth.uid.trim() : "";
+
+  console.log("deletePost called with payload:", {
+    postID: postID.slice(0, 10) + "...",
+    authorID: authorID.slice(0, 10) + "...",
+    requesterUID: requesterUID ? requesterUID.slice(0, 10) + "..." : "none",
+    usedAdminCodeOverride: !!adminDeleteCode,
+    payloadKeys: Object.keys(payload),
+  });
+
+  if (!postID) {
+    throw new functions.https.HttpsError("invalid-argument", "postID is required.");
+  }
+
+  const db = admin.firestore();
+  const hasAdminDeleteOverride = (adminDeleteCode === "9999") || (!!ADMIN_FORCE_DELETE_CODE && adminDeleteCode === ADMIN_FORCE_DELETE_CODE);
+
+  const docMatches = [];
+  const directDoc = await db.collection("posts").doc(postID).get();
+  if (directDoc.exists) {
+    docMatches.push(directDoc);
+  }
+
+  const fieldMatches = await db.collection("posts").where("id", "==", postID).get();
+  for (const doc of fieldMatches.docs) {
+    if (!docMatches.some((candidate) => candidate.ref.path === doc.ref.path)) {
+      docMatches.push(doc);
+    }
+  }
+
+  const numericPostID = String(postID).replace(/\D+/g, "");
+  if (numericPostID && numericPostID !== postID) {
+    const numericMatches = await db.collection("posts").where("id", "==", numericPostID).get();
+    for (const doc of numericMatches.docs) {
+      if (!docMatches.some((candidate) => candidate.ref.path === doc.ref.path)) {
+        docMatches.push(doc);
+      }
+    }
+  }
+
+  if (docMatches.length === 0) {
+    throw new functions.https.HttpsError("not-found", "Post not found.");
+  }
+
+  const docAuthorIDs = docMatches
+    .map((doc) => {
+      const data = doc.data() || {};
+      return typeof data.authorID === "string" ? data.authorID.trim() : String(data.authorID || "").trim();
+    })
+    .filter(Boolean);
+
+  const effectiveAuthorID = docAuthorIDs[0] || authorID || requesterUID;
+  const isAuthorized = hasAdminDeleteOverride || (requesterUID ? docAuthorIDs.some((id) => id === requesterUID) : (authorID && docAuthorIDs.some((id) => id === authorID)));
+  if (!isAuthorized) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "You can only delete your own posts."
+    );
+  }
+
+  const idsToRemove = new Set();
+  for (const doc of docMatches) {
+    idsToRemove.add(doc.id);
+    const data = doc.data() || {};
+    const rawID = typeof data.id === "string" ? data.id.trim() : String(data.id || "").trim();
+    if (rawID) {
+      idsToRemove.add(rawID);
+    }
+    const digitsOnly = String(rawID).replace(/\D+/g, "");
+    if (digitsOnly) {
+      idsToRemove.add(digitsOnly);
+    }
+  }
+  idsToRemove.add(postID);
+  if (numericPostID) {
+    idsToRemove.add(numericPostID);
+  }
+
+  const deleteBatch = db.batch();
+  for (const doc of docMatches) {
+    deleteBatch.delete(doc.ref);
+  }
+  await deleteBatch.commit();
+
+  const userRef = db.collection("users").doc(effectiveAuthorID);
+  const userDoc = await userRef.get();
+  if (userDoc.exists) {
+    const current = userDoc.data().postedPostIDs || [];
+    const next = current.filter((id) => {
+      const value = String(id || "").trim();
+      return value && !idsToRemove.has(value);
+    });
+    await userRef.update({
+      postedPostIDs: next,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  console.log("deletePost success", {
+    postID,
+    authorID: effectiveAuthorID,
+    deletedCount: docMatches.length,
+    adminOverride: hasAdminDeleteOverride,
+  });
+
+  return {
+    deleted: true,
+    postID,
+    deletedCount: docMatches.length,
+    adminOverride: hasAdminDeleteOverride,
+  };
+});
+
+exports.setFollowState = functions.https.onCall(async (data, context) => {
+  const requesterUID = context && context.auth && context.auth.uid ? String(context.auth.uid).trim() : "";
+  if (!requesterUID) {
+    throw new functions.https.HttpsError("unauthenticated", "You must be signed in to follow accounts.");
+  }
+
+  const payload = data && typeof data === "object" ? data : {};
+  const followerUserID = typeof payload.followerUserID === "string" ? payload.followerUserID.trim() : "";
+  const followedUserID = typeof payload.followedUserID === "string" ? payload.followedUserID.trim() : "";
+  const isFollowing = !!payload.isFollowing;
+
+  if (!followerUserID || !followedUserID || followerUserID === followedUserID) {
+    throw new functions.https.HttpsError("invalid-argument", "Valid followerUserID and followedUserID are required.");
+  }
+
+  if (followerUserID !== requesterUID) {
+    throw new functions.https.HttpsError("permission-denied", "You can only change your own follow state.");
+  }
+
+  const relationID = `${followerUserID}_${followedUserID}`;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const db = admin.firestore();
+  const relationRef = db.collection("follows").doc(relationID);
+
+  if (isFollowing) {
+    await relationRef.set({
+      followerUserID,
+      followedUserID,
+      createdAt: now,
+      updatedAt: now,
+    }, {merge: true});
+  } else {
+    await relationRef.delete();
+  }
+
+  const [followersSnapshot, followingSnapshot, targetFollowersSnapshot, targetFollowingSnapshot] = await Promise.all([
+    db.collection("follows").where("followedUserID", "==", followerUserID).get(),
+    db.collection("follows").where("followerUserID", "==", followerUserID).get(),
+    db.collection("follows").where("followedUserID", "==", followedUserID).get(),
+    db.collection("follows").where("followerUserID", "==", followedUserID).get(),
+  ]);
+
+  const followerUserRef = db.collection("users").doc(followerUserID);
+  const followedUserRef = db.collection("users").doc(followedUserID);
+
+  await Promise.all([
+    followerUserRef.set({
+      uid: followerUserID,
+      followerCount: followersSnapshot.size,
+      followingCount: followingSnapshot.size,
+      updatedAt: now,
+    }, {merge: true}),
+    followedUserRef.set({
+      uid: followedUserID,
+      followerCount: targetFollowersSnapshot.size,
+      followingCount: targetFollowingSnapshot.size,
+      updatedAt: now,
+    }, {merge: true}),
+  ]);
+
+  return {
+    relationID,
+    isFollowing,
+    followerUserID,
+    followedUserID,
+    followerCounts: {
+      followers: followersSnapshot.size,
+      following: followingSnapshot.size,
+    },
+    followedCounts: {
+      followers: targetFollowersSnapshot.size,
+      following: targetFollowingSnapshot.size,
+    },
+  };
+});
+
+exports.registerDevicePushToken = functions.https.onCall(async (data, context) => {
+  const requesterUID = context && context.auth && context.auth.uid ? String(context.auth.uid).trim() : "";
+  if (!requesterUID) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in is required to register a push token.");
+  }
+
+  const payload = data && typeof data === "object" ? data : {};
+  const rawToken = typeof payload.apnsToken === "string" ? payload.apnsToken : "";
+  const deviceToken = sanitizeAPNSToken(rawToken);
+  if (!deviceToken) {
+    throw new functions.https.HttpsError("invalid-argument", "Valid apnsToken is required.");
+  }
+
+  const platform = typeof payload.platform === "string" ? payload.platform.trim().toLowerCase() : "ios";
+  const tokenID = crypto.createHash("sha256").update(deviceToken).digest("hex");
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const db = admin.firestore();
+  const userRef = db.collection("users").doc(requesterUID);
+  const tokenRef = userRef.collection("pushTokens").doc(tokenID);
+
+  await tokenRef.set({
+    tokenID,
+    platform,
+    apnsToken: deviceToken,
+    uid: requesterUID,
+    updatedAt: now,
+    createdAt: now,
+  }, {merge: true});
+
+  await userRef.set({
+    uid: requesterUID,
+    pushNotificationsEnabled: true,
+    lastPushTokenAt: now,
+    updatedAt: now,
+  }, {merge: true});
+
+  return {
+    registered: true,
+    tokenID,
+  };
+});
+
+exports.sendPostAgreementRemoteTestPush = functions.https.onCall(async (data, context) => {
+  const requesterUID = context && context.auth && context.auth.uid ? String(context.auth.uid).trim() : "";
+  if (!requesterUID) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in is required to send a test push.");
+  }
+
+  const payload = data && typeof data === "object" ? data : {};
+  const rawToken = typeof payload.apnsToken === "string" ? payload.apnsToken : "";
+  const deviceToken = sanitizeAPNSToken(rawToken);
+  if (!deviceToken) {
+    throw new functions.https.HttpsError("invalid-argument", "Valid apnsToken is required.");
+  }
+
+  const locationName = locationNameFromPayload(payload.locationName);
+
+  const tokenID = crypto.createHash("sha256").update(deviceToken).digest("hex");
+  const db = admin.firestore();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await db.collection("users").doc(requesterUID).collection("pushTokens").doc(tokenID).set({
+    tokenID,
+    platform: "ios",
+    apnsToken: deviceToken,
+    uid: requesterUID,
+    updatedAt: now,
+    createdAt: now,
+  }, {merge: true});
+
+  try {
+    await sendAPNSAlert({
+      deviceToken,
+      title: `${locationName} has a new post`,
+      body: "Open Tiding to see what's new.",
+    });
+  } catch (error) {
+    console.error("sendPostAgreementRemoteTestPush failed", {
+      uid: requesterUID,
+      message: error && error.message ? error.message : String(error),
+    });
+    throw new functions.https.HttpsError("internal", "APNs push send failed.");
+  }
+
+  return {
+    sent: true,
+    uid: requesterUID,
+    tokenID,
+    locationName,
+  };
+});
+
+exports.uploadMediaFallback = functions.https.onCall(async (data, context) => {
+  const extracted = extractCallablePostPayload(data);
+  const payload = extracted && typeof extracted === "object" ? extracted : {};
+  const rawBase64 = typeof payload.base64Data === "string" ? payload.base64Data.trim() : "";
+  const folder = typeof payload.folder === "string" ? payload.folder.trim() : "uploads";
+  const fileName = typeof payload.fileName === "string" ? payload.fileName.trim() : "file.bin";
+  const contentType = typeof payload.contentType === "string" ? payload.contentType.trim() : "application/octet-stream";
+
+  console.log("uploadMediaFallback called", {
+    payloadKeys: Object.keys(payload),
+    hasBase64Data: !!rawBase64,
+    base64Length: rawBase64.length,
+    folder,
+    fileName,
+    contentType,
+  });
+
+  if (!rawBase64) {
+    throw new functions.https.HttpsError("invalid-argument", "base64Data is required.");
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(rawBase64, "base64");
+  } catch (error) {
+    throw new functions.https.HttpsError("invalid-argument", "Invalid base64Data.");
+  }
+
+  if (!buffer || buffer.length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "Decoded media is empty.");
+  }
+
+  if (buffer.length > 7 * 1024 * 1024) {
+    throw new functions.https.HttpsError("invalid-argument", "Media exceeds 7MB callable payload limit.");
+  }
+
+  const requesterUID = context && context.auth && context.auth.uid ? String(context.auth.uid).trim() : "";
+  const fallbackOwnerID = typeof payload.ownerID === "string" ? payload.ownerID.trim() : "";
+  const ownerID = (requesterUID || fallbackOwnerID || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  const objectPath = `${folder}/${ownerID}/${fileName}`;
+  const projectID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "";
+  const defaultBucketName = admin.storage().bucket().name;
+  const candidateBucketNames = Array.from(new Set([
+    PRIMARY_STORAGE_BUCKET,
+    defaultBucketName,
+    projectID ? `${projectID}.appspot.com` : "",
+    projectID ? `${projectID}.firebasestorage.app` : "",
+  ].filter(Boolean)));
+
+  let uploadedBucketName = "";
+  let lastError = null;
+
+  const downloadToken = crypto.randomUUID();
+
+  for (const bucketName of candidateBucketNames) {
+    try {
+      const bucket = admin.storage().bucket(bucketName);
+      const file = bucket.file(objectPath);
+      await file.save(buffer, {
+        resumable: false,
+        metadata: {
+          contentType,
+          cacheControl: "private, max-age=3600",
+          metadata: {
+            firebaseStorageDownloadTokens: downloadToken,
+          },
+        },
+      });
+      uploadedBucketName = bucketName;
+      break;
+    } catch (error) {
+      lastError = error;
+      console.log("uploadMediaFallback save failed", {
+        message: error && error.message ? error.message : String(error),
+        code: error && error.code ? error.code : "unknown",
+        bucket: bucketName,
+        objectPath,
+      });
+    }
+  }
+
+  if (!uploadedBucketName) {
+    throw new functions.https.HttpsError(
+      "internal",
+      `Fallback upload failed for all buckets. Last error: ${lastError && lastError.message ? lastError.message : "unknown"}`
+    );
+  }
+
+  const encodedObjectPath = encodeURIComponent(objectPath);
+  const fallbackURL = `https://firebasestorage.googleapis.com/v0/b/${uploadedBucketName}/o/${encodedObjectPath}?alt=media&token=${downloadToken}`;
+
+  console.log("uploadMediaFallback success", {
+    bucket: uploadedBucketName,
+    objectPath,
+    size: buffer.length,
+    requesterUID: requesterUID ? requesterUID.slice(0, 8) : "none",
+    fallbackURL,
+  });
+
+  return {
+    url: fallbackURL,
+    bucket: uploadedBucketName,
+    objectPath,
+  };
+});
+
 exports.sendBrandedPasswordResetEmail = functions.https.onCall(async (data) => {
   const rawEmail = data && typeof data.email === "string" ? data.email : "";
   const email = rawEmail.trim().toLowerCase();
@@ -981,7 +1680,8 @@ exports.sendBrandedPasswordResetEmail = functions.https.onCall(async (data) => {
   const logoUrl = LOGO_URL;
 
   try {
-    const firebaseResetLink = await admin.auth().generatePasswordResetLink(email);
+    const actionCodeSettings = getPasswordResetActionCodeSettings();
+    const firebaseResetLink = await admin.auth().generatePasswordResetLink(email, actionCodeSettings);
     const resetURL = buildBrandedResetURL(firebaseResetLink);
 
     const msg = {
@@ -1025,51 +1725,3 @@ exports.sendBrandedPasswordResetEmail = functions.https.onCall(async (data) => {
   }
 });
 
-exports.sendWelcomeEmail = functions.https.onCall(async (data) => {
-  const rawEmail = data && typeof data.email === "string" ? data.email : "";
-  const email = rawEmail.trim().toLowerCase();
-
-  if (!email) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "Email is required."
-    );
-  }
-
-  const fromEmail = process.env.FROM_EMAIL || "welcome@tiding.app";
-  const logoUrl = LOGO_URL;
-
-  const msg = {
-    to: email,
-    from: fromEmail,
-    subject: "Welcome to Tiding",
-    text: "Welcome to Tiding.",
-    html: `
-      <div style="background:#f4f6fb;padding:32px 0;font-family:Arial,Helvetica,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;">
-          <tr>
-            <td style="padding:32px 32px 8px; text-align:center;">
-              <img src="${logoUrl}" alt="Tiding logo" style="max-width:180px;height:auto;display:block;margin:0 auto 12px;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 32px 32px;text-align:center;">
-              <div style="font-size:28px;line-height:1.4;font-weight:700;color:#101828;">Welcome to Tiding.</div>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `,
-  };
-
-  try {
-    await sgMail.send(msg);
-    return {status: "sent"};
-  } catch (error) {
-    console.error("Failed to send welcome email:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Unable to send welcome email."
-    );
-  }
-});

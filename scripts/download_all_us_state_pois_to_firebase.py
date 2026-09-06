@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import re
 import time
 from pathlib import Path
 
 from download_osm_pois import fetch_overpass_pois, normalize_element, save_csv, save_sqlite
+
+EXPECTED_FIREBASE_PROJECT_ID = "tiding-506722"
 
 STATES = [
     {"name": "alabama", "south": 30.18, "west": -88.47, "north": 35.01, "east": -84.89},
@@ -118,6 +121,16 @@ def initialize_firebase(credentials_path: str):
     if not os.path.exists(credentials_path):
         raise FileNotFoundError(f"Firebase credentials not found: {credentials_path}")
 
+    with open(credentials_path, "r", encoding="utf-8") as handle:
+        credential_data = json.load(handle)
+
+    credential_project_id = (credential_data.get("project_id") or "").strip()
+    if credential_project_id != EXPECTED_FIREBASE_PROJECT_ID:
+        raise ValueError(
+            "Credentials project mismatch. "
+            f"Expected '{EXPECTED_FIREBASE_PROJECT_ID}', got '{credential_project_id or 'unknown'}'."
+        )
+
     if not firebase_admin._apps:
         cred = credentials.Certificate(credentials_path)
         firebase_admin.initialize_app(cred)
@@ -188,11 +201,18 @@ def upload_records_to_firebase(db, records: list[dict], state_name: str):
 def main():
     parser = argparse.ArgumentParser(description="Download each U.S. state POI set and upload directly to Firestore.")
     parser.add_argument("--output-dir", type=str, default="../data/us_state_pois")
-    parser.add_argument("--credentials", type=str, default="../pinit-e56cb-firebase-adminsdk-fbsvc-081400b516.json")
+    parser.add_argument("--credentials", type=str, default=None)
     parser.add_argument("--delay", type=float, default=1.5)
     parser.add_argument("--only-state", type=str, default=None)
     parser.add_argument("--skip-upload", action="store_true")
+    parser.add_argument("--project-id", type=str, default=EXPECTED_FIREBASE_PROJECT_ID)
     args = parser.parse_args()
+
+    if args.project_id != EXPECTED_FIREBASE_PROJECT_ID:
+        raise ValueError(
+            f"This script is locked to '{EXPECTED_FIREBASE_PROJECT_ID}'. "
+            f"Received '--project-id {args.project_id}'."
+        )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -202,6 +222,9 @@ def main():
         states = [state for state in STATES if state["name"] == args.only_state.lower()]
         if not states:
             raise ValueError(f"State not found: {args.only_state}")
+
+    if not args.skip_upload and not args.credentials:
+        raise ValueError("Missing --credentials. Provide a service account JSON for the intended Firebase project.")
 
     db = None if args.skip_upload else initialize_firebase(os.path.abspath(args.credentials))
     total = 0

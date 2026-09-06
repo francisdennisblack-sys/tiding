@@ -20,6 +20,18 @@ public enum FirebaseSpotError: Error {
     case weakPassword
 }
 
+public struct PollVoteResult {
+    public let votes: [Int]
+    public let selectedIndex: Int
+    public let wasRecorded: Bool
+
+    public init(votes: [Int], selectedIndex: Int, wasRecorded: Bool) {
+        self.votes = votes
+        self.selectedIndex = selectedIndex
+        self.wasRecorded = wasRecorded
+    }
+}
+
 public struct FirebasePostPayload: Codable {
     public let id: String
     public let authorID: String
@@ -33,6 +45,7 @@ public struct FirebasePostPayload: Codable {
     public let mediaURLs: [String]
     public let pollOptions: [String]
     public let pollVotes: [Int]
+    public let currentUserPollSelection: Int?
     public let accentHex: String
     public let locationName: String
     public let feedInsertionIndex: Int
@@ -69,6 +82,7 @@ public struct FirebasePostPayload: Codable {
         mediaURLs: [String] = [],
         pollOptions: [String] = [],
         pollVotes: [Int] = [],
+        currentUserPollSelection: Int? = nil,
         accentHex: String = "#DCE7FF",
         locationName: String,
         feedInsertionIndex: Int = 0,
@@ -104,6 +118,7 @@ public struct FirebasePostPayload: Codable {
         self.mediaURLs = mediaURLs
         self.pollOptions = pollOptions
         self.pollVotes = pollVotes
+        self.currentUserPollSelection = currentUserPollSelection
         self.accentHex = accentHex
         self.locationName = locationName
         self.feedInsertionIndex = feedInsertionIndex
@@ -135,6 +150,8 @@ public struct FirebasePOIRecord: Codable {
     public let category: String
     public let latitude: Double
     public let longitude: Double
+    public let neighborhood: String?
+    public let subregion: String?
     public let city: String?
     public let country: String?
     public let geohash: String?
@@ -146,6 +163,8 @@ public struct FirebasePOIRecord: Codable {
         category: String,
         latitude: Double,
         longitude: Double,
+        neighborhood: String? = nil,
+        subregion: String? = nil,
         city: String? = nil,
         country: String? = nil,
         geohash: String? = nil,
@@ -156,6 +175,8 @@ public struct FirebasePOIRecord: Codable {
         self.category = category
         self.latitude = latitude
         self.longitude = longitude
+        self.neighborhood = neighborhood
+        self.subregion = subregion
         self.city = city
         self.country = country
         self.geohash = geohash
@@ -167,6 +188,7 @@ public struct FirebaseUserAccountRecord: Codable {
     public let uid: String
     public let username: String
     public let displayName: String
+    public let phoneNumber: String?
     public let bio: String?
     public let profilePhotoURL: String?
     public let createdAt: TimeInterval
@@ -177,11 +199,13 @@ public struct FirebaseUserAccountRecord: Codable {
     public let areaHistory: [String]
     public let followerCount: Int
     public let followingCount: Int
+    public let remainingBoosts: Int
 
     public init(
         uid: String,
         username: String,
         displayName: String,
+        phoneNumber: String? = nil,
         bio: String? = nil,
         profilePhotoURL: String? = nil,
         createdAt: TimeInterval = Date().timeIntervalSince1970,
@@ -191,11 +215,13 @@ public struct FirebaseUserAccountRecord: Codable {
         postedPostIDs: [String] = [],
         areaHistory: [String] = [],
         followerCount: Int = 0,
-        followingCount: Int = 0
+        followingCount: Int = 0,
+        remainingBoosts: Int = 0
     ) {
         self.uid = uid
         self.username = username
         self.displayName = displayName
+        self.phoneNumber = phoneNumber
         self.bio = bio
         self.profilePhotoURL = profilePhotoURL
         self.createdAt = createdAt
@@ -206,6 +232,7 @@ public struct FirebaseUserAccountRecord: Codable {
         self.areaHistory = areaHistory
         self.followerCount = followerCount
         self.followingCount = followingCount
+        self.remainingBoosts = max(0, remainingBoosts)
     }
 }
 
@@ -282,7 +309,7 @@ public final class FirebaseSpotService {
     }
 
     private lazy var db = Firestore.firestore()
-    private lazy var storage = Storage.storage()
+    private lazy var storage = Storage.storage(url: FirebaseConfig.storageBucketURL)
 
     private init() {}
 
@@ -352,15 +379,55 @@ public final class FirebaseSpotService {
         try await user.sendEmailVerification()
     }
 
-    public func sendWelcomeEmailToCurrentUser() async throws {
-        guard let user = Auth.auth().currentUser else {
-            throw FirebaseSpotError.userNotAuthenticated
+    private func ensurePushAuthenticatedUserID() async throws -> String {
+        if let existingUID = Auth.auth().currentUser?.uid, !existingUID.isEmpty {
+            return existingUID
         }
 
-        let callable = Functions.functions().httpsCallable("sendWelcomeEmail")
+        let user = try await signInAnonymously()
+        return user.uid
+    }
+
+    private func sanitizedAPNSToken(_ raw: String) -> String {
+        let cleaned = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "<", with: "")
+            .replacingOccurrences(of: ">", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .lowercased()
+
+        let validCharacterSet = CharacterSet(charactersIn: "0123456789abcdef")
+        guard cleaned.count >= 64, cleaned.rangeOfCharacter(from: validCharacterSet.inverted) == nil else {
+            return ""
+        }
+        return cleaned
+    }
+
+    public func registerDevicePushTokenForCurrentUser(apnsToken: String) async throws {
+        let token = sanitizedAPNSToken(apnsToken)
+        guard !token.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        _ = try await ensurePushAuthenticatedUserID()
+        let callable = Functions.functions().httpsCallable("registerDevicePushToken")
         _ = try await callable.call([
-            "email": user.email ?? "",
-            "uid": user.uid
+            "apnsToken": token,
+            "platform": "ios"
+        ])
+    }
+
+    public func sendPostAgreementRemoteTestPush(apnsToken: String, locationName: String) async throws {
+        let token = sanitizedAPNSToken(apnsToken)
+        guard !token.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        _ = try await ensurePushAuthenticatedUserID()
+        let callable = Functions.functions().httpsCallable("sendPostAgreementRemoteTestPush")
+        _ = try await callable.call([
+            "apnsToken": token,
+            "locationName": locationName.trimmingCharacters(in: .whitespacesAndNewlines)
         ])
     }
 
@@ -370,24 +437,26 @@ public final class FirebaseSpotService {
             throw FirebaseSpotError.invalidEmail
         }
 
-        // Use the branded reset-email backend first so users receive the Tiding logo + hyperlink email.
-        do {
-            let callable = Functions.functions().httpsCallable("sendBrandedPasswordResetEmail")
-            _ = try await callable.call([
-                "email": cleanedEmail,
-                "app": "ios"
-            ])
-            return .branded
-        } catch {
-            // Fallback keeps password recovery available if the branded backend is not deployed yet.
-            try await Auth.auth().sendPasswordReset(withEmail: cleanedEmail)
-            return .standardFallback
-        }
+        // Send through Firebase Auth directly so the Firebase password-reset template
+        // in Console is always the source of truth for delivery and branding.
+        try await Auth.auth().sendPasswordReset(withEmail: cleanedEmail)
+        return .standardFallback
     }
 
     public func signInAnonymously() async throws -> User {
-        let result = try await Auth.auth().signInAnonymously()
-        return result.user
+        do {
+            print("FirebaseSpotService.signInAnonymously: Starting anonymous auth...")
+            let result = try await Auth.auth().signInAnonymously()
+            print("FirebaseSpotService.signInAnonymously: Success! UID=\(result.user.uid)")
+            return result.user
+        } catch {
+            print("FirebaseSpotService.signInAnonymously: FAILED")
+            print("  Error domain: \(NSError(domain: "", code: 0).domain)")
+            print("  Error code: \((error as NSError).code)")
+            print("  Error message: \(error.localizedDescription)")
+            print("  Full error: \(error)")
+            throw error
+        }
     }
 
     public func sendPhoneCode(to phoneNumber: String) async throws -> String {
@@ -416,7 +485,12 @@ public final class FirebaseSpotService {
         let currentUser: User
         if let existingUser = Auth.auth().currentUser {
             currentUser = existingUser
-            _ = try await existingUser.link(with: credential)
+            let hasPhoneProvider = existingUser.providerData.contains { $0.providerID == PhoneAuthProviderID }
+            if hasPhoneProvider {
+                try await existingUser.updatePhoneNumber(credential)
+            } else {
+                _ = try await existingUser.link(with: credential)
+            }
         } else {
             let result = try await Auth.auth().signIn(with: credential)
             currentUser = result.user
@@ -424,12 +498,45 @@ public final class FirebaseSpotService {
 
         if Auth.auth().currentUser?.uid == currentUser.uid {
             let profileRef = Firestore.firestore().collection("users").document(currentUser.uid)
+            let verifiedAt = Date().timeIntervalSince1970
             let data: [String: Any] = [
+                "uid": currentUser.uid,
                 "phoneNumber": cleanedNumber,
-                "updatedAt": Date().timeIntervalSince1970
+                "phoneVerifiedAt": verifiedAt,
+                "updatedAt": verifiedAt
             ]
             try await profileRef.setData(data, merge: true)
         }
+
+        return currentUser
+    }
+
+    public func updatePhoneNumberForCurrentUser(phoneNumber: String, verificationID: String, verificationCode: String) async throws -> User {
+        let cleanedNumber = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedCode = verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedNumber.isEmpty, !cleanedCode.isEmpty, !verificationID.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseSpotError.userNotAuthenticated
+        }
+
+        let credential = PhoneAuthProvider.provider().credential(withVerificationID: verificationID, verificationCode: cleanedCode)
+        let hasPhoneProvider = currentUser.providerData.contains { $0.providerID == PhoneAuthProviderID }
+        if hasPhoneProvider {
+            try await currentUser.updatePhoneNumber(credential)
+        } else {
+            _ = try await currentUser.link(with: credential)
+        }
+
+        let verifiedAt = Date().timeIntervalSince1970
+        try await Firestore.firestore().collection("users").document(currentUser.uid).setData([
+            "uid": currentUser.uid,
+            "phoneNumber": cleanedNumber,
+            "phoneVerifiedAt": verifiedAt,
+            "updatedAt": verifiedAt
+        ], merge: true)
 
         return currentUser
     }
@@ -474,6 +581,30 @@ public final class FirebaseSpotService {
         return url.absoluteString
     }
 
+    public func uploadMediaFallback(data: Data, folder: String, fileName: String, contentType: String, ownerID: String? = nil) async throws -> String {
+        guard data.count <= 7 * 1024 * 1024 else {
+            throw FirebaseSpotError.uploadFailed
+        }
+
+        let callable = Functions.functions().httpsCallable("uploadMediaFallback")
+        let payload: [String: Any] = [
+            "base64Data": data.base64EncodedString(),
+            "folder": folder,
+            "fileName": fileName,
+            "contentType": contentType,
+            "ownerID": ownerID ?? ""
+        ]
+
+        let result = try await callable.call(payload)
+        guard let data = result.data as? [String: Any],
+              let url = data["url"] as? String,
+              !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw FirebaseSpotError.uploadFailed
+        }
+
+        return url
+    }
+
     public func uploadMediaFile(fileURL: URL, folder: String, fileName: String) async throws -> String {
         let userID = try currentUserID()
         let storageRef = storage.reference()
@@ -506,6 +637,30 @@ public final class FirebaseSpotService {
         }
 
         return (fieldID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func resolvedPostReference(for postID: String) async throws -> DocumentReference {
+        let cleanedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedPostID.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        let directRef = db.collection("posts").document(cleanedPostID)
+        let directSnapshot = try await directRef.getDocument()
+        if directSnapshot.exists {
+            return directRef
+        }
+
+        let byFieldID = try await db.collection("posts")
+            .whereField("id", isEqualTo: cleanedPostID)
+            .limit(to: 1)
+            .getDocuments()
+
+        if let matched = byFieldID.documents.first {
+            return matched.reference
+        }
+
+        throw FirebaseSpotError.readFailed
     }
 
     private static func decodedString(_ raw: Any?) -> String? {
@@ -553,12 +708,25 @@ public final class FirebaseSpotService {
             return nil
         }
 
+        let neighborhood = Self.decodedString(data?["neighborhood"])
+            ?? Self.decodedString(data?["neighbourhood"])
+            ?? Self.decodedString(data?["district"])
+            ?? Self.decodedString(data?["borough"])
+            ?? Self.decodedString(data?["subregion"])
+            ?? Self.decodedString(data?["area"])
+
+        let subregion = Self.decodedString(data?["subregion"])
+            ?? Self.decodedString(data?["neighbourhood"])
+            ?? Self.decodedString(data?["district"])
+
         return FirebasePOIRecord(
             id: id,
             name: name,
             category: category,
             latitude: latitude,
             longitude: longitude,
+            neighborhood: neighborhood,
+            subregion: subregion,
             city: Self.decodedString(data?["city"]),
             country: Self.decodedString(data?["country"]),
             geohash: Self.decodedString(data?["geohash"]),
@@ -566,9 +734,16 @@ public final class FirebaseSpotService {
         )
     }
 
+    private func poiCollections() -> [CollectionReference] {
+        [db.collection("pois"), db.collection("osm_places")]
+    }
+
     private func prefixSearchPOIs(field: String, query: String, limit: Int) async throws -> [FirebasePOIRecord] {
         let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedQuery.isEmpty else { return [] }
+
+        var results: [FirebasePOIRecord] = []
+        var seen = Set<String>()
 
         let candidates = [
             cleanedQuery,
@@ -576,28 +751,72 @@ public final class FirebaseSpotService {
             cleanedQuery.capitalized
         ]
 
-        var results: [FirebasePOIRecord] = []
-        var seen = Set<String>()
-
         for candidate in candidates {
+            guard results.count < limit else { break }
             let end = candidate + "\u{f8ff}"
-            let snapshot = try await db.collection("pois")
-                .order(by: field)
-                .start(at: [candidate])
-                .end(at: [end])
-                .limit(to: max(1, limit))
-                .getDocuments()
+            for collectionRef in poiCollections() {
+                guard results.count < limit else { break }
+                do {
+                    let snapshot = try await collectionRef
+                        .order(by: field)
+                        .start(at: [candidate])
+                        .end(at: [end])
+                        .limit(to: max(1, limit))
+                        .getDocuments()
 
-            for document in snapshot.documents {
-                guard let poi = decodePOI(from: document) else { continue }
-                let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
-                guard !seen.contains(key) else { continue }
-                seen.insert(key)
-                results.append(poi)
+                    for document in snapshot.documents {
+                        guard let poi = decodePOI(from: document) else { continue }
+                        let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                        guard !seen.contains(key) else { continue }
+                        seen.insert(key)
+                        results.append(poi)
+                    }
+                } catch {
+                    continue
+                }
             }
         }
 
         return results
+    }
+
+    private func searchTextFieldPOIs(query: String, limit: Int) async throws -> [FirebasePOIRecord] {
+        let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedQuery.isEmpty else { return [] }
+
+        let normalizedQuery = Self.normalizeSearchText(cleanedQuery)
+        let tokens = normalizedQuery.split(separator: " ").map(String.init)
+        guard !tokens.isEmpty else { return [] }
+
+        var combined: [FirebasePOIRecord] = []
+        var seen = Set<String>()
+
+        for collectionRef in poiCollections() {
+            do {
+                let snapshot = try await collectionRef
+                    .limit(to: max(200, limit * 8))
+                    .getDocuments()
+
+                for document in snapshot.documents {
+                    guard let poi = decodePOI(from: document) else { continue }
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seen.contains(key) else { continue }
+
+                    let searchableText = "\(poi.name) \(poi.category) \(poi.city ?? "") \(poi.country ?? "")"
+                        .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                        .lowercased()
+
+                    if tokens.allSatisfy({ token in searchableText.contains(token) }) {
+                        seen.insert(key)
+                        combined.append(poi)
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return combined
     }
 
     public static func makeStableDeviceUserID(storageKey: String = "spot_device_user_id") -> String {
@@ -608,6 +827,18 @@ public final class FirebaseSpotService {
         let generated = "device_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         UserDefaults.standard.set(generated, forKey: storageKey)
         return generated
+    }
+
+    public static func isDeviceFallbackUserID(_ userID: String) -> Bool {
+        let cleaned = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+
+        let stable = makeStableDeviceUserID().trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned == stable {
+            return true
+        }
+
+        return cleaned.hasPrefix("device_") && cleaned.count > "device_".count
     }
 
     public func savePOIs(_ pois: [FirebasePOIRecord]) async throws {
@@ -633,11 +864,24 @@ public final class FirebaseSpotService {
     }
 
     public func fetchNearbyPOIs(limit: Int = 30) async throws -> [FirebasePOIRecord] {
-        let snapshot = try await db.collection("pois")
-            .limit(to: limit)
-            .getDocuments()
+        var merged: [FirebasePOIRecord] = []
+        var seen = Set<String>()
 
-        return snapshot.documents.compactMap { decodePOI(from: $0) }
+        for collectionRef in poiCollections() {
+            let snapshot = try await collectionRef
+                .limit(to: limit)
+                .getDocuments()
+
+            for document in snapshot.documents {
+                guard let poi = decodePOI(from: document) else { continue }
+                let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                guard !seen.contains(key) else { continue }
+                seen.insert(key)
+                merged.append(poi)
+            }
+        }
+
+        return merged
     }
 
     public func fetchNearbyPOIs(around center: CLLocationCoordinate2D, limit: Int = 30, scanLimit: Int = 1600) async throws -> [FirebasePOIRecord] {
@@ -645,27 +889,41 @@ public final class FirebaseSpotService {
         let safeScanLimit = max(safeLimit, scanLimit)
         let pageSize = min(300, max(80, safeLimit * 4))
         var scanned = 0
-        var lastDocument: DocumentSnapshot?
+        var lastDocument: [DocumentSnapshot?] = [nil, nil]
         var buffer: [FirebasePOIRecord] = []
+        var seen = Set<String>()
 
         while scanned < safeScanLimit {
-            var queryRef = db.collection("pois")
-                .limit(to: pageSize)
+            var advancedACollection = false
 
-            if let lastDocument {
-                queryRef = queryRef.start(afterDocument: lastDocument)
+            for (index, collectionRef) in poiCollections().enumerated() {
+                var queryRef = collectionRef.limit(to: pageSize)
+                if let lastDoc = lastDocument[index] {
+                    queryRef = queryRef.start(afterDocument: lastDoc)
+                }
+
+                let snapshot = try await queryRef.getDocuments()
+                if snapshot.documents.isEmpty {
+                    continue
+                }
+
+                advancedACollection = true
+                for document in snapshot.documents {
+                    guard let poi = decodePOI(from: document) else { continue }
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seen.contains(key) else { continue }
+                    seen.insert(key)
+                    buffer.append(poi)
+                }
+                lastDocument[index] = snapshot.documents.last
+                scanned += snapshot.documents.count
             }
 
-            let snapshot = try await queryRef.getDocuments()
-            if snapshot.documents.isEmpty {
+            if !advancedACollection {
                 break
             }
 
-            buffer.append(contentsOf: snapshot.documents.compactMap { decodePOI(from: $0) })
-            scanned += snapshot.documents.count
-            lastDocument = snapshot.documents.last
-
-            if snapshot.documents.count < pageSize {
+            if buffer.count >= safeLimit * 8 {
                 break
             }
         }
@@ -852,24 +1110,29 @@ public final class FirebaseSpotService {
         .sorted { $0.createdAt > $1.createdAt }
     }
 
-    public func deletePost(postID: String, authorID: String) async throws {
+    public func deletePost(postID: String, authorID: String, adminDeleteCode: String? = nil) async throws {
         let trimmedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPostID.isEmpty else { return }
-
-        try await db.collection("posts").document(trimmedPostID).delete()
 
         let trimmedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedAuthorID.isEmpty else { return }
 
-        let profileRef = db.collection("users").document(trimmedAuthorID)
-        let existing = try? await profileRef.getDocument()
-        let current = (existing?.data()? ["postedPostIDs"] as? [String]) ?? []
-        let next = current.filter { $0 != trimmedPostID }
+        let callable = Functions.functions().httpsCallable("deletePost")
+        var payload: [String: Any] = [
+            "postID": trimmedPostID,
+            "authorID": trimmedAuthorID
+        ]
 
-        try? await profileRef.updateData([
-            "postedPostIDs": next,
-            "updatedAt": Date().timeIntervalSince1970
-        ])
+        let trimmedAdminDeleteCode = (adminDeleteCode ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedAdminDeleteCode.isEmpty {
+            payload["adminDeleteCode"] = trimmedAdminDeleteCode
+        }
+
+        let result = try await callable.call(payload)
+        
+        guard let data = result.data as? [String: Any], let deleted = data["deleted"] as? Bool, deleted else {
+            throw NSError(domain: "FirebaseSpotService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to delete post"])
+        }
     }
 
     public func deletePostsForUser(userID: String) async throws {
@@ -949,7 +1212,13 @@ public final class FirebaseSpotService {
     }
 
     public func updatePostEngagement(postID: String, likesCount: Int? = nil, commentsCount: Int? = nil, viewCount: Int? = nil, totalViewDurationSeconds: Int? = nil, savedCount: Int? = nil, shareCount: Int? = nil) async throws {
-        let postRef = db.collection("posts").document(postID)
+        // Keep engagement growth available for signed-out sessions.
+        // If there is no active Firebase auth user, establish an anonymous session first.
+        if Auth.auth().currentUser == nil {
+            _ = try await signInAnonymously()
+        }
+
+        let postRef = try await resolvedPostReference(for: postID)
         _ = try await db.runTransaction { transaction, errorPointer in
             do {
                 let existing = try transaction.getDocument(postRef)
@@ -962,19 +1231,24 @@ public final class FirebaseSpotService {
                 let existingViewDuration = max(0, data["totalViewDurationSeconds"] as? Int ?? 0)
                 let existingSaves = max(0, data["savedCount"] as? Int ?? 0)
                 let existingShares = max(0, data["shareCount"] as? Int ?? 0)
-                let existingScore = Self.firestoreNumericDouble(data["score"])
+                let existingScore = max(
+                    Self.firestoreNumericDouble(data["score"]),
+                    Self.firestoreNumericDouble(data["engagementScore"])
+                )
                 let locationNames = (data["postedInLocations"] as? [String] ?? [])
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
                     .filter { !$0.isEmpty }
                 let locationBreadth = max(1, Set(locationNames).count)
                 let isBoosted = (data["tags"] as? [String] ?? []).contains("spot:boosted")
 
-                let resolvedLikes = max(0, likesCount ?? existingLikes)
-                let resolvedComments = max(0, commentsCount ?? existingComments)
+                // Multiple feed surfaces may report engagement for the same post concurrently.
+                // Use monotonic merges so stale/lower payloads never reduce aggregate counts.
+                let resolvedLikes = max(existingLikes, max(0, likesCount ?? existingLikes))
+                let resolvedComments = max(existingComments, max(0, commentsCount ?? existingComments))
                 let resolvedViews = max(existingViews, max(0, viewCount ?? existingViews))
                 let resolvedViewDuration = max(existingViewDuration, max(0, totalViewDurationSeconds ?? existingViewDuration))
-                let resolvedSaves = max(0, savedCount ?? existingSaves)
-                let resolvedShares = max(0, shareCount ?? existingShares)
+                let resolvedSaves = max(existingSaves, max(0, savedCount ?? existingSaves))
+                let resolvedShares = max(existingShares, max(0, shareCount ?? existingShares))
 
                 let computedScore = Self.engagementScore(
                     views: resolvedViews,
@@ -996,6 +1270,7 @@ public final class FirebaseSpotService {
                     "savedCount": resolvedSaves,
                     "shareCount": resolvedShares,
                     "score": resolvedScore,
+                    "engagementScore": resolvedScore,
                     "updatedAt": Date().timeIntervalSince1970
                 ], forDocument: postRef)
                 return nil
@@ -1006,13 +1281,41 @@ public final class FirebaseSpotService {
         }
     }
 
-    public func registerPollVote(postID: String, optionIndex: Int) async throws -> [Int] {
+    private static func pollVoteSelections(from raw: Any?) -> [String: Int] {
+        guard let dictionary = raw as? [String: Any] else { return [:] }
+        var resolved: [String: Int] = [:]
+
+        for (key, value) in dictionary {
+            let cleanedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleanedKey.isEmpty else { continue }
+
+            if let intValue = value as? Int {
+                resolved[cleanedKey] = intValue
+            } else if let numberValue = value as? NSNumber {
+                resolved[cleanedKey] = numberValue.intValue
+            } else if let stringValue = value as? String, let intValue = Int(stringValue) {
+                resolved[cleanedKey] = intValue
+            }
+        }
+
+        return resolved
+    }
+
+    public func registerPollVote(postID: String, optionIndex: Int) async throws -> PollVoteResult {
         let cleanedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedPostID.isEmpty, optionIndex >= 0, optionIndex < 2 else {
             throw FirebaseSpotError.invalidPayload
         }
 
-        let postRef = db.collection("posts").document(cleanedPostID)
+        guard let currentUser = Auth.auth().currentUser else {
+            throw FirebaseSpotError.userNotAuthenticated
+        }
+        let currentUserID = currentUser.uid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !currentUserID.isEmpty else {
+            throw FirebaseSpotError.userNotAuthenticated
+        }
+
+        let postRef = try await resolvedPostReference(for: cleanedPostID)
 
         let transactionResult = try await db.runTransaction { transaction, errorPointer in
             do {
@@ -1027,26 +1330,45 @@ public final class FirebaseSpotService {
                     votes.append(contentsOf: Array(repeating: 0, count: 2 - votes.count))
                 }
 
+                var voteSelections = Self.pollVoteSelections(from: snapshot.data()?["pollVoteSelectionsByUser"])
+                if let existingSelection = voteSelections[currentUserID], existingSelection >= 0, existingSelection < votes.count {
+                    return PollVoteResult(
+                        votes: votes,
+                        selectedIndex: existingSelection,
+                        wasRecorded: false
+                    )
+                }
+
                 let currentValue = max(0, votes[optionIndex])
                 votes[optionIndex] = currentValue == Int.max ? Int.max : currentValue + 1
+                voteSelections[currentUserID] = optionIndex
 
                 transaction.updateData([
                     "pollVotes": votes,
+                    "pollVoteSelectionsByUser": voteSelections,
                     "updatedAt": Date().timeIntervalSince1970
                 ], forDocument: postRef)
 
-                return votes
+                return PollVoteResult(
+                    votes: votes,
+                    selectedIndex: optionIndex,
+                    wasRecorded: true
+                )
             } catch {
                 errorPointer?.pointee = error as NSError
                 return nil
             }
         }
 
-        guard let resolvedVotes = transactionResult as? [Int], resolvedVotes.count >= 2 else {
+        guard let resolvedResult = transactionResult as? PollVoteResult, resolvedResult.votes.count >= 2 else {
             throw FirebaseSpotError.writeFailed
         }
 
-        return Array(resolvedVotes.prefix(2))
+        return PollVoteResult(
+            votes: Array(resolvedResult.votes.prefix(2)),
+            selectedIndex: resolvedResult.selectedIndex,
+            wasRecorded: resolvedResult.wasRecorded
+        )
     }
 
     public func updateAuthorProfilePhotoForPosts(authorID: String, photoURL: String?) async throws {
@@ -1103,6 +1425,188 @@ public final class FirebaseSpotService {
         } while lastDocument != nil
     }
 
+    public func updateAuthorDisplayNameForPosts(authorID: String, displayName: String) async throws {
+        let cleanedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedAuthorID.isEmpty else { return }
+
+        let cleanedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedDisplayName.isEmpty else { return }
+
+        let updatedAt = Date().timeIntervalSince1970
+        var lastDocument: DocumentSnapshot?
+
+        repeat {
+            var query = db.collection("posts")
+                .whereField("authorID", isEqualTo: cleanedAuthorID)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 200)
+
+            if let lastDocument {
+                query = query.start(afterDocument: lastDocument)
+            }
+
+            let snapshot = try await query.getDocuments()
+            guard !snapshot.documents.isEmpty else { break }
+
+            var batch = db.batch()
+            var writeCount = 0
+
+            for document in snapshot.documents {
+                let data = document.data()
+                let tags = data["tags"] as? [String] ?? []
+                let normalizedAuthorUsername = Self.normalizeUsername(data["authorUsername"] as? String ?? "")
+                let isAnonymousPost = tags.contains("spot:anonymous") || normalizedAuthorUsername == "anonymous"
+                if isAnonymousPost {
+                    continue
+                }
+
+                batch.updateData([
+                    "authorDisplayName": cleanedDisplayName,
+                    "updatedAt": updatedAt
+                ], forDocument: document.reference)
+                writeCount += 1
+
+                if writeCount == 450 {
+                    try await batch.commit()
+                    batch = db.batch()
+                    writeCount = 0
+                }
+            }
+
+            if writeCount > 0 {
+                try await batch.commit()
+            }
+
+            lastDocument = snapshot.documents.last
+        } while lastDocument != nil
+    }
+
+    public func updateAuthorAgeForPosts(authorID: String, age: String?) async throws {
+        let cleanedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedAuthorID.isEmpty else { return }
+
+        let cleanedAge = age?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let ageTagPrefix = "spot:age:"
+        let updatedAt = Date().timeIntervalSince1970
+        var lastDocument: DocumentSnapshot?
+
+        repeat {
+            var query = db.collection("posts")
+                .whereField("authorID", isEqualTo: cleanedAuthorID)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 200)
+
+            if let lastDocument {
+                query = query.start(afterDocument: lastDocument)
+            }
+
+            let snapshot = try await query.getDocuments()
+            guard !snapshot.documents.isEmpty else { break }
+
+            var batch = db.batch()
+            var writeCount = 0
+
+            for document in snapshot.documents {
+                let data = document.data()
+                var tags = data["tags"] as? [String] ?? []
+                let normalizedAuthorUsername = Self.normalizeUsername(data["authorUsername"] as? String ?? "")
+                let isAnonymousPost = tags.contains("spot:anonymous") || normalizedAuthorUsername == "anonymous"
+                if isAnonymousPost {
+                    continue
+                }
+
+                // Strip any existing spot:age: tag
+                tags.removeAll(where: { $0.hasPrefix(ageTagPrefix) })
+
+                // Add new age tag if age is non-empty
+                if !cleanedAge.isEmpty {
+                    tags.append("\(ageTagPrefix)\(cleanedAge)")
+                }
+
+                batch.updateData([
+                    "tags": tags,
+                    "updatedAt": updatedAt
+                ], forDocument: document.reference)
+                writeCount += 1
+
+                if writeCount == 450 {
+                    try await batch.commit()
+                    batch = db.batch()
+                    writeCount = 0
+                }
+            }
+
+            if writeCount > 0 {
+                try await batch.commit()
+            }
+
+            lastDocument = snapshot.documents.last
+        } while lastDocument != nil
+    }
+
+    public func updateAuthorPositionForPosts(authorID: String, position: String?) async throws {
+        let cleanedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedAuthorID.isEmpty else { return }
+
+        let cleanedPosition = position?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let positionTagPrefix = "spot:position:"
+        let updatedAt = Date().timeIntervalSince1970
+        var lastDocument: DocumentSnapshot?
+
+        repeat {
+            var query = db.collection("posts")
+                .whereField("authorID", isEqualTo: cleanedAuthorID)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 200)
+
+            if let lastDocument {
+                query = query.start(afterDocument: lastDocument)
+            }
+
+            let snapshot = try await query.getDocuments()
+            guard !snapshot.documents.isEmpty else { break }
+
+            var batch = db.batch()
+            var writeCount = 0
+
+            for document in snapshot.documents {
+                let data = document.data()
+                var tags = data["tags"] as? [String] ?? []
+                let normalizedAuthorUsername = Self.normalizeUsername(data["authorUsername"] as? String ?? "")
+                let isAnonymousPost = tags.contains("spot:anonymous") || normalizedAuthorUsername == "anonymous"
+                if isAnonymousPost {
+                    continue
+                }
+
+                // Strip any existing spot:position: tag
+                tags.removeAll(where: { $0.hasPrefix(positionTagPrefix) })
+
+                // Add new position tag if position is non-empty
+                if !cleanedPosition.isEmpty {
+                    tags.append("\(positionTagPrefix)\(cleanedPosition)")
+                }
+
+                batch.updateData([
+                    "tags": tags,
+                    "updatedAt": updatedAt
+                ], forDocument: document.reference)
+                writeCount += 1
+
+                if writeCount == 450 {
+                    try await batch.commit()
+                    batch = db.batch()
+                    writeCount = 0
+                }
+            }
+
+            if writeCount > 0 {
+                try await batch.commit()
+            }
+
+            lastDocument = snapshot.documents.last
+        } while lastDocument != nil
+    }
+
     public static func normalizeUsername(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let withoutAt = trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed
@@ -1115,7 +1619,26 @@ public final class FirebaseSpotService {
         let lowered = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !lowered.isEmpty else { return false }
 
+        if lowered == "tiding" {
+            return false
+        }
+
         return lowered.contains("tiding") || lowered.contains("tidings")
+    }
+
+    private static func hasBlockedUsernameBrandTerm(_ rawUsername: String) -> Bool {
+        let cleaned = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutAt = cleaned.hasPrefix("@") ? String(cleaned.dropFirst()) : cleaned
+        guard !withoutAt.isEmpty else { return false }
+
+        let normalized = withoutAt.lowercased()
+
+        // Only the exact username "tiding" is allowed.
+        if normalized == "tiding" {
+            return false
+        }
+
+        return normalized.hasPrefix("tiding")
     }
 
     public static func isAllowedDisplayName(_ value: String, reservedAgainst: String? = nil) -> Bool {
@@ -1143,11 +1666,11 @@ public final class FirebaseSpotService {
         if let reserved = reservedAgainst?.trimmingCharacters(in: .whitespacesAndNewlines), !reserved.isEmpty {
             let normalizedReserved = normalizeUsername(reserved)
             if !normalizedReserved.isEmpty && normalized == normalizedReserved {
-                return false
+                return true
             }
         }
 
-        return !hasBlockedIdentityTerm(normalized)
+        return !hasBlockedUsernameBrandTerm(username)
     }
 
     public static func normalizedOptionalString(_ raw: String?) -> String? {
@@ -1270,6 +1793,15 @@ public final class FirebaseSpotService {
             ?? Self.normalizedOptionalString(data["city"] as? String)
             ?? "Metric"
 
+        let currentUserID = Auth.auth().currentUser?.uid.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let voteSelections = Self.pollVoteSelections(from: data["pollVoteSelectionsByUser"])
+        let currentUserPollSelection: Int?
+        if let selection = voteSelections[currentUserID], selection >= 0, selection < 2 {
+            currentUserPollSelection = selection
+        } else {
+            currentUserPollSelection = nil
+        }
+
         return FirebasePostPayload(
             id: id,
             authorID: authorID,
@@ -1283,6 +1815,7 @@ public final class FirebaseSpotService {
             mediaURLs: data["mediaURLs"] as? [String] ?? [],
             pollOptions: data["pollOptions"] as? [String] ?? [],
             pollVotes: data["pollVotes"] as? [Int] ?? [],
+            currentUserPollSelection: currentUserPollSelection,
             accentHex: data["accentHex"] as? String ?? "#DCE7FF",
             locationName: locationName,
             feedInsertionIndex: Self.firestoreNumericInt(data["feedInsertionIndex"]),
@@ -1304,7 +1837,10 @@ public final class FirebaseSpotService {
             totalViewDurationSeconds: Self.firestoreNumericInt(data["totalViewDurationSeconds"]),
             savedCount: Self.firestoreNumericInt(data["savedCount"]),
             shareCount: Self.firestoreNumericInt(data["shareCount"]),
-            score: Self.firestoreNumericDouble(data["score"])
+            score: max(
+                Self.firestoreNumericDouble(data["score"]),
+                Self.firestoreNumericDouble(data["engagementScore"])
+            )
         )
     }
 
@@ -1328,63 +1864,136 @@ public final class FirebaseSpotService {
         let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedQuery.isEmpty else { return true }
 
-        let normalizedQuery = cleanedQuery.lowercased()
-        let name = poi.name.lowercased()
-        let category = poi.category.lowercased()
-        let city = (poi.city ?? "").lowercased()
-        let country = (poi.country ?? "").lowercased()
-        let signature = "\(poi.name) \(poi.category) \(poi.city ?? "") \(poi.country ?? "")".lowercased()
+        let normalizedQuery = normalizeSearchText(cleanedQuery)
+        guard !normalizedQuery.isEmpty else { return true }
 
-        return normalizedQuery.isEmpty
-            ? true
-            : name.contains(normalizedQuery)
-                || category.contains(normalizedQuery)
-                || city.contains(normalizedQuery)
-                || country.contains(normalizedQuery)
-                || signature.contains(normalizedQuery)
+        let name = normalizeSearchText(poi.name)
+        let category = normalizeSearchText(poi.category)
+        let city = normalizeSearchText(poi.city ?? "")
+        let country = normalizeSearchText(poi.country ?? "")
+        let signature = normalizeSearchText("\(poi.name) \(poi.category) \(poi.city ?? "") \(poi.country ?? "")")
+
+        if name.contains(normalizedQuery)
+            || category.contains(normalizedQuery)
+            || city.contains(normalizedQuery)
+            || country.contains(normalizedQuery)
+            || signature.contains(normalizedQuery) {
+            return true
+        }
+
+        let queryTokens = normalizedQuery
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard !queryTokens.isEmpty else { return true }
+        return queryTokens.allSatisfy { signature.contains($0) }
     }
 
     public static func poiSearchScore(query: String, poi: FirebasePOIRecord) -> Double {
         let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedQuery.isEmpty else { return 1 }
 
-        let normalizedQuery = cleanedQuery.lowercased()
-        let name = poi.name.lowercased()
-        let category = poi.category.lowercased()
-        let city = (poi.city ?? "").lowercased()
+        let normalizedQuery = normalizeSearchText(cleanedQuery)
+        guard !normalizedQuery.isEmpty else { return 1 }
 
-        if name == normalizedQuery { return 1000 }
-        if name.hasPrefix(normalizedQuery) { return 700 }
-        if city == normalizedQuery { return 500 }
-        if city.hasPrefix(normalizedQuery) { return 350 }
-        if category == normalizedQuery { return 400 }
-        if category.hasPrefix(normalizedQuery) { return 300 }
-        if name.contains(normalizedQuery) { return 220 }
-        if category.contains(normalizedQuery) { return 170 }
-        if city.contains(normalizedQuery) { return 150 }
-        return 0
+        let name = normalizeSearchText(poi.name)
+        let category = normalizeSearchText(poi.category)
+        let city = normalizeSearchText(poi.city ?? "")
+        let country = normalizeSearchText(poi.country ?? "")
+        let signature = normalizeSearchText("\(poi.name) \(poi.category) \(poi.city ?? "") \(poi.country ?? "")")
+
+        // Specific POI Boost: A non-city/macro category (like school, park, museum, restaurant, venue) gets a +1,500 point boost over generic city matches
+        let isMacroCategory = category.contains("city") || category.contains("town") || category.contains("suburb") || category.contains("district") || category.contains("county") || category == "city"
+        let poiPriorityBonus: Double = isMacroCategory ? 0 : 1500
+
+        if name == normalizedQuery { return 10000 + poiPriorityBonus }
+        if name.hasPrefix(normalizedQuery) { return 6000 + poiPriorityBonus }
+        if name.contains(normalizedQuery) { return 4000 + poiPriorityBonus }
+        if category == normalizedQuery { return 2500 + poiPriorityBonus }
+        if category.hasPrefix(normalizedQuery) { return 2000 + poiPriorityBonus }
+        if category.contains(normalizedQuery) { return 1500 + poiPriorityBonus }
+        if city == normalizedQuery { return 820 }
+        if country == normalizedQuery { return 760 }
+        if city.hasPrefix(normalizedQuery) { return 560 }
+        if country.hasPrefix(normalizedQuery) { return 520 }
+        if city.contains(normalizedQuery) { return 370 }
+        if country.contains(normalizedQuery) { return 340 }
+        if signature.contains(normalizedQuery) { return 260 + poiPriorityBonus }
+
+        let queryTokens = normalizedQuery
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard !queryTokens.isEmpty else { return 0 }
+
+        var tokenMatches = 0
+        var tokenScore = 0.0
+        for token in queryTokens {
+            if name.hasPrefix(token) {
+                tokenMatches += 1
+                tokenScore += 180
+            } else if name.contains(token) {
+                tokenMatches += 1
+                tokenScore += 140
+            } else if category.contains(token) {
+                tokenMatches += 1
+                tokenScore += 100
+            } else if city.hasPrefix(token) {
+                tokenMatches += 1
+                tokenScore += 50
+            } else if city.contains(token) {
+                tokenMatches += 1
+                tokenScore += 35
+            } else if country.contains(token) {
+                tokenMatches += 1
+                tokenScore += 20
+            }
+        }
+
+        if tokenMatches == 0 { return 0 }
+        if tokenMatches == queryTokens.count {
+            return 210 + tokenScore + poiPriorityBonus
+        }
+        return tokenScore + poiPriorityBonus
+    }
+
+    public static func normalizeSearchText(_ value: String) -> String {
+        let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let cleaned = folded.replacingOccurrences(of: "[^a-zA-Z0-9]+", with: " ", options: .regularExpression)
+        let normalizedSpaces = cleaned.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return normalizedSpaces.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     public static func isValidUsername(_ username: String) -> Bool {
         isAllowedUsername(username)
     }
 
-    public func checkUsernameAvailability(username: String) async throws -> Bool {
+    public func checkUsernameAvailability(username: String, currentUserID: String? = nil) async throws -> Bool {
         let normalized = Self.normalizeUsername(username)
-        guard Self.isAllowedUsername(normalized) else { return false }
+        guard Self.isAllowedUsername(normalized, reservedAgainst: username) else { return false }
 
         let snapshot = try await db.collection("usernames").document(normalized).getDocument()
-        guard snapshot.exists, let userID = snapshot.data()? ["userID"] as? String, !userID.isEmpty else {
+        guard snapshot.exists else {
             return true
         }
 
-        let userSnapshot = try await db.collection("users").document(userID).getDocument()
-        guard userSnapshot.exists else {
+        let existingUserID = (snapshot.data()?["userID"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if existingUserID.isEmpty {
             return true
         }
 
-        let savedUsername = userSnapshot.data()? ["username"] as? String ?? ""
-        return Self.normalizeUsername(savedUsername) == normalized
+        if let currentUserID = currentUserID?.trimmingCharacters(in: .whitespacesAndNewlines), !currentUserID.isEmpty {
+            return existingUserID == currentUserID
+        }
+
+        let activeUID = (Auth.auth().currentUser?.uid ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !activeUID.isEmpty {
+            return existingUserID == activeUID
+        }
+
+        return false
     }
 
     public func resolveUserID(username: String) async throws -> String? {
@@ -1531,6 +2140,7 @@ public final class FirebaseSpotService {
                 uid: uid,
                 username: data["username"] as? String ?? "@user",
                 displayName: data["displayName"] as? String ?? "User",
+                phoneNumber: Self.normalizedOptionalString(data["phoneNumber"] as? String),
                 bio: data["bio"] as? String,
                 profilePhotoURL: data["profilePhotoURL"] as? String,
                 createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
@@ -1538,7 +2148,8 @@ public final class FirebaseSpotService {
                 savedPostIDs: data["savedPostIDs"] as? [String] ?? [],
                 flaggedPostIDs: data["flaggedPostIDs"] as? [String] ?? [],
                 postedPostIDs: data["postedPostIDs"] as? [String] ?? [],
-                areaHistory: data["areaHistory"] as? [String] ?? []
+                areaHistory: data["areaHistory"] as? [String] ?? [],
+                remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0)
             )
         }
 
@@ -1563,88 +2174,100 @@ public final class FirebaseSpotService {
         let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeLimit = max(1, limit)
 
-        if !cleanedQuery.isEmpty {
-            var fastMatches: [FirebasePOIRecord] = []
-            var seenFast = Set<String>()
-            let fastLimit = min(max(40, safeLimit), 240)
+        var fastMatches: [FirebasePOIRecord] = []
+        var seenFast = Set<String>()
+        let fastLimit = min(max(40, safeLimit), 240)
 
-            for field in ["name", "city", "country"] {
-                if let prefixMatches = try? await prefixSearchPOIs(field: field, query: cleanedQuery, limit: fastLimit) {
-                    for poi in prefixMatches {
-                        let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
-                        guard !seenFast.contains(key) else { continue }
-                        seenFast.insert(key)
-                        fastMatches.append(poi)
-                    }
+        if !cleanedQuery.isEmpty {
+            if let prefixMatches = try? await prefixSearchPOIs(field: "name", query: cleanedQuery, limit: fastLimit) {
+                for poi in prefixMatches {
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seenFast.contains(key) else { continue }
+                    seenFast.insert(key)
+                    fastMatches.append(poi)
                 }
             }
-
-            let filteredFastMatches = fastMatches.filter { poi in
-                Self.poiSearchMatches(query: cleanedQuery, poi: poi)
+            if fastMatches.count < fastLimit, let cityPrefixMatches = try? await prefixSearchPOIs(field: "city", query: cleanedQuery, limit: fastLimit) {
+                for poi in cityPrefixMatches {
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seenFast.contains(key) else { continue }
+                    seenFast.insert(key)
+                    fastMatches.append(poi)
+                }
             }
-
-            if !filteredFastMatches.isEmpty {
-                return filteredFastMatches
-                    .sorted { lhs, rhs in
-                        let lhsScore = Self.poiSearchScore(query: cleanedQuery, poi: lhs)
-                        let rhsScore = Self.poiSearchScore(query: cleanedQuery, poi: rhs)
-                        if lhsScore != rhsScore { return lhsScore > rhsScore }
-                        if let center {
-                            let lhsDistance = Self.milesDistance(
-                                from: center,
-                                to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
-                            )
-                            let rhsDistance = Self.milesDistance(
-                                from: center,
-                                to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
-                            )
-                            if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
-                        }
-                        return lhs.updatedAt > rhs.updatedAt
-                    }
-                    .prefix(safeLimit)
-                    .map { $0 }
+            if fastMatches.count < fastLimit, let textMatches = try? await searchTextFieldPOIs(query: cleanedQuery, limit: fastLimit) {
+                for poi in textMatches {
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seenFast.contains(key) else { continue }
+                    seenFast.insert(key)
+                    fastMatches.append(poi)
+                }
             }
+        }
+
+        if !fastMatches.isEmpty {
+            return fastMatches
+                .filter { Self.poiSearchMatches(query: cleanedQuery, poi: $0) }
+                .sorted { lhs, rhs in
+                    Self.poiSearchScore(query: cleanedQuery, poi: lhs) > Self.poiSearchScore(query: cleanedQuery, poi: rhs)
+                }
+                .prefix(safeLimit)
+                .map { $0 }
         }
 
         let pageSize = 350
-        var lastDocument: DocumentSnapshot?
+        var lastDocument: [DocumentSnapshot?] = [nil, nil]
         var allPOIs: [FirebasePOIRecord] = []
-        var matchedPOIs: [FirebasePOIRecord] = []
+        var seen = Set<String>()
 
-        while true {
-            var queryRef = db.collection("pois")
-                .limit(to: pageSize)
+        for (index, collectionRef) in poiCollections().enumerated() {
+            while true {
+                var queryRef = collectionRef.limit(to: pageSize)
 
-            if let lastDocument {
-                queryRef = queryRef.start(afterDocument: lastDocument)
-            }
-
-            let snapshot = try await queryRef.getDocuments()
-            if snapshot.documents.isEmpty {
-                break
-            }
-
-            for document in snapshot.documents {
-                guard let poi = decodePOI(from: document) else {
-                    continue
+                if let lastDoc = lastDocument[index] {
+                    queryRef = queryRef.start(afterDocument: lastDoc)
                 }
 
-                if cleanedQuery.isEmpty {
-                    allPOIs.append(poi)
-                } else if Self.poiSearchMatches(query: cleanedQuery, poi: poi) {
-                    matchedPOIs.append(poi)
+                let snapshot = try await queryRef.getDocuments()
+                if snapshot.documents.isEmpty {
+                    break
                 }
-            }
 
-            lastDocument = snapshot.documents.last
-            if snapshot.documents.count < pageSize {
-                break
+                for document in snapshot.documents {
+                    guard let poi = decodePOI(from: document) else {
+                        continue
+                    }
+
+                    let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+                    guard !seen.contains(key) else { continue }
+                    seen.insert(key)
+
+                    if cleanedQuery.isEmpty {
+                        allPOIs.append(poi)
+                    } else if Self.poiSearchMatches(query: cleanedQuery, poi: poi) {
+                        allPOIs.append(poi)
+                    }
+                }
+
+                lastDocument[index] = snapshot.documents.last
+                if snapshot.documents.count < pageSize {
+                    break
+                }
             }
         }
 
+        var combined: [FirebasePOIRecord] = []
+        var seenCombined = Set<String>()
+
+        for poi in fastMatches + allPOIs {
+            let key = "\(poi.id)|\(poi.latitude)|\(poi.longitude)"
+            guard !seenCombined.contains(key) else { continue }
+            seenCombined.insert(key)
+            combined.append(poi)
+        }
+
         if cleanedQuery.isEmpty {
-            return allPOIs
+            return combined
                 .sorted { lhs, rhs in
                     lhs.updatedAt > rhs.updatedAt
                 }
@@ -1652,22 +2275,21 @@ public final class FirebaseSpotService {
                 .map { $0 }
         }
 
-        return matchedPOIs
+        return combined
+            .filter { Self.poiSearchMatches(query: cleanedQuery, poi: $0) }
             .sorted { lhs, rhs in
                 let lhsScore = Self.poiSearchScore(query: cleanedQuery, poi: lhs)
                 let rhsScore = Self.poiSearchScore(query: cleanedQuery, poi: rhs)
-                if lhsScore != rhsScore { return lhsScore > rhsScore }
-                if let center {
-                    let lhsDistance = Self.milesDistance(
-                        from: center,
-                        to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
-                    )
-                    let rhsDistance = Self.milesDistance(
-                        from: center,
-                        to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
-                    )
-                    if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
-                }
+                let lhsDistance = center.map {
+                    Self.milesDistance(from: $0, to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude))
+                } ?? 0
+                let rhsDistance = center.map {
+                    Self.milesDistance(from: $0, to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude))
+                } ?? 0
+                let lhsCombined = lhsScore + max(0.0, 4000.0 - (lhsDistance * 120.0))
+                let rhsCombined = rhsScore + max(0.0, 4000.0 - (rhsDistance * 120.0))
+                if lhsCombined != rhsCombined { return lhsCombined > rhsCombined }
+                if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
                 return lhs.updatedAt > rhs.updatedAt
             }
             .prefix(safeLimit)
@@ -1691,9 +2313,45 @@ public final class FirebaseSpotService {
         return 0
     }
 
+    static func poiDistancePriorityScore(
+        query: String,
+        candidateName: String,
+        nearbyPlaces: [NearbyPlace],
+        userCoordinate: CLLocationCoordinate2D
+    ) -> Double {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = trimmedQuery.lowercased()
+        let normalizedName = candidateName.lowercased()
+
+        let textScore: Double
+        if normalizedQuery.isEmpty {
+            textScore = 1
+        } else if normalizedName == normalizedQuery {
+            textScore = 100000
+        } else if normalizedName.hasPrefix(normalizedQuery) {
+            textScore = 60000
+        } else if normalizedName.contains(normalizedQuery) {
+            textScore = 25000
+        } else {
+            textScore = 0
+        }
+
+        let distanceMiles = nearbyPlaces
+            .first { $0.name.caseInsensitiveCompare(candidateName) == .orderedSame }
+            .map {
+                Self.milesDistance(
+                    from: userCoordinate,
+                    to: CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                )
+            } ?? Double.greatestFiniteMagnitude
+
+        let proximityScore = max(0.0, 4000.0 - (distanceMiles * 120.0))
+        return textScore + proximityScore
+    }
+
     public func reserveUsername(userID: String, username: String, previousUsername: String? = nil) async throws -> Bool {
         let normalized = Self.normalizeUsername(username)
-        guard Self.isValidUsername(normalized) else { throw FirebaseSpotError.invalidUsername }
+        guard Self.isAllowedUsername(normalized, reservedAgainst: previousUsername) else { throw FirebaseSpotError.invalidUsername }
 
         let usernameRef = db.collection("usernames").document(normalized)
         let previousNormalized = previousUsername.flatMap { Self.normalizeUsername($0) }
@@ -1702,7 +2360,7 @@ public final class FirebaseSpotService {
             do {
                 let usernameDoc = try transaction.getDocument(usernameRef)
                 if usernameDoc.exists {
-                    let existingUserID = usernameDoc.data()? ["userID"] as? String
+                    let existingUserID = usernameDoc.data()?["userID"] as? String
                     if existingUserID != nil && existingUserID != userID {
                         throw FirebaseSpotError.usernameTaken
                     }
@@ -1711,7 +2369,7 @@ public final class FirebaseSpotService {
                 if let previousNormalized, !previousNormalized.isEmpty, previousNormalized != normalized {
                     let previousRef = self.db.collection("usernames").document(previousNormalized)
                     let previousDoc = try transaction.getDocument(previousRef)
-                    let previousUserID = previousDoc.data()? ["userID"] as? String
+                    let previousUserID = previousDoc.data()?["userID"] as? String
                     if previousDoc.exists && previousUserID == userID {
                         transaction.deleteDocument(previousRef)
                     }
@@ -1731,7 +2389,17 @@ public final class FirebaseSpotService {
         }
 
         guard let reserved = reserved as? Bool else {
-            throw FirebaseSpotError.writeFailed
+            let existingDoc = try? await usernameRef.getDocument()
+            let existingUserID = (existingDoc?.data()?["userID"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if existingDoc?.exists == true && !existingUserID.isEmpty && existingUserID != userID {
+                throw FirebaseSpotError.usernameTaken
+            }
+            try await usernameRef.setData([
+                "userID": userID,
+                "username": "@\(normalized)",
+                "updatedAt": Date().timeIntervalSince1970
+            ], merge: true)
+            return true
         }
 
         return reserved
@@ -1743,10 +2411,16 @@ public final class FirebaseSpotService {
         displayName: String,
         bio: String?,
         photoURL: String?,
-        existingData: [String: Any]
+        existingData: [String: Any],
+        previousUsername: String?
     ) -> [String: Any] {
         let normalizedUsername = Self.normalizeUsername(username)
         let safePhotoURL = Self.normalizedOptionalString(photoURL) ?? ""
+        let existingAliases = (existingData["usernameAliases"] as? [String] ?? [])
+            .map { Self.normalizeUsername($0) }
+            .filter { !$0.isEmpty }
+        let normalizedPrevious = Self.normalizeUsername(previousUsername ?? "")
+        let mergedAliases = Array(Set(existingAliases + [normalizedUsername, normalizedPrevious].filter { !$0.isEmpty })).sorted()
 
         return [
             "uid": userID,
@@ -1759,9 +2433,11 @@ public final class FirebaseSpotService {
             "savedPostIDs": existingData["savedPostIDs"] as? [String] ?? [],
             "flaggedPostIDs": existingData["flaggedPostIDs"] as? [String] ?? [],
             "postedPostIDs": existingData["postedPostIDs"] as? [String] ?? [],
+            "usernameAliases": mergedAliases,
             "areaHistory": existingData["areaHistory"] as? [String] ?? [],
             "followerCount": existingData["followerCount"] as? Int ?? 0,
-            "followingCount": existingData["followingCount"] as? Int ?? 0
+            "followingCount": existingData["followingCount"] as? Int ?? 0,
+            "remainingBoosts": max(0, existingData["remainingBoosts"] as? Int ?? 0)
         ]
     }
 
@@ -1790,7 +2466,8 @@ public final class FirebaseSpotService {
         userID: String,
         username: String,
         displayName: String,
-        photoURL: String?
+        photoURL: String?,
+        preferredLegacyAuthorIDs: [String] = []
     ) async throws {
         let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedUserID.isEmpty else { return }
@@ -1798,7 +2475,10 @@ public final class FirebaseSpotService {
         let persistedLegacyID = UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? ""
         let stableDeviceID = Self.makeStableDeviceUserID()
         let currentAuthID = (try? Auth.auth().currentUser?.uid) ?? ""
-        let legacyIDs = Array(Set([persistedLegacyID, stableDeviceID, currentAuthID].filter { !$0.isEmpty && $0 != cleanedUserID }))
+        let preferred = preferredLegacyAuthorIDs.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let legacyIDs = Array(Set((preferred + [persistedLegacyID, stableDeviceID, currentAuthID]).filter { !$0.isEmpty && $0 != cleanedUserID }))
         guard !legacyIDs.isEmpty else { return }
 
         let updatePayload = Self.migratedPostUpdatePayload(
@@ -1838,13 +2518,13 @@ public final class FirebaseSpotService {
 
     public func saveUserProfile(userID: String, username: String, displayName: String, bio: String?, photoURL: String?) async throws {
         let profileRef = db.collection("users").document(userID)
-        let existing = try await profileRef.getDocument()
-        let existingData = existing.data() ?? [:]
+        let existing = try? await profileRef.getDocument()
+        let existingData = existing?.data() ?? [:]
         let previousUsername = existingData["username"] as? String
         let normalizedUsername = Self.normalizeUsername(username)
         let cleanedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard Self.isAllowedUsername(normalizedUsername) else {
+        guard Self.isAllowedUsername(normalizedUsername, reservedAgainst: previousUsername) else {
             throw FirebaseSpotError.invalidUsername
         }
 
@@ -1860,14 +2540,35 @@ public final class FirebaseSpotService {
             displayName: displayName,
             bio: bio,
             photoURL: photoURL,
-            existingData: existingData
+            existingData: existingData,
+            previousUsername: previousUsername
         )
 
+        let historicalAliases = (existingData["usernameAliases"] as? [String] ?? [])
+
         try await profileRef.setData(payload, merge: true)
-        try await syncAuthorIdentityForPosts(authorID: userID, username: normalizedUsername, displayName: displayName, photoURL: photoURL)
+        try await updateAuthorProfilePhotoForPosts(
+            authorID: userID,
+            photoURL: Self.normalizedOptionalString(photoURL)
+        )
+        try await syncAuthorIdentityForPosts(
+            authorID: userID,
+            username: normalizedUsername,
+            previousUsername: previousUsername,
+            usernameAliases: historicalAliases,
+            displayName: displayName,
+            photoURL: photoURL
+        )
     }
 
-    public func syncAuthorIdentityForPosts(authorID: String, username: String, displayName: String, photoURL: String?) async throws {
+    public func syncAuthorIdentityForPosts(
+        authorID: String,
+        username: String,
+        previousUsername: String? = nil,
+        usernameAliases: [String] = [],
+        displayName: String,
+        photoURL: String?
+    ) async throws {
         let cleanedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedAuthorID.isEmpty else { return }
 
@@ -1878,41 +2579,117 @@ public final class FirebaseSpotService {
             photoURL: photoURL
         )
 
-        var lastDocument: DocumentSnapshot?
+        let persistedLegacyID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let stableDeviceID = Self.makeStableDeviceUserID().trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentAuthID = (Auth.auth().currentUser?.uid ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let authorIDsToSync = Array(Set([cleanedAuthorID, persistedLegacyID, stableDeviceID, currentAuthID].filter { !$0.isEmpty }))
 
-        repeat {
-            var query = db.collection("posts")
-                .whereField("authorID", isEqualTo: cleanedAuthorID)
-                .order(by: "createdAt", descending: true)
-                .limit(to: 220)
+        let normalizedCurrentUsername = Self.normalizeUsername(username)
+        let normalizedPreviousUsername = Self.normalizeUsername(previousUsername ?? "")
+        var usernamesToSync: Set<String> = []
+        if !normalizedCurrentUsername.isEmpty {
+            usernamesToSync.insert(normalizedCurrentUsername)
+            usernamesToSync.insert("@\(normalizedCurrentUsername)")
+        }
+        if !normalizedPreviousUsername.isEmpty {
+            usernamesToSync.insert(normalizedPreviousUsername)
+            usernamesToSync.insert("@\(normalizedPreviousUsername)")
+        }
+        for alias in usernameAliases {
+            let normalizedAlias = Self.normalizeUsername(alias)
+            guard !normalizedAlias.isEmpty else { continue }
+            usernamesToSync.insert(normalizedAlias)
+            usernamesToSync.insert("@\(normalizedAlias)")
+        }
 
-            if let lastDocument {
-                query = query.start(afterDocument: lastDocument)
-            }
+        let normalizedAuthorIDSet = Set(authorIDsToSync.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
 
-            let snapshot = try await query.getDocuments()
-            guard !snapshot.documents.isEmpty else { break }
+        for candidateAuthorID in authorIDsToSync {
+            var lastDocument: DocumentSnapshot?
 
-            var batch = db.batch()
-            var writesInBatch = 0
+            repeat {
+                var query = db.collection("posts")
+                    .whereField("authorID", isEqualTo: candidateAuthorID)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: 220)
 
-            for document in snapshot.documents {
-                batch.setData(updatePayload, forDocument: document.reference, merge: true)
-                writesInBatch += 1
-
-                if writesInBatch >= 440 {
-                    try await batch.commit()
-                    batch = db.batch()
-                    writesInBatch = 0
+                if let lastDocument {
+                    query = query.start(afterDocument: lastDocument)
                 }
-            }
 
-            if writesInBatch > 0 {
-                try await batch.commit()
-            }
+                let snapshot = try await query.getDocuments()
+                guard !snapshot.documents.isEmpty else { break }
 
-            lastDocument = snapshot.documents.last
-        } while lastDocument != nil
+                var batch = db.batch()
+                var writesInBatch = 0
+
+                for document in snapshot.documents {
+                    batch.setData(updatePayload, forDocument: document.reference, merge: true)
+                    writesInBatch += 1
+
+                    if writesInBatch >= 440 {
+                        try await batch.commit()
+                        batch = db.batch()
+                        writesInBatch = 0
+                    }
+                }
+
+                if writesInBatch > 0 {
+                    try await batch.commit()
+                }
+
+                lastDocument = snapshot.documents.last
+            } while lastDocument != nil
+        }
+
+        for usernameCandidate in usernamesToSync {
+            var lastDocument: DocumentSnapshot?
+
+            repeat {
+                var query = db.collection("posts")
+                    .whereField("authorUsername", isEqualTo: usernameCandidate)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: 220)
+
+                if let lastDocument {
+                    query = query.start(afterDocument: lastDocument)
+                }
+
+                let snapshot = try await query.getDocuments()
+                guard !snapshot.documents.isEmpty else { break }
+
+                var batch = db.batch()
+                var writesInBatch = 0
+
+                for document in snapshot.documents {
+                    let data = document.data()
+                    let storedAuthorID = (data["authorID"] as? String ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    // Only migrate username-keyed legacy posts when they are unclaimed,
+                    // or already owned by one of this user's known IDs.
+                    if !storedAuthorID.isEmpty && !normalizedAuthorIDSet.contains(storedAuthorID) {
+                        continue
+                    }
+
+                    batch.setData(updatePayload, forDocument: document.reference, merge: true)
+                    writesInBatch += 1
+
+                    if writesInBatch >= 440 {
+                        try await batch.commit()
+                        batch = db.batch()
+                        writesInBatch = 0
+                    }
+                }
+
+                if writesInBatch > 0 {
+                    try await batch.commit()
+                }
+
+                lastDocument = snapshot.documents.last
+            } while lastDocument != nil
+        }
     }
 
     public func setFollowState(followerUserID: String, followedUserID: String, isFollowing: Bool) async throws {
@@ -1920,22 +2697,12 @@ public final class FirebaseSpotService {
             return
         }
 
-        let relationID = "\(followerUserID)_\(followedUserID)"
-        let relationRef = db.collection("follows").document(relationID)
-
-        if isFollowing {
-            try await relationRef.setData([
-                "followerUserID": followerUserID,
-                "followedUserID": followedUserID,
-                "createdAt": Date().timeIntervalSince1970,
-                "updatedAt": Date().timeIntervalSince1970
-            ])
-        } else {
-            try await relationRef.delete()
-        }
-
-        try await updateFollowCounts(for: followedUserID)
-        try await updateFollowCounts(for: followerUserID)
+        let callable = Functions.functions().httpsCallable("setFollowState")
+        _ = try await callable.call([
+            "followerUserID": followerUserID,
+            "followedUserID": followedUserID,
+            "isFollowing": isFollowing
+        ])
     }
 
     public func fetchUserFollowCounts(userID: String) async throws -> (followers: Int, following: Int) {
@@ -2036,10 +2803,17 @@ public final class FirebaseSpotService {
     }
 
     public func saveUserSavedPost(userID: String, postID: String, saved: Bool) async throws {
-        let profileRef = db.collection("users").document(userID)
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty, !cleanedPostID.isEmpty else { return }
+        guard !Self.isDeviceFallbackUserID(cleanedUserID) else {
+            return
+        }
+
+        let profileRef = db.collection("users").document(cleanedUserID)
         let existing = try await profileRef.getDocument()
         let current = (existing.data()? ["savedPostIDs"] as? [String]) ?? []
-        let next = saved ? Array(Set(current + [postID])) : current.filter { $0 != postID }
+        let next = saved ? Array(Set(current + [cleanedPostID])) : current.filter { $0 != cleanedPostID }
         try await profileRef.setData([
             "savedPostIDs": next,
             "updatedAt": Date().timeIntervalSince1970
@@ -2047,10 +2821,17 @@ public final class FirebaseSpotService {
     }
 
     public func saveUserFlaggedPost(userID: String, postID: String, flagged: Bool) async throws {
-        let profileRef = db.collection("users").document(userID)
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty, !cleanedPostID.isEmpty else { return }
+        guard !Self.isDeviceFallbackUserID(cleanedUserID) else {
+            return
+        }
+
+        let profileRef = db.collection("users").document(cleanedUserID)
         let existing = try await profileRef.getDocument()
         let current = (existing.data()? ["flaggedPostIDs"] as? [String]) ?? []
-        let next = flagged ? Array(Set(current + [postID])) : current.filter { $0 != postID }
+        let next = flagged ? Array(Set(current + [cleanedPostID])) : current.filter { $0 != cleanedPostID }
         try await profileRef.setData([
             "flaggedPostIDs": next,
             "updatedAt": Date().timeIntervalSince1970
@@ -2091,14 +2872,28 @@ public final class FirebaseSpotService {
         ], merge: true)
     }
 
+    public func saveUserBoostBalance(userID: String, remainingBoosts: Int) async throws {
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty else { return }
+
+        try await db.collection("users").document(cleanedUserID).setData([
+            "remainingBoosts": max(0, remainingBoosts),
+            "updatedAt": Date().timeIntervalSince1970
+        ], merge: true)
+    }
+
     public func fetchUserAccount(userID: String) async throws -> FirebaseUserAccountRecord {
         let snapshot = try await db.collection("users").document(userID).getDocument()
         let data = snapshot.data() ?? [:]
 
+        let rawUsername = data["username"] as? String ?? ""
+        let cleanedUsername = (rawUsername == "user" || rawUsername == "@user") ? "" : rawUsername
+
         return FirebaseUserAccountRecord(
             uid: data["uid"] as? String ?? userID,
-            username: data["username"] as? String ?? "@user",
-            displayName: data["displayName"] as? String ?? "User",
+            username: cleanedUsername,
+            displayName: data["displayName"] as? String ?? "",
+            phoneNumber: Self.normalizedOptionalString(data["phoneNumber"] as? String),
             bio: data["bio"] as? String,
             profilePhotoURL: Self.normalizedOptionalString(data["profilePhotoURL"] as? String),
             createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
@@ -2108,19 +2903,21 @@ public final class FirebaseSpotService {
             postedPostIDs: data["postedPostIDs"] as? [String] ?? [],
             areaHistory: data["areaHistory"] as? [String] ?? [],
             followerCount: data["followerCount"] as? Int ?? 0,
-            followingCount: data["followingCount"] as? Int ?? 0
+            followingCount: data["followingCount"] as? Int ?? 0,
+            remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0)
         )
     }
 
-    public static func chatID(for userIDs: [String]) -> String {
-        userIDs.sorted().joined(separator: "_")
+    public static func chatID(for userIDs: [String], isAnonymous: Bool = false) -> String {
+        let base = userIDs.sorted().joined(separator: "_")
+        return isAnonymous ? "anon_\(base)" : base
     }
 
-    public func createOrGetChat(participantIDs: [String]) async throws -> String {
+    public func createOrGetChat(participantIDs: [String], isAnonymous: Bool = false) async throws -> String {
         let cleanedIDs = Array(Set(participantIDs.filter { !$0.isEmpty }))
         guard cleanedIDs.count >= 2 else { throw FirebaseSpotError.invalidPayload }
 
-        let chatID = Self.chatID(for: cleanedIDs)
+        let chatID = Self.chatID(for: cleanedIDs, isAnonymous: isAnonymous)
         let chatRef = db.collection("chats").document(chatID)
         let existing = try await chatRef.getDocument()
 
@@ -2128,6 +2925,7 @@ public final class FirebaseSpotService {
             try await chatRef.setData([
                 "id": chatID,
                 "participantIDs": cleanedIDs,
+                "isAnonymous": isAnonymous,
                 "createdAt": Date().timeIntervalSince1970,
                 "updatedAt": Date().timeIntervalSince1970,
                 "lastMessage": ""
@@ -2178,5 +2976,49 @@ public final class FirebaseSpotService {
                 createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970
             )
         }
+    }
+
+    public func listenToUserChats(userID: String, completion: @escaping ([String: Any]) -> Void) -> ListenerRegistration? {
+        guard !userID.isEmpty else { return nil }
+        return db.collection("chats")
+            .whereField("participantIDs", arrayContains: userID)
+            .addSnapshotListener { snapshot, error in
+                guard let documents = snapshot?.documents, error == nil else { return }
+                for doc in documents {
+                    completion(doc.data())
+                }
+            }
+    }
+
+    public func fetchUserChats(userID: String) async throws -> [[String: Any]] {
+        guard !userID.isEmpty else { return [] }
+        let snapshot = try await db.collection("chats")
+            .whereField("participantIDs", arrayContains: userID)
+            .getDocuments()
+        return snapshot.documents.map { $0.data() }
+    }
+
+    public func listenToChatMessages(chatID: String, completion: @escaping ([FirebaseChatMessage]) -> Void) -> ListenerRegistration? {
+        guard !chatID.isEmpty else { return nil }
+        return db.collection("chats").document(chatID).collection("messages")
+            .order(by: "createdAt", descending: false)
+            .addSnapshotListener { snapshot, error in
+                guard let documents = snapshot?.documents, error == nil else { return }
+                let messages = documents.compactMap { document -> FirebaseChatMessage? in
+                    let data = document.data()
+                    guard let id = data["id"] as? String,
+                          let senderID = data["senderID"] as? String else {
+                        return nil
+                    }
+                    return FirebaseChatMessage(
+                        id: id,
+                        senderID: senderID,
+                        text: data["text"] as? String ?? "",
+                        sharedPostID: Self.normalizedOptionalString(data["sharedPostID"] as? String),
+                        createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970
+                    )
+                }
+                completion(messages)
+            }
     }
 }

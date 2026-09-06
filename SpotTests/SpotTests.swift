@@ -18,6 +18,123 @@ struct SpotTests {
         #expect(FirebaseSpotService.normalizedOptionalString("https://cdn.example.com/avatar.jpg") == "https://cdn.example.com/avatar.jpg")
     }
 
+    @Test func savedAccountIdentityUsesUsernameAsPrimaryKey() async throws {
+        #expect(ContentView.savedAccountIdentityKey(username: "alice", email: "alice@example.com") == "alice")
+        #expect(ContentView.savedAccountIdentityKey(username: "", email: "alice@example.com") == "alice@example.com")
+        #expect(ContentView.savedAccountIdentityKey(username: "", email: "") == "anonymous")
+    }
+
+    @Test func usernameOnlyIdentityDisablesLegacyEmailPasswordRestore() async throws {
+        #expect(ContentView.shouldRestoreSavedAccount(accountSignedIn: true, savedEmail: "alice@example.com", savedPassword: "password123") == false)
+        #expect(ContentView.shouldRestoreSavedAccount(accountSignedIn: false, savedEmail: "", savedPassword: "") == false)
+    }
+
+    @Test func savedAccountPhotoURLIsRetainedWhenRemoteDataIsBlank() async throws {
+        #expect(
+            ContentView.preferredProfilePhotoURL(
+                candidateRemoteURL: "",
+                savedAccountPhotoURL: "https://cdn.example.com/avatar.jpg",
+                fallbackLocalValue: nil
+            ) == "https://cdn.example.com/avatar.jpg"
+        )
+        #expect(
+            ContentView.preferredProfilePhotoURL(
+                candidateRemoteURL: "https://cloud.example.com/new-avatar.jpg",
+                savedAccountPhotoURL: "https://cdn.example.com/avatar.jpg",
+                fallbackLocalValue: nil
+            ) == "https://cloud.example.com/new-avatar.jpg"
+        )
+    }
+
+    @Test func canonicalProfilePhotoURLPrefersSharedRemoteValueForOtherUsers() async throws {
+        #expect(
+            ContentView.canonicalProfilePhotoURL(
+                fetchedRemoteURL: "https://cloud.example.com/shared-avatar.jpg",
+                fallbackProfilePhotoURL: "https://stale.example.com/old.jpg",
+                localProfilePhotoURL: "https://local.example.com/local.jpg"
+            ) == "https://cloud.example.com/shared-avatar.jpg"
+        )
+        #expect(
+            ContentView.canonicalProfilePhotoURL(
+                fetchedRemoteURL: "",
+                fallbackProfilePhotoURL: "https://stale.example.com/old.jpg",
+                localProfilePhotoURL: "https://local.example.com/local.jpg"
+            ) == "https://stale.example.com/old.jpg"
+        )
+    }
+
+    @Test func localProfilePhotoSyncsToCloudWhenRemoteProfileIsBlank() async throws {
+        #expect(
+            ContentView.shouldSyncLocalProfilePhotoToCloud(
+                fetchedRemoteURL: "",
+                cachedLocalPhotoExists: true,
+                hasPendingSync: false,
+                hasRemovalPending: false,
+                isUploadInFlight: false
+            ) == true
+        )
+        #expect(
+            ContentView.shouldSyncLocalProfilePhotoToCloud(
+                fetchedRemoteURL: "https://cloud.example.com/avatar.jpg",
+                cachedLocalPhotoExists: true,
+                hasPendingSync: false,
+                hasRemovalPending: false,
+                isUploadInFlight: false
+            ) == false
+        )
+        #expect(
+            ContentView.shouldSyncLocalProfilePhotoToCloud(
+                fetchedRemoteURL: "",
+                cachedLocalPhotoExists: false,
+                hasPendingSync: false,
+                hasRemovalPending: false,
+                isUploadInFlight: false
+            ) == false
+        )
+    }
+
+    @Test func savedUsernameWinsOverDefaultUserFallbackOnRestart() async throws {
+        #expect(
+            ContentView.preferredAccountUsername(storedUsername: "francis", firebaseUsername: "@user") == "francis"
+        )
+        #expect(
+            ContentView.preferredAccountUsername(storedUsername: "", firebaseUsername: "@francis") == "francis"
+        )
+        #expect(
+            ContentView.preferredAccountUsername(storedUsername: "francis", firebaseUsername: "@frank") == "francis"
+        )
+    }
+
+    @Test func boostAutoApplyRequiresOwnedBoosts() async throws {
+        #expect(ContentView.effectiveBoostAutoApplyState(remainingBoosts: 0, isEnabled: true) == false)
+        #expect(ContentView.effectiveBoostAutoApplyState(remainingBoosts: 0, isEnabled: false) == false)
+        #expect(ContentView.effectiveBoostAutoApplyState(remainingBoosts: 1, isEnabled: true) == true)
+        #expect(ContentView.effectiveBoostAutoApplyState(remainingBoosts: 1, isEnabled: false) == false)
+    }
+
+    @Test func lastUsedLocationSelectionPrefersPersistedContextValue() async throws {
+        #expect(
+            ContentView.effectiveSelectedLocationValue(
+                currentValue: "Metric",
+                persistedValue: "Paris, France",
+                context: .feed
+            ) == "Paris, France"
+        )
+        #expect(
+            ContentView.effectiveSelectedLocationValue(
+                currentValue: "Tokyo, Japan",
+                persistedValue: "",
+                context: .video
+            ) == "Tokyo, Japan"
+        )
+    }
+
+    @Test func metricSelectionDoesNotAutoFallbackToNearestCity() async throws {
+        #expect(ContentView.shouldAutoApplyNearbyFallback(currentValue: "") == true)
+        #expect(ContentView.shouldAutoApplyNearbyFallback(currentValue: "Metric") == false)
+        #expect(ContentView.shouldAutoApplyNearbyFallback(currentValue: "Tokyo, Japan") == false)
+    }
+
     @Test func nearbyPlaceMatchesRankAboveGenericFallbackSuggestions() async throws {
         let nearby = [
             NearbyPlace(id: "1", name: "Temple Square", category: "landmark", latitude: 40.7707, longitude: -111.8910),
@@ -53,6 +170,55 @@ struct SpotTests {
         #expect(suggestions.prefix(2).contains("City Creek Center"))
     }
 
+    @Test func mapAreaViewportDoesNotIncludeSourcePostOutsideTheVisibleArea() async throws {
+        let markers = [
+            MapPostMarker(id: "near", postID: 10, type: "Photo", locationName: "Downtown", coordinate: CLLocationCoordinate2D(latitude: 40.7620, longitude: -111.8920), createdAt: Date(), hasPreciseCoordinate: true),
+            MapPostMarker(id: "far", postID: 20, type: "Photo", locationName: "U of U", coordinate: CLLocationCoordinate2D(latitude: 40.7670, longitude: -111.8600), createdAt: Date(), hasPreciseCoordinate: true)
+        ]
+
+        let visible = ContentView.mapAreaVisiblePostIDs(
+            markers: markers,
+            center: CLLocationCoordinate2D(latitude: 40.7620, longitude: -111.8920),
+            zoom: 13.8,
+            sourcePostID: 20
+        )
+
+        #expect(visible.contains(10))
+        #expect(!visible.contains(20))
+    }
+
+    @Test func mapAreaFallbackCenterUsesCurrentUserLocationWhenViewportIsUnset() async throws {
+        let userCoordinate = CLLocationCoordinate2D(latitude: 40.7608, longitude: -111.8910)
+        let markers = [
+            MapPostMarker(id: "near", postID: 10, type: "Photo", locationName: "Downtown", coordinate: userCoordinate, createdAt: Date(), hasPreciseCoordinate: true),
+            MapPostMarker(id: "far", postID: 20, type: "Photo", locationName: "U of U", coordinate: CLLocationCoordinate2D(latitude: 40.7700, longitude: -111.8600), createdAt: Date(), hasPreciseCoordinate: true)
+        ]
+
+        let center = ContentView.resolvedMapAreaCenterCoordinate(
+            nil,
+            userCoordinate: userCoordinate,
+            markers: markers
+        )
+
+        #expect(center.latitude == userCoordinate.latitude)
+        #expect(center.longitude == userCoordinate.longitude)
+
+        let visible = ContentView.mapAreaVisiblePostIDs(
+            markers: markers,
+            center: center,
+            zoom: 13.8,
+            sourcePostID: nil
+        )
+
+        #expect(visible.contains(10))
+    }
+
+    @Test func mapViewportAutoFocusOnlyAppliesWhenViewportIsUnset() async throws {
+        #expect(ContentView.shouldAutoFocusMapOnOpen(shouldAutoFocus: true, hasViewportCenter: false, hasFocusedPost: false) == true)
+        #expect(ContentView.shouldAutoFocusMapOnOpen(shouldAutoFocus: true, hasViewportCenter: true, hasFocusedPost: false) == false)
+        #expect(ContentView.shouldAutoFocusMapOnOpen(shouldAutoFocus: true, hasViewportCenter: false, hasFocusedPost: true) == false)
+    }
+
     @Test func proximityWeightedResultsRankCloserMatchesHigher() async throws {
         let nearby = [
             NearbyPlace(id: "near", name: "Museum of Art", category: "museum", latitude: 40.7608, longitude: -111.8910),
@@ -68,6 +234,12 @@ struct SpotTests {
 
         #expect(!suggestions.isEmpty)
         #expect(suggestions.first == "Museum of Art")
+    }
+
+    @Test func listingGallerySelectionClampsToValidIndexWhenListShrinks() async throws {
+        #expect(PostCardView.clampedGallerySelectionIndex(99, count: 2) == 1)
+        #expect(PostCardView.clampedGallerySelectionIndex(-3, count: 3) == 0)
+        #expect(PostCardView.clampedGallerySelectionIndex(0, count: 0) == 0)
     }
 
     @Test func pollVoteSwitchingRebalancesVoteCounts() async throws {
@@ -100,11 +272,131 @@ struct SpotTests {
         #expect(ContentView.persistedPostURL(contentType: "Audio", sourceURL: nil, mediaURLs: [remoteSource]) == remoteSource)
     }
 
+    @Test func profileNameChangesUpdateMatchingLegacyPosts() async throws {
+        let oldPosts = [
+            MockPost(
+                id: 1,
+                author: "Old Name",
+                handle: "oldhandle",
+                authorUserID: "user-123",
+                type: "Photo",
+                location: "Salt Lake City",
+                title: "Old post",
+                body: "",
+                url: "",
+                accent: "#DCE7FF",
+                tag: "Photo",
+                likes: 0,
+                viewCount: 0,
+                isLiked: false,
+                comments: [],
+                sentTo: [],
+                isSaved: false,
+                isAnonymous: false
+            ),
+            MockPost(
+                id: 2,
+                author: "Someone Else",
+                handle: "otheruser",
+                authorUserID: "user-456",
+                type: "Photo",
+                location: "Salt Lake City",
+                title: "Other user",
+                body: "",
+                url: "",
+                accent: "#DCE7FF",
+                tag: "Photo",
+                likes: 0,
+                viewCount: 0,
+                isLiked: false,
+                comments: [],
+                sentTo: [],
+                isSaved: false,
+                isAnonymous: false
+            ),
+            MockPost(
+                id: 3,
+                author: "Old Name",
+                handle: "oldhandle",
+                authorUserID: "",
+                type: "Photo",
+                location: "Salt Lake City",
+                title: "Legacy same-handle post",
+                body: "",
+                url: "",
+                accent: "#DCE7FF",
+                tag: "Photo",
+                likes: 0,
+                viewCount: 0,
+                isLiked: false,
+                comments: [],
+                sentTo: [],
+                isSaved: false,
+                isAnonymous: false
+            )
+        ]
+
+        let updated = ContentView.updatedPostsForAuthorIdentity(
+            posts: oldPosts,
+            authorID: "user-123",
+            username: "oldhandle",
+            previousUsernames: ["oldhandle"],
+            displayName: "New Name"
+        )
+
+        #expect(updated[0].author == "New Name")
+        #expect(updated[0].handle == "oldhandle")
+        #expect(updated[1].author == "Someone Else")
+        #expect(updated[2].author == "New Name")
+    }
+
+    @Test func profileNameChangesDoNotMutateOtherUsersWithDifferentAuthorID() async throws {
+        let posts = [
+            MockPost(
+                id: 10,
+                author: "Other Person",
+                handle: "oldhandle",
+                authorUserID: "user-777",
+                type: "Photo",
+                location: "Salt Lake City",
+                title: "Other owner",
+                body: "",
+                url: "",
+                accent: "#DCE7FF",
+                tag: "Photo",
+                likes: 0,
+                viewCount: 0,
+                isLiked: false,
+                comments: [],
+                sentTo: [],
+                isSaved: false,
+                isAnonymous: false
+            )
+        ]
+
+        let updated = ContentView.updatedPostsForAuthorIdentity(
+            posts: posts,
+            authorID: "user-123",
+            username: "newhandle",
+            previousUsernames: ["oldhandle"],
+            displayName: "New Name"
+        )
+
+        #expect(updated[0].author == "Other Person")
+        #expect(updated[0].handle == "oldhandle")
+    }
+
     @Test func mediaCaptionsCapAtFiftyCharacters() async throws {
         let input = "1234567890ABCDEFGHIJ1234567890ABCDEFGHIJ1234567890ABCDEFGHIJ"
         let capped = ContentView.cappedCaptionText(input, maxLength: 50)
         #expect(capped.count == 50)
         #expect(capped == String(input.prefix(50)))
+    }
+
+    @Test func listingPhotoSelectionsCapAtTen() async throws {
+        let images = Array(repeating: UIImage(), count: 12)
+        let capped = ContentView.cappedListingPhotoSelection(images)
+        #expect(capped.count == 10)
     }
 
     @Test func postSearchRankingRewardsExactTextMatches() async throws {
@@ -744,7 +1036,8 @@ struct SpotTests {
             displayName: "Francis",
             bio: nil,
             photoURL: nil,
-            existingData: [:]
+            existingData: [:],
+            previousUsername: nil
         )
 
         #expect(payload["uid"] as? String == "uid_123")

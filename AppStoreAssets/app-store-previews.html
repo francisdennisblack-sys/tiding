@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App Store Screenshots - Spot</title>
+    <style>
+      :root {
+        --phone-w: 430px;
+        --phone-h: 932px;
+        --gap: 120px;
+        --screen-bg: #000000;
+        --frame-color: #1c1c1e;
+        --bezel-color: #000000;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #0f0f12;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+        min-height: 100vh;
+        overflow-x: auto;
+      }
+
+      /* Top Bar */
+      .top-bar {
+        position: sticky;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: rgba(20, 20, 25, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 16px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .top-bar h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+
+      .top-bar p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .btn {
+        background: #2c2c2e;
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn:hover {
+        background: #3a3a3c;
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      /* Horizontal Stage for 4 Frames */
+      .stage {
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 80px var(--gap);
+        gap: var(--gap);
+        width: max-content;
+        min-width: 100%;
+      }
+
+      .frame-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .frame-label {
+        font-size: 18px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        letter-spacing: -0.2px;
+      }
+
+      /* iPhone 15 Pro Frame (430px x 932px native aspect ratio) */
+      .iphone-frame {
+        position: relative;
+        width: var(--phone-w);
+        height: var(--phone-h);
+        background: var(--bezel-color);
+        border-radius: 54px;
+        padding: 12px;
+        box-shadow: 
+          0 0 0 2px #3a3a3c,
+          0 20px 50px rgba(0, 0, 0, 0.7),
+          0 0 100px rgba(0, 0, 0, 0.5);
+        flex-shrink: 0;
+      }
+
+      /* Dynamic Island */
+      .dynamic-island {
+        position: absolute;
+        top: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 35px;
+        background: #000000;
+        border-radius: 20px;
+        z-index: 100;
+        pointer-events: none;
+      }
+
+      /* Screen Content Area */
+      .screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: var(--screen-bg);
+        border-radius: 44px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Content editable canvas inside each screen */
+      .screen-content {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        background: #ffffff;
+        color: #000000;
+      }
+
+      /* Dynamic placeholders */
+      .screen-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        text-align: center;
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+      }
+
+      .screen-placeholder h2 {
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0 0 12px 0;
+        color: #111;
+      }
+
+      .screen-placeholder p {
+        font-size: 16px;
+        color: #666;
+        margin: 0;
+        line-height: 1.4;
+      }
+
+      /* Custom background themes per frame */
+      .frame-1 .screen-content {
+        background: #ffffff;
+      }
+
+      .frame-2 .screen-content {
+        background: #f8f9fa;
+      }
+
+      .frame-3 .screen-content {
+        background: #ffffff;
+      }
+
+      .frame-4 .screen-content {
+        background: #000000;
+        color: #ffffff;
+      }
+
+      .frame-4 .screen-placeholder {
+        background: linear-gradient(180deg, #1c1c1e 0%, #000000 100%);
+      }
+
+      .frame-4 .screen-placeholder h2 {
+        color: #fff;
+      }
+
+      .frame-4 .screen-placeholder p {
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top-bar">
+      <div>
+        <h1>App Store Preview Frames</h1>
+        <p>4 evenly spaced iPhone 15 Pro frames. Use these clean canvas frames to screenshot individual App Store preview cards.</p>
+      </div>
+      <div class="control-group">
+        <button class="btn" onclick="adjustSpacing(60)">Compact Spacing</button>
+        <button class="btn" onclick="adjustSpacing(120)">Default Spacing (120px)</button>
+        <button class="btn" onclick="adjustSpacing(200)">Wide Spacing (200px)</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <!-- Frame 1 -->
+      <div class="frame-container">
+        <div class="frame-label">Frame 1</div>
+        <div class="iphone-frame frame-1">
+          <div class="dynamic-island"></div>
+          <div class="screen">
+            <div class="screen-content" contenteditable="true">
+              <div class="screen-placeholder">
+                <h2>Screenshot 1</h2>
+                <p>Paste or design Frame 1 content here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 2 -->
+      <div class="frame-container">
+        <div class="frame-label">Frame 2</div>
+        <div class="iphone-frame frame-2">
+          <div class="dynamic-island"></div>
+          <div class="screen">
+            <div class="screen-content" contenteditable="true">
+              <div class="screen-placeholder">
+                <h2>Screenshot 2</h2>
+                <p>Paste or design Frame 2 content here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 3 -->
+      <div class="frame-container">
+        <div class="frame-label">Frame 3</div>
+        <div class="iphone-frame frame-3">
+          <div class="dynamic-island"></div>
+          <div class="screen">
+            <div class="screen-content" contenteditable="true">
+              <div class="screen-placeholder">
+                <h2>Screenshot 3</h2>
+                <p>Paste or design Frame 3 content here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frame 4 -->
+      <div class="frame-container">
+        <div class="frame-label">Frame 4</div>
+        <div class="iphone-frame frame-4">
+          <div class="dynamic-island"></div>
+          <div class="screen">
+            <div class="screen-content" contenteditable="true">
+              <div class="screen-placeholder">
+                <h2>Screenshot 4</h2>
+                <p>Paste or design Frame 4 content here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function adjustSpacing(px) {
+        document.documentElement.style.setProperty('--gap', px + 'px');
+      }
+    </script>
+  </body>
+</html>
