@@ -42,20 +42,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		1B73746E3047F2F0006A39D5 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				1B7374693047F2F0006A39D5 /* Notifcations.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		1B05BF033034D70C00336974 /* Spot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B05BF113034D70D00336974 /* SpotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,12 +168,10 @@
 				1B05BEFF3034D70C00336974 /* Sources */,
 				1B05BF003034D70C00336974 /* Frameworks */,
 				1B05BF013034D70C00336974 /* Resources */,
-				1B73746E3047F2F0006A39D5 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				1B7374683047F2F0006A39D5 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				1B05BF053034D70C00336974 /* Spot */,
