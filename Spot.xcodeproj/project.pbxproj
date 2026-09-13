@@ -716,7 +716,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = M4NBK32VQ4;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Notifcations/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Notifcations;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
@@ -743,7 +742,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = M4NBK32VQ4;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Notifcations/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Notifcations;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
