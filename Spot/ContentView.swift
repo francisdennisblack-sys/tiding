@@ -10,8 +10,8 @@ import LinkPresentation
 import UIKit
 import LocalAuthentication
 import UserNotifications
-import MLKitTextRecognition
-import MLKitVision
+import Vision
+import ImageIO
 
 private enum PostTypeStylePalette {
     static func color(for postType: String) -> Color {
@@ -10124,40 +10124,65 @@ struct ContentView: View {
         isIDScanningPhoto = true
         idScanStatusMessage = "Processing ID document..."
 
-        let visionImage = VisionImage(image: image)
-        visionImage.orientation = image.imageOrientation
-
-        let latinOptions = TextRecognizerOptions()
-        let textRecognizer = TextRecognizer.textRecognizer(options: latinOptions)
-
-        textRecognizer.process(visionImage) { result, error in
-            isIDScanningPhoto = false
-            if let error = error {
-                idScanStatusMessage = "Text scan failed: \(error.localizedDescription)"
-                return
+        let cgOrientation: CGImagePropertyOrientation = {
+            switch image.imageOrientation {
+            case .up: return .up
+            case .down: return .down
+            case .left: return .left
+            case .right: return .right
+            case .upMirrored: return .upMirrored
+            case .downMirrored: return .downMirrored
+            case .leftMirrored: return .leftMirrored
+            case .rightMirrored: return .rightMirrored
+            @unknown default: return .up
             }
-            guard let result = result, !result.text.isEmpty else {
-                idScanStatusMessage = "No clear text recognized. Please align document clearly and retry."
-                return
+        }()
+
+        let requestHandler = VNImageRequestHandler(cgImage: cgImage, orientation: cgOrientation, options: [:])
+        let request = VNRecognizeTextRequest { request, error in
+            DispatchQueue.main.async {
+                self.isIDScanningPhoto = false
+                if let error = error {
+                    self.idScanStatusMessage = "Text scan failed: \(error.localizedDescription)"
+                    return
+                }
+                guard let observations = request.results as? [VNRecognizedTextObservation], !observations.isEmpty else {
+                    self.idScanStatusMessage = "No clear text recognized. Please align document clearly and retry."
+                    return
+                }
+
+                let recognizedStrings = observations.compactMap { $0.topCandidates(1).first?.string }
+                let fullText = recognizedStrings.joined(separator: " ")
+                let words = fullText.components(separatedBy: CharacterSet.alphanumerics.inverted)
+                    .filter { $0.count >= 3 && $0.count <= 15 }
+
+                if let foundWord = words.first(where: { word in
+                    let upper = word.uppercased()
+                    return !["LICENSE", "DRIVER", "STATE", "USA", "CARD", "NAME", "DATE", "BIRTH", "EXPIRES", "CLASS", "SEX", "HAIR", "EYES", "HEIGHT", "WEIGHT", "ADDRESS"].contains(upper)
+                }) {
+                    let verifiedHandle = foundWord.lowercased()
+                    self.scannedVerifiedUsername = verifiedHandle
+                    self.idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
+                } else if let fallback = words.first {
+                    let verifiedHandle = fallback.lowercased()
+                    self.scannedVerifiedUsername = verifiedHandle
+                    self.idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
+                } else {
+                    self.idScanStatusMessage = "No valid name text identified. Try retaking with clearer lighting."
+                }
             }
+        }
 
-            let fullText = result.text
-            let words = fullText.components(separatedBy: CharacterSet.alphanumerics.inverted)
-                .filter { $0.count >= 3 && $0.count <= 15 }
+        request.recognitionLevel = .accurate
 
-            if let foundWord = words.first(where: { word in
-                let upper = word.uppercased()
-                return !["LICENSE", "DRIVER", "STATE", "USA", "CARD", "NAME", "DATE", "BIRTH", "EXPIRES", "CLASS", "SEX", "HAIR", "EYES", "HEIGHT", "WEIGHT", "ADDRESS"].contains(upper)
-            }) {
-                let verifiedHandle = foundWord.lowercased()
-                scannedVerifiedUsername = verifiedHandle
-                idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
-            } else if let fallback = words.first {
-                let verifiedHandle = fallback.lowercased()
-                scannedVerifiedUsername = verifiedHandle
-                idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
-            } else {
-                idScanStatusMessage = "No valid name text identified. Try retaking with clearer lighting."
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try requestHandler.perform([request])
+            } catch {
+                DispatchQueue.main.async {
+                    self.isIDScanningPhoto = false
+                    self.idScanStatusMessage = "Scan error: \(error.localizedDescription)"
+                }
             }
         }
     }
