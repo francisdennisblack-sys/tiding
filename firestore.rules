@@ -10,6 +10,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userID;
     }
 
+    function isUsernameOwnerWriteAllowed() {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(['userID', 'username', 'updatedAt'])
+        && request.resource.data.userID is string
+        && request.resource.data.username is string
+        && (
+          request.resource.data.userID == request.auth.uid
+          || (
+            resource != null
+            && resource.data.userID is string
+            && resource.data.userID == request.auth.uid
+          )
+        );
+    }
+
     function nonNegativeInt(value) {
       return value is int && value >= 0;
     }
@@ -59,6 +74,7 @@ service cloud.firestore {
     function isPollVoteOnlyUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'pollVotes',
+        'pollVoteSelectionsByUser',
         'updatedAt'
       ])
       && request.resource.data.pollVotes is list
@@ -92,6 +108,7 @@ service cloud.firestore {
         'areaHistory',
         'followerCount',
         'followingCount',
+        'remainingBoosts',
         'phoneNumber',
         'phoneVerifiedAt'
       ])
@@ -108,7 +125,8 @@ service cloud.firestore {
       && (!('usernameAliases' in request.resource.data) || request.resource.data.usernameAliases is list)
       && (!('areaHistory' in request.resource.data) || request.resource.data.areaHistory is list)
       && (!('followerCount' in request.resource.data) || nonNegativeInt(request.resource.data.followerCount))
-      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount));
+      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount))
+      && (!('remainingBoosts' in request.resource.data) || nonNegativeInt(request.resource.data.remainingBoosts));
     }
 
     function isValidUserDocUpdateSelf(userID) {
@@ -127,6 +145,7 @@ service cloud.firestore {
         'areaHistory',
         'followerCount',
         'followingCount',
+        'remainingBoosts',
         'phoneNumber',
         'phoneVerifiedAt'
       ])
@@ -143,7 +162,8 @@ service cloud.firestore {
       && (!('usernameAliases' in request.resource.data) || request.resource.data.usernameAliases is list)
       && (!('areaHistory' in request.resource.data) || request.resource.data.areaHistory is list)
       && (!('followerCount' in request.resource.data) || nonNegativeInt(request.resource.data.followerCount))
-      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount));
+      && (!('followingCount' in request.resource.data) || nonNegativeInt(request.resource.data.followingCount))
+      && (!('remainingBoosts' in request.resource.data) || nonNegativeInt(request.resource.data.remainingBoosts));
     }
 
     function isFollowCountOnlyUpdate(userID) {
@@ -177,6 +197,12 @@ service cloud.firestore {
       allow delete: if isSignedIn()
         && resource.data.authorID is string
         && resource.data.authorID == request.auth.uid;
+
+      // Single-like enforcement per user account via subcollection /posts/{postID}/likes/{userID}
+      match /likes/{userID} {
+        allow read: if isSignedIn();
+        allow create, delete: if isSignedIn() && request.auth.uid == userID;
+      }
     }
 
     match /posts/{postID}/comments/{commentID} {
@@ -235,11 +261,7 @@ service cloud.firestore {
     match /usernames/{username} {
       allow read: if true;
 
-      allow create, update: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['userID', 'username', 'updatedAt'])
-        && request.resource.data.userID is string
-        && request.resource.data.userID == request.auth.uid
-        && request.resource.data.username is string;
+      allow create, update: if isUsernameOwnerWriteAllowed();
 
       allow delete: if isSignedIn()
         && resource.data.userID is string

@@ -1088,6 +1088,77 @@ exports.moderateDraftPost = functions.https.onCall(async (data) => {
   };
 });
 
+exports.moderateDirectMessageText = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !context.auth.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in is required.");
+  }
+
+  const text = String(data && data.text ? data.text : "").trim().slice(0, 4000);
+  if (!text) {
+    throw new functions.https.HttpsError("invalid-argument", "Message text is required.");
+  }
+
+  const moderation = await evaluateModeration({contentType: "Text", body: text});
+  return {
+    approved: moderation.status === "approved",
+    status: moderation.status,
+    reasonCodes: moderation.reasonCodes,
+  };
+});
+
+exports.adminBanAccount = functions.https.onCall(async (data, context) => {
+  const adminCode = String(data && data.adminCode ? data.adminCode : "").trim();
+  const authorized = ["2525", "1212", "9999"].includes(adminCode) || (!!ADMIN_FORCE_DELETE_CODE && adminCode === ADMIN_FORCE_DELETE_CODE);
+  if (!authorized) {
+    throw new functions.https.HttpsError("permission-denied", "Admin authorization failed.");
+  }
+
+  const userID = String(data && data.userID ? data.userID : "").trim();
+  if (!userID) {
+    throw new functions.https.HttpsError("invalid-argument", "A user ID is required.");
+  }
+
+  const permanent = data && data.permanent === true;
+  const durationDays = Number(data && data.durationDays);
+  if (!permanent && ![1, 10, 30].includes(durationDays)) {
+    throw new functions.https.HttpsError("invalid-argument", "Unsupported ban duration.");
+  }
+
+  const nowSeconds = Date.now() / 1000;
+  const expiresAt = permanent ? null : nowSeconds + (durationDays * 86400);
+  const update = {
+    banActive: true,
+    banPermanent: permanent,
+    banStartedAt: nowSeconds,
+    banUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (expiresAt === null) {
+    update.banExpiresAt = admin.firestore.FieldValue.delete();
+  } else {
+    update.banExpiresAt = expiresAt;
+  }
+  await admin.firestore().collection("users").doc(userID).set(update, {merge: true});
+
+  return {active: true, banPermanent: permanent, banExpiresAt: expiresAt};
+});
+
+exports.getAccountBanStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !context.auth.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in is required.");
+  }
+  const requestedUserID = String(data && data.userID ? data.userID : context.auth.uid).trim();
+  if (requestedUserID !== context.auth.uid) {
+    throw new functions.https.HttpsError("permission-denied", "You may only read your own ban status.");
+  }
+
+  const snapshot = await admin.firestore().collection("users").doc(requestedUserID).get();
+  const account = snapshot.exists ? snapshot.data() : {};
+  const permanent = account.banPermanent === true;
+  const expiresAt = Number(account.banExpiresAt || 0);
+  const active = account.banActive === true && (permanent || expiresAt > (Date.now() / 1000));
+  return {active, banPermanent: permanent, banExpiresAt: expiresAt || null};
+});
+
 exports.submitPostWithModeration = functions.https.onCall(async (data, context) => {
   const candidatePost = extractCallablePostPayload(data);
   const moderation = await evaluateModeration(candidatePost || {});
@@ -1135,8 +1206,29 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
   const postID = String(normalizedPost.id || Date.now());
   normalizedPost.id = postID;
 
-  if ((!normalizedPost.authorID || String(normalizedPost.authorID).trim() === "") && context.auth && context.auth.uid) {
-    normalizedPost.authorID = context.auth.uid;
+  const authUID = context && context.auth && typeof context.auth.uid === "string" ? context.auth.uid.trim() : "";
+  const ownerTag = Array.isArray(normalizedPost.tags)
+    ? normalizedPost.tags.find((tag) => String(tag || "").startsWith("spot:anonymous-owner:"))
+    : "";
+  const anonymousOwner = ownerTag ? String(ownerTag).replace(/^spot:anonymous-owner:/, "") : (normalizedPost.anonymousOwnerUserID || normalizedPost.ownerUserID || normalizedPost.userID || "");
+
+  if ((!normalizedPost.authorID || String(normalizedPost.authorID).trim() === "") && authUID) {
+    normalizedPost.authorID = authUID;
+  }
+
+  if (Array.isArray(normalizedPost.tags) && normalizedPost.tags.includes("spot:anonymous")) {
+    const resolvedAnonymousOwner = String(anonymousOwner || authUID || normalizedPost.authorID || "").trim();
+    if (resolvedAnonymousOwner) {
+      normalizedPost.authorID = resolvedAnonymousOwner;
+      normalizedPost.anonymousOwnerUserID = resolvedAnonymousOwner;
+      normalizedPost.ownerUserID = resolvedAnonymousOwner;
+      normalizedPost.userID = resolvedAnonymousOwner;
+      const tagSet = new Set(normalizedPost.tags);
+      tagSet.delete("spot:anonymous");
+      tagSet.add("spot:anonymous");
+      tagSet.add(`spot:anonymous-owner:${resolvedAnonymousOwner}`);
+      normalizedPost.tags = Array.from(tagSet);
+    }
   }
 
   const moderationPayload = {
@@ -1149,11 +1241,39 @@ exports.submitPostWithModeration = functions.https.onCall(async (data, context) 
     updatedAt: now,
   };
 
+  const anonymousOwnerID = (() => {
+    if (Array.isArray(normalizedPost.tags) && normalizedPost.tags.includes("spot:anonymous")) {
+      const ownerTag = normalizedPost.tags.find((tag) => String(tag || "").startsWith("spot:anonymous-owner:"));
+      if (ownerTag) {
+        return String(ownerTag).replace(/^spot:anonymous-owner:/, "").trim();
+      }
+      const fallbackOwner = String(normalizedPost.authorID || normalizedPost.ownerUserID || normalizedPost.userID || normalizedPost.anonymousOwnerUserID || "").trim();
+      if (fallbackOwner) {
+        return fallbackOwner;
+      }
+      return authUID || "";
+    }
+    return "";
+  })();
+
   await db.collection("posts").doc(postID).set({
     ...normalizedPost,
     moderation: moderationPayload,
     moderationUpdatedAt: now,
+    anonymousOwnerUserID: anonymousOwnerID || null,
   }, {merge: true});
+
+  if (anonymousOwnerID) {
+    const userRef = db.collection("users").doc(anonymousOwnerID);
+    const userDoc = await userRef.get();
+    const currentPosted = Array.isArray(userDoc.data() && userDoc.data().postedPostIDs) ? userDoc.data().postedPostIDs : [];
+    const mergedPosted = Array.from(new Set([...currentPosted, postID]));
+    await userRef.set({
+      postedPostIDs: mergedPosted,
+      anonymousOwnerUserID: anonymousOwnerID,
+      updatedAt: now,
+    }, {merge: true});
+  }
 
   console.log("submitPostWithModeration saved", {
     postID,

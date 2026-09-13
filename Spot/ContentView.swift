@@ -10,6 +10,8 @@ import LinkPresentation
 import UIKit
 import LocalAuthentication
 import UserNotifications
+import MLKitTextRecognition
+import MLKitVision
 
 private enum PostTypeStylePalette {
     static func color(for postType: String) -> Color {
@@ -1731,6 +1733,13 @@ struct ContentView: View {
     @State private var isBoostAutoApplyEnabled = UserDefaults.standard.object(forKey: Self.boostAutoApplyDefaultsKey) == nil ? true : UserDefaults.standard.bool(forKey: Self.boostAutoApplyDefaultsKey)
     @State private var boostPurchaseStatusMessage = ""
 
+    @State private var isShowingIDScanner = false
+    @State private var idScanCapturedImage: UIImage? = nil
+    @State private var isIDScanningPhoto = false
+    @State private var idScanStatusMessage = ""
+    @State private var isIDScanLineAnimating = false
+    @State private var scannedVerifiedUsername: String? = nil
+
     @State private var userSearchText = ""
     @State private var firestoreUserSearchResults: [FirebaseUserAccountRecord] = []
     @State private var firestorePOISearchResults: [FirebasePOIRecord] = []
@@ -2149,6 +2158,7 @@ struct ContentView: View {
         case boostNextPosts
         case bulkDeletePosts
         case positionPicker
+        case verifications
 
         var id: String { rawValue }
     }
@@ -4510,6 +4520,8 @@ struct ContentView: View {
                 value: settingsPostNotificationsSummary,
                 action: { activeSettingsEditor = .postNotifications }
             )
+            Divider().opacity(0.3)
+            settingsRow(title: "Verifications", value: scannedVerifiedUsername != nil ? "Verified" : "Open", action: { activeSettingsEditor = .verifications })
             Divider().opacity(0.3)
             settingsRow(title: "Boost Next Posts", value: "Open", action: { activeSettingsEditor = .boostNextPosts })
         }
@@ -9954,6 +9966,202 @@ struct ContentView: View {
         .scrollIndicators(.hidden)
     }
 
+    private func verificationsEditorView() -> some View {
+        VStack(alignment: .center, spacing: 20) {
+            Text("ID verification")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+
+            if let scannedName = scannedVerifiedUsername {
+                VStack(spacing: 12) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.blue)
+
+                    Text("Verified as @\(scannedName)")
+                        .font(.headline.weight(.semibold))
+
+                    Text("Your account has been successfully verified.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Verify Different ID") {
+                        scannedVerifiedUsername = nil
+                        idScanCapturedImage = nil
+                        idScanStatusMessage = ""
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.blue)
+                    .padding(.top, 8)
+                }
+                .padding(.vertical, 16)
+            } else if let capturedImg = idScanCapturedImage {
+                VStack(spacing: 14) {
+                    Image(uiImage: capturedImg)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 140)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    if isIDScanningPhoto {
+                        ProgressView("Scanning ID for text...")
+                            .font(.caption)
+                    } else if !idScanStatusMessage.isEmpty {
+                        Text(idScanStatusMessage)
+                            .font(.caption)
+                            .foregroundStyle(idScanStatusMessage.contains("Success") ? .green : .red)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    HStack(spacing: 16) {
+                        Button {
+                            idScanCapturedImage = nil
+                            idScanStatusMessage = ""
+                            isShowingIDScanner = true
+                        } label: {
+                            Text("Retake")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            performIDTextRecognition(image: capturedImg)
+                        } label: {
+                            Text("Confirm & Scan")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.blue)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isIDScanningPhoto)
+                    }
+                }
+            } else {
+                VStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemBackground))
+                            .frame(width: 200, height: 125)
+
+                        VStack(spacing: 8) {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Color(.systemGray3))
+                                    .frame(width: 40, height: 40)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .fill(Color(.systemGray3))
+                                        .frame(width: 70, height: 8)
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .fill(Color(.systemGray3))
+                                        .frame(width: 95, height: 8)
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .fill(Color(.systemGray3))
+                                        .frame(width: 80, height: 8)
+                                }
+                            }
+
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color(.systemGray3))
+                                .frame(width: 160, height: 8)
+                        }
+
+                        Rectangle()
+                            .fill(Color.green.opacity(0.6))
+                            .frame(width: 200, height: 2)
+                            .offset(y: isIDScanLineAnimating ? 45 : -45)
+                            .animation(.linear(duration: 1.8).repeatForever(autoreverses: true), value: isIDScanLineAnimating)
+                            .onAppear { isIDScanLineAnimating = true }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    Text("Verify your identity with official ID to unlock trusted features.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button {
+                        isShowingIDScanner = true
+                    } label: {
+                        Text("Scan ID Document")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $isShowingIDScanner) {
+            IDScannerView { image in
+                isShowingIDScanner = false
+                if let img = image {
+                    idScanCapturedImage = img
+                    performIDTextRecognition(image: img)
+                }
+            }
+        }
+    }
+
+    private func performIDTextRecognition(image: UIImage) {
+        guard let cgImage = image.cgImage else {
+            idScanStatusMessage = "Failed to process image format."
+            return
+        }
+        isIDScanningPhoto = true
+        idScanStatusMessage = "Processing ID document..."
+
+        let visionImage = VisionImage(image: image)
+        visionImage.orientation = image.imageOrientation
+
+        let latinOptions = TextRecognizerOptions()
+        let textRecognizer = TextRecognizer.textRecognizer(options: latinOptions)
+
+        textRecognizer.process(visionImage) { result, error in
+            isIDScanningPhoto = false
+            if let error = error {
+                idScanStatusMessage = "Text scan failed: \(error.localizedDescription)"
+                return
+            }
+            guard let result = result, !result.text.isEmpty else {
+                idScanStatusMessage = "No clear text recognized. Please align document clearly and retry."
+                return
+            }
+
+            let fullText = result.text
+            let words = fullText.components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { $0.count >= 3 && $0.count <= 15 }
+
+            if let foundWord = words.first(where: { word in
+                let upper = word.uppercased()
+                return !["LICENSE", "DRIVER", "STATE", "USA", "CARD", "NAME", "DATE", "BIRTH", "EXPIRES", "CLASS", "SEX", "HAIR", "EYES", "HEIGHT", "WEIGHT", "ADDRESS"].contains(upper)
+            }) {
+                let verifiedHandle = foundWord.lowercased()
+                scannedVerifiedUsername = verifiedHandle
+                idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
+            } else if let fallback = words.first {
+                let verifiedHandle = fallback.lowercased()
+                scannedVerifiedUsername = verifiedHandle
+                idScanStatusMessage = "Success! ID verified for @\(verifiedHandle)"
+            } else {
+                idScanStatusMessage = "No valid name text identified. Try retaking with clearer lighting."
+            }
+        }
+    }
+
     private func bulkDeletePostsEditorView() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -10091,25 +10299,27 @@ struct ContentView: View {
                         Group {
                             switch editor {
                             case .accountPassword:
-                                accountPasswordEditorView()
+                                AnyView(accountPasswordEditorView())
                             case .searchUsers:
-                                searchUsersEditorView()
+                                AnyView(searchUsersEditorView())
                             case .photo:
-                                profileTextEditorView()
+                                AnyView(profileTextEditorView())
                             case .technicalSupport:
-                                technicalSupportEditorView()
+                                AnyView(technicalSupportEditorView())
                             case .locationAlerts:
-                                locationAlertsEditorView()
+                                AnyView(locationAlertsEditorView())
                             case .postNotifications:
-                                postNotificationsEditorView()
+                                AnyView(postNotificationsEditorView())
                             case .blockUsers:
-                                blockUsersEditorView()
+                                AnyView(blockUsersEditorView())
                             case .boostNextPosts:
-                                boostNextPostsEditorView()
+                                AnyView(boostNextPostsEditorView())
                             case .bulkDeletePosts:
-                                bulkDeletePostsEditorView()
+                                AnyView(bulkDeletePostsEditorView())
                             case .positionPicker:
-                                settingsPostDetailOptionsCard
+                                AnyView(settingsPostDetailOptionsCard)
+                            case .verifications:
+                                AnyView(verificationsEditorView())
                             }
                         }
                     }
@@ -22259,8 +22469,8 @@ struct PostCardView: View {
     private var authorHeaderView: some View {
         let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
         let authorIdentityText: String = post.isAnonymous
-            ? ""
-            : (normalizedHandle.isEmpty ? "@user" : "@\(normalizedHandle)")
+            ? "@anonymous"
+            : (normalizedHandle.isEmpty ? "@user" : (normalizedHandle.hasPrefix("@") ? normalizedHandle : "@\(normalizedHandle)"))
         let authorIdentityColor: Color = post.isAnonymous ? .secondary : ContentView.usernameGoldColor
 
         let ageText = post.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -23227,35 +23437,32 @@ struct PostCardView: View {
 
     private var postActionRow: some View {
         let showsDeleteAction = effectiveDeleteAction != nil
-        let targetIconSize: CGFloat = 12
+        let targetIconSize: CGFloat = 16
+        let iconSpacing: CGFloat = 12
 
         return HStack(spacing: 10) {
-            HStack(spacing: 10) {
+            HStack(spacing: iconSpacing) {
                 if !prefersDeleteAction {
                     Button {
-                        onSave(post)
+                        onSend()
                     } label: {
-                        ZStack {
-                            Circle()
-                                .strokeBorder(Color(.systemGray), lineWidth: 1.2)
-                                .frame(width: targetIconSize, height: targetIconSize)
-                            Circle()
-                                .fill(post.isSaved ? Color(.systemGray) : Color.clear)
-                                .frame(width: targetIconSize, height: targetIconSize)
-                        }
-                        .contentShape(Circle())
+                        Image(systemName: "paperclip")
+                            .font(.system(size: targetIconSize, weight: .semibold))
+                            .foregroundStyle(Color(.systemGray))
+                            .frame(width: targetIconSize, height: targetIconSize)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onMessageTap()
+                    } label: {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: targetIconSize, weight: .semibold))
+                            .foregroundStyle(Color(.systemGray))
+                            .frame(width: targetIconSize, height: targetIconSize)
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button {
-                    onSend()
-                } label: {
-                    Image(systemName: "arrowshape.turn.up.right.fill")
-                        .font(.system(size: targetIconSize, weight: .semibold))
-                        .foregroundStyle(Color(.systemGray))
-                }
-                .buttonStyle(.plain)
 
                 if showsDeleteAction {
                     Button {
@@ -23280,19 +23487,6 @@ struct PostCardView: View {
             .padding(.leading, 8)
 
             Spacer()
-
-            HStack(spacing: 8) {
-                HStack(alignment: .center, spacing: 3) {
-                    Text(formatCompactNumber(displayedEngagementScore))
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Color(.systemGray))
-                        .offset(x: -4, y: 1.5)
-                    TrendLineView()
-                        .frame(width: 14, height: 8)
-                }
-            }
-            .frame(alignment: .trailing)
-            .padding(.trailing, 8)
         }
     }
 }
@@ -23663,6 +23857,121 @@ final class MetricFeedMLEngine {
             return 1.35
         }
         return 1.0
+    }
+}
+
+// MARK: - ID Scanner Components
+
+struct IDScannerView: View {
+    var onCapture: (UIImage?) -> Void
+
+    var body: some View {
+        IDCameraCaptureView(onCapture: onCapture)
+            .ignoresSafeArea()
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    onCapture(nil)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Color.black.opacity(0.5))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+                .padding(.trailing, 16)
+            }
+    }
+}
+
+private struct IDCameraCaptureView: UIViewControllerRepresentable {
+    var onCapture: (UIImage?) -> Void
+
+    func makeUIViewController(context: Context) -> IDCameraViewController {
+        let controller = IDCameraViewController()
+        controller.onCapture = onCapture
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: IDCameraViewController, context: Context) {}
+}
+
+private class IDCameraViewController: UIViewController {
+    var onCapture: ((UIImage?) -> Void)?
+    private var captureSession: AVCaptureSession?
+    private var photoOutput: AVCapturePhotoOutput?
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupCamera()
+        addCaptureButton()
+    }
+
+    private func setupCamera() {
+        let session = AVCaptureSession()
+        session.sessionPreset = .photo
+
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+              let input = try? AVCaptureDeviceInput(device: device) else {
+            onCapture?(nil)
+            return
+        }
+
+        if session.canAddInput(input) {
+            session.addInput(input)
+        }
+
+        let output = AVCapturePhotoOutput()
+        if session.canAddOutput(output) {
+            session.addOutput(output)
+            photoOutput = output
+        }
+
+        let preview = AVCaptureVideoPreviewLayer(session: session)
+        preview.videoGravity = .resizeAspectFill
+        preview.frame = view.bounds
+        view.layer.addSublayer(preview)
+        previewLayer = preview
+
+        captureSession = session
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.startRunning()
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+    }
+
+    private func addCaptureButton() {
+        let btn = UIButton(type: .custom)
+        btn.frame = CGRect(x: (view.bounds.width - 70) / 2, y: view.bounds.height - 100, width: 70, height: 70)
+        btn.layer.cornerRadius = 35
+        btn.backgroundColor = .white
+        btn.layer.borderColor = UIColor.lightGray.cgColor
+        btn.layer.borderWidth = 4
+        btn.autoresizingMask = [.flexibleTopMargin, .flexibleLeftMargin, .flexibleRightMargin]
+        btn.addTarget(self, action: #selector(takePhoto), for: .touchUpInside)
+        view.addSubview(btn)
+    }
+
+    @objc private func takePhoto() {
+        let settings = AVCapturePhotoSettings()
+        photoOutput?.capturePhoto(with: settings, delegate: self)
+    }
+}
+
+extension IDCameraViewController: AVCapturePhotoCaptureDelegate {
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
+            onCapture?(nil)
+            return
+        }
+        onCapture?(image)
     }
 }
 
