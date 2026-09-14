@@ -1,0 +1,1281 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00B15885A15EA28962A36C0CEA49C249 /* SendVerificationTokenResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D2CB04915186DD022114A1D531BA5 /* SendVerificationTokenResponse.swift */; };
+		00CA20D1089F2B5BF47C36B68AEE1BAC /* AuthUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60B4AAE5E84E6A5E29E0E2462901762 /* AuthUserDefaults.swift */; };
+		02C191B763E73B0FA6D38EF627BE9F18 /* AuthTokenResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BDC09AAFA14C41223BC6568FFAB8E0 /* AuthTokenResult.swift */; };
+		049529EC98D18E5D71EBA2204028EB71 /* AuthAppCredentialManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5504CB5B1531EFFB57DC7D9711E5EC6 /* AuthAppCredentialManager.swift */; };
+		04961E0E6944214F8AA9C8A6080046A3 /* VerifyPasswordRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21AA46260FE7FBFD087B77D600B0C9D /* VerifyPasswordRequest.swift */; };
+		071CE2406F02DE9188C15A5F1A2C26F6 /* AuthDefaultUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAAA94DAE247CA048F5EC428966C9E5E /* AuthDefaultUIDelegate.swift */; };
+		08AE8D786000B9E4922135B5298C0D31 /* StartMFASignInRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC17E4E72CA323F083289323A6A0B149 /* StartMFASignInRequest.swift */; };
+		0A5CFC8DCE3460A2F8CF489E0D2C3D8D /* AuthSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57FED197CBA541409771D6B4B016F84B /* AuthSettings.swift */; };
+		0B206DC5E64E435D4E8F5A24EA6ED84B /* GetRecaptchaConfigRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B04D168C7C442E9607ACDFEBAF0B18 /* GetRecaptchaConfigRequest.swift */; };
+		0F44208029B316B4B1326C9965330E15 /* AuthRequestConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7966A6953CDD14E6132A76A3E29E8C01 /* AuthRequestConfiguration.swift */; };
+		0F594929EE01648F9619F91F81CABFC9 /* FIRAuthProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = A8423D83D23ACB268925DDBBB609FA04 /* FIRAuthProvider.m */; };
+		13C2AA37542DAC14A20B9376B44B7957 /* FIRAuthErrors.h in Headers */ = {isa = PBXBuildFile; fileRef = E706FF4B314BDCD0A2FA7A587CFF692E /* FIRAuthErrors.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		15D45091BB077FDE6CD1BA3B2604FB50 /* TOTPMultFactorAssertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C85C2F2B9CEBDBBADBA46CA1BC4B965 /* TOTPMultFactorAssertion.swift */; };
+		188F7721036001069E4EC61873A19250 /* AuthKeychainStorageReal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF1BFA34F100650FEA79B4306B1DBDE /* AuthKeychainStorageReal.swift */; };
+		195F613A03D5E5297129A431241C4659 /* AuthURLPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D4F960543785133C812840BA17318C /* AuthURLPresenter.swift */; };
+		19A292D32130B771C7287DCC066BA9D5 /* VerifyPasswordResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = E902D2174BD548F21B945060B3B62459 /* VerifyPasswordResponse.swift */; };
+		1D7564FF4EEABC204A00353C330E08C3 /* AuthAPNSTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61160F0ECD303CA1DD4FAA65AD44A165 /* AuthAPNSTokenManager.swift */; };
+		20D4723C8976FBCEB006F94BED77E101 /* AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF30AB8ECCEEF1227F1CA9871CCAF86 /* AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift */; };
+		23F8410C681C68C442687203F5BF6FBD /* ActionCodeURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92E6D9C8DB4412DD3869988F239A05C4 /* ActionCodeURL.swift */; };
+		24786D38B7236510218A4F21347C6598 /* AuthCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D57A72B5E4C887EDCAED842938C0208 /* AuthCredential.swift */; };
+		247D88F1882E452FB17C0E0131A4EF60 /* GoogleAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E60DC7DC966DA52DF7FDF2CF5A7870EE /* GoogleAuthProvider.swift */; };
+		247F953ECDD1941D0C74DD4F6BAEC744 /* UserInfoImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA57CB7FF5BD23D82E10E8DC341E31A /* UserInfoImpl.swift */; };
+		26385487E9096A90717BCD20769AB429 /* AuthProviderID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A1A6BF51F06C7C6E8CACAEBDB05B7D /* AuthProviderID.swift */; };
+		268F6AF9B1B8C37DC849CCCBF3298E97 /* UserMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BC192F1D771EA19259900E1D842F73 /* UserMetadata.swift */; };
+		26EB7C798FBEC1C86EFAE8112A5210D8 /* FIRGameCenterAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = E2D2A2FFB7BE7AD52409679EDF2A0BED /* FIRGameCenterAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		27D88131F7F5F0B66C6B5DDC4DD2B5C2 /* Auth+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0F5DDC067030DA55063655C48568AA /* Auth+Async.swift */; };
+		2D7ED3094CCA3F4112F9BF8ECA0951C7 /* StartMFAEnrollmentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E123047DF34249BC59E3F6411DB1DBD /* StartMFAEnrollmentRequest.swift */; };
+		2D9971779F09AB7F7DC572D715E998AB /* GameCenterAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FF49A4F289908948EDC33128BF70EC /* GameCenterAuthProvider.swift */; };
+		2E2DAE03A8001AB2E7A8120B1BE47A74 /* VerifyAssertionRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D22879FF85D91A9755CDCB610DCD21C /* VerifyAssertionRequest.swift */; };
+		2F62F4B491EDBC27C787980BBC7AF5FD /* WithdrawMFARequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF1D16B35E4E809626B481FA7A97F39 /* WithdrawMFARequest.swift */; };
+		325E05D3F974DB1D917C65996E488E78 /* FIRUser.h in Headers */ = {isa = PBXBuildFile; fileRef = B6EF0D86967E532EC050724F0B5AE52F /* FIRUser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		332DF6FD8DA24175A62ACDE2B7F133B9 /* GetProjectConfigResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D118C6240E53E2E385B36B976E5CED /* GetProjectConfigResponse.swift */; };
+		3589431B39BF9E2D14B9E46EEC836E4E /* OAuthCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D9B40D33914D7B355B5B3E3E15B261 /* OAuthCredential.swift */; };
+		376307E803E13BB9D73C25D7FA86AA7A /* FIREmailAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = D93F97CC4E9CEDB4B67E05B8363068BD /* FIREmailAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		38919181D65191D5EC2C8F9EFABA3D1F /* MultiFactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB1D24F3174FB0672D7F6DCC34DBAB9 /* MultiFactor.swift */; };
+		3A73392D26BD53AB5E6B831CFF6098B1 /* SecureTokenResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DBDDFAEE9F7B8F547FCBDCDEB2FBD73 /* SecureTokenResponse.swift */; };
+		3D2CF23F116A28EA21C43D5DE79BCA09 /* VerifyCustomTokenResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C74042B980BD37DF752F1B98A38A99 /* VerifyCustomTokenResponse.swift */; };
+		3D76EFC63D12023787ED73450AD7DD42 /* Auth.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B6488ECE0B5EB6F325E29E0DBA45DC /* Auth.swift */; };
+		409A922984F0C5166F7049033491F289 /* PhoneAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3CCF337E2E1A6BB7B3DF77DBAA86C44 /* PhoneAuthProvider.swift */; };
+		40D4288AA005C0EACC8211C0F71E90B7 /* AuthProtoFinalizeMFAPhoneResponseInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D998AB8C915BDCAFC55D1EF55229759 /* AuthProtoFinalizeMFAPhoneResponseInfo.swift */; };
+		442D25366F7AE342437D76035D1FEF2A /* TwitterAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A376E9F23CF34FAD7E7D042F091BAA07 /* TwitterAuthProvider.swift */; };
+		479ADC5BEA35B6F32A6E44BB1ECFCF89 /* EmailAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E82AF6DFBF0FD58828A7BA9301CDD7 /* EmailAuthProvider.swift */; };
+		491D3A122798EFD440BE6B8739F9C352 /* AuthRPCResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BAB40DC8043452256B767D7A1EA77 /* AuthRPCResponse.swift */; };
+		4B5DEB9119071A42CCBE2C4BD0AAE550 /* RevokeTokenResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4287BC188AD399B5C138A09B27B9B6D /* RevokeTokenResponse.swift */; };
+		4C30BE54688174AC3EFFD43F5D75BF57 /* AuthErrorUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02FEA58A34EC1D98672EF77EC78B072 /* AuthErrorUtils.swift */; };
+		4E0A6DB0C4B7D93F901A17EC05F9EE1F /* TOTPMultiFactorGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBDD9C6DCCDBD8842D9DE6B221F8868D /* TOTPMultiFactorGenerator.swift */; };
+		4FBD234702372EAE1A29D6021916A888 /* AuthNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CC93EA30E15C7CD149EA9D92C7C619 /* AuthNotificationManager.swift */; };
+		50AF2FB7EADE194D2AF8D95C3E73F0B0 /* GetRecaptchaConfigResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAACBA452F3CD8AF0DF3EB505BCF4E14 /* GetRecaptchaConfigResponse.swift */; };
+		51825916508D46DF773CE8A2EFA4F2FE /* PhoneMultiFactorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EDB9405B931EF7AFCD729C4A2F9B10 /* PhoneMultiFactorInfo.swift */; };
+		52ED9384DD7A1D7560C1B4EBD308BB7A /* AuthProtoFinalizeMFAPhoneRequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11B307349C0C934BC2FA5C131E90DFFE /* AuthProtoFinalizeMFAPhoneRequestInfo.swift */; };
+		55C26AA2E87E39A28663B8D33AFD2BB7 /* TOTPSecret.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8739058FD1D6997D575EB59800392A0 /* TOTPSecret.swift */; };
+		59CCFBAF9B47B0190A6EE39296CE3DF4 /* PhoneAuthCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D7D9215A2B16C4A8DE924447502C973 /* PhoneAuthCredential.swift */; };
+		5B853F813D5A87B05A821895DACC0CD9 /* FIRTwitterAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = E889575538FF241B876E7012C9E317E1 /* FIRTwitterAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5C6F1874B9B18EA129907CC42848508C /* StartMFASignInResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132CAF4FBB03AB7D240F5BC8CFA6C161 /* StartMFASignInResponse.swift */; };
+		5F060923462363133843F81E77862BA6 /* FinalizeMFASignInRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0711590112994A43B635743062A0F76 /* FinalizeMFASignInRequest.swift */; };
+		62ED7F835E23F32B4928B1B6CAEBC2EE /* StartMFAEnrollmentResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E0028C84D2AAAFD9F645813A4CFF47B /* StartMFAEnrollmentResponse.swift */; };
+		639A261DA50DEF48457B7FAEB3ADA09A /* FIRAuth.m in Sources */ = {isa = PBXBuildFile; fileRef = B054C3B1CAE324472C9E45E97C026995 /* FIRAuth.m */; };
+		63CAB60204C72B1C6CC323C7C01333B3 /* VerifyPhoneNumberResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C71C718FD7B921953142172A0240917 /* VerifyPhoneNumberResponse.swift */; };
+		64BF8CDF3B37A9B53B98D639AECA8F25 /* UserInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1BEC6961FCDD3AE3F19FE319BAD3643 /* UserInfo.swift */; };
+		655356E212260E07C32046D9984FAF89 /* EmailLinkSignInRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC1D2622698B34265F524A641859DCD /* EmailLinkSignInRequest.swift */; };
+		66A0F7E92C89F8F9758002DB7C81018C /* SetAccountInfoResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47D4730BD5094044977729CD136A128 /* SetAccountInfoResponse.swift */; };
+		6760CC019C2482C56735474075EB792A /* VerifyPhoneNumberRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D15654B6EC89B242C8771546E4EC3C8 /* VerifyPhoneNumberRequest.swift */; };
+		67F1514268F740722F01A6B6D284594D /* SignUpNewUserRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF55761031E188B5EEC446D244E9DE8 /* SignUpNewUserRequest.swift */; };
+		68E353880472A6F00B339DD245AC441C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B735FC37931990DD4A06C824D85A556 /* PrivacyInfo.xcprivacy */; };
+		6A2BC9CFA14692611646C1E1ADEF8956 /* AuthAPNSTokenType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9791E54946CA8681AA1AF8AE2E99BF /* AuthAPNSTokenType.swift */; };
+		6A8EE28BC4C037544E8E533F2E286233 /* CreateAuthURIRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0E63EA0A9F00B71C163375B48CAB54 /* CreateAuthURIRequest.swift */; };
+		6B28ED15FFA23A228D436EEAB386416B /* OAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD1ADBC857BC02B6B8E01A5DC4D6D11 /* OAuthProvider.swift */; };
+		6E6CDC76A7EA8EEC09B3CA3A66362D9E /* TOTPMultiFactorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5028A2DC29E9E009314A46CAFBFD3B7A /* TOTPMultiFactorInfo.swift */; };
+		751BD65986E1C7B2659361365E71BB54 /* WithdrawMFAResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE37E24F35E0CE92D3AEA53B3E080F53 /* WithdrawMFAResponse.swift */; };
+		77D592571C8BF22DB8F374832F1285DF /* AuthKeychainServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2633903D3B4EA7AFF10846BE7D5AFD7D /* AuthKeychainServices.swift */; };
+		79D327353ADCA06C478C2D7444AB7D6A /* FIRAuth.h in Headers */ = {isa = PBXBuildFile; fileRef = 2FF250C29C7FB35D3257C313B8174A60 /* FIRAuth.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7BC808D0808D91D3D70E9E8D60169AA8 /* UserProfileChangeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF4D99D31E80FBB00116A4AA4FE942 /* UserProfileChangeRequest.swift */; };
+		7DE594A5A69A2881C71227BB8F62C0CD /* GetOOBConfirmationCodeResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79271B93D943CAEABFFAB7068A831D19 /* GetOOBConfirmationCodeResponse.swift */; };
+		7E19058D69190407DAC657A2E9683D2A /* GetAccountInfoResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF5A2ECF00DB3639CAFE70FEA0B6EDA /* GetAccountInfoResponse.swift */; };
+		7E25111C97E83382F5762E8C19DE74F2 /* FinalizeMFASignInResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF2F94965E366C399538307BDEB75E7 /* FinalizeMFASignInResponse.swift */; };
+		81F517A51016A013D8F0B09951C5B442 /* AuthProtoStartMFATOTPEnrollmentRequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035036560EA9A3067EDD35CCB35E5D70 /* AuthProtoStartMFATOTPEnrollmentRequestInfo.swift */; };
+		85977C6208A5972CB5557BC6C6847218 /* FirebaseAuth.h in Headers */ = {isa = PBXBuildFile; fileRef = 673C031FD850B30D32430D93AE12E63F /* FirebaseAuth.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		85C7148B9B3147067B5B1A37A4C50461 /* AuthDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D89C4DB1F315CCACFB4CCE0F1741AF0 /* AuthDispatcher.swift */; };
+		860BB7E79CE46C99E98AC2DB941FA36C /* FinalizeMFAEnrollmentResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A7787BA44F61B8102C78329103A707 /* FinalizeMFAEnrollmentResponse.swift */; };
+		861B496BA2644C70387EDFA7BFE6498A /* AuthProtoStartMFAPhoneRequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B22D5575D1DD9F8323BEF688272EA26 /* AuthProtoStartMFAPhoneRequestInfo.swift */; };
+		8756496983C8221EC9AD406681F2B7B9 /* AuthLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54F11DD2AD42915BFE8DCF9A211B93E /* AuthLog.swift */; };
+		87E06CF2917683C5276F18CD2D9562CA /* SignInWithGameCenterResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79036BCAC98D93B1A08DA3B47E25639 /* SignInWithGameCenterResponse.swift */; };
+		87E74994D0C45E4BCB2ED378AE2F2E4E /* PhoneMultiFactorGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F51AEA018FC780F2B0073D9EEDE555C /* PhoneMultiFactorGenerator.swift */; };
+		8970B35E49E9116FEC70E9621AE79348 /* MultiFactorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C822A5387FE5DCB395FB08DA8A968BDB /* MultiFactorInfo.swift */; };
+		8BE94BBB785F80A61B5C6BBEDD4E28DC /* AuthRPCRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D316022F2B87F5132FBAA75D5061D1B8 /* AuthRPCRequest.swift */; };
+		8DC1BC685F29D67E66A0F705B4C3BAC4 /* MultiFactorResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D6E59FD235CB3A4E769F092BA586225 /* MultiFactorResolver.swift */; };
+		8E7FA2E59A9A0E4212F2E02F9A15AA70 /* AuthProto.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A3A8886DE2EFE8289A5EE9B662F2BA /* AuthProto.swift */; };
+		90027D5A6DD1B8FF0152FE08B5BFE148 /* AuthErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5758834F0E725CF622DCBD0FC612E222 /* AuthErrors.swift */; };
+		905F604D5F1BAF472D80E56E5C25157B /* ResetPasswordRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2523E748D66BDAD3C1B494444EE80689 /* ResetPasswordRequest.swift */; };
+		927F664C596908FD2E88F377EE74421D /* ActionCodeOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C1F730B8B2E6EB9613CBA3CEF68542 /* ActionCodeOperation.swift */; };
+		930C91929472D6815061D9AA0E393639 /* VerifyClientResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF3AA2EAE953ACFFF0CBA2AA9F96875 /* VerifyClientResponse.swift */; };
+		935DAC19D4638A02E10F5970DCBA4E5E /* AuthProtoStartMFATOTPEnrollmentResponseInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A0F6D8196E38EC9B5F36DF29688C2D /* AuthProtoStartMFATOTPEnrollmentResponseInfo.swift */; };
+		93CCC02C02C885F1370CC97D29D49F11 /* SendVerificationTokenRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D6AC970F2D609A7A06AF3B5F15A65 /* SendVerificationTokenRequest.swift */; };
+		94A3AB34D1E90EB2BC22C647A5AB2372 /* AuthProtoFinalizeMFATOTPSignInRequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60320B135823E62BDC27DC52F586C95 /* AuthProtoFinalizeMFATOTPSignInRequestInfo.swift */; };
+		9886EF79DB5E99586D10A6E4EBDA4545 /* AuthWebUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8945BFF6B721426BEF7D115D1B2DCC9 /* AuthWebUtils.swift */; };
+		9B1F4D1ABD54125D3C001EE96169CCFF /* FIRMultiFactor.h in Headers */ = {isa = PBXBuildFile; fileRef = 91E5B598DA917F623285DB4C704C98BE /* FIRMultiFactor.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9C174A0EE69FC0039EDB72A211A0EE6B /* DeleteAccountRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6355BCC6DEB4C260C09650E962DB09BA /* DeleteAccountRequest.swift */; };
+		A111B049B470FD82029CDB570215A556 /* AuthCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4ECC77E4E26A0D23956CCCBEACB89F /* AuthCondition.swift */; };
+		A29580C44F56A25F7FE9C079A3AD30F0 /* AuthGlobalWorkQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375866B5BD8EE4B03DF2DFA338C57570 /* AuthGlobalWorkQueue.swift */; };
+		A38155E5C3156BE21302352D394B6888 /* FIRGitHubAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 8865B321D0075BAE95233AB40EF87DA2 /* FIRGitHubAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A6ED7E24462861471F243CFA4D308821 /* ActionCodeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E105FF5B32AE7BD27FAD3E9B01442F7E /* ActionCodeSettings.swift */; };
+		A80B130C221DB1512644DE1D982D753E /* VerifyCustomTokenRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61581F4855842E911AFC4DED5320AE6A /* VerifyCustomTokenRequest.swift */; };
+		A82755F9705BBA1CE337630F736A04FF /* FacebookAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FBFA93826C6F4FD8B6A0225C928FD8 /* FacebookAuthProvider.swift */; };
+		A919A2B6A285157B56B4B76AB60A8360 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD8A39095F9A57622E4624BBC7E308B5 /* Foundation.framework */; };
+		AC2F8A2AEDB5CC8054AE571AB69EE759 /* FinalizeMFAEnrollmentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3E65C07B1D187F42D2F87F5E52BFDF /* FinalizeMFAEnrollmentRequest.swift */; };
+		B032ED745E39F64CE3983F1E7923981A /* RevokeTokenRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0407F3D9042ADF36E7C19D83E9927C02 /* RevokeTokenRequest.swift */; };
+		B26EA35AAAEAF9CD5C7B355E562A92A6 /* AuthMFAResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53271D1E7E73A78D7C7F2AA6AA6CBD6 /* AuthMFAResponse.swift */; };
+		B4D9BE9A843D12CF57F6015C6F3025DD /* AuthStoredUserManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBC48CECE297DB93F0BD81ED0902499 /* AuthStoredUserManager.swift */; };
+		B510D18473A355931837106CB358DC7D /* SecureTokenService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83E0326C13632E674A254D14C5A1627 /* SecureTokenService.swift */; };
+		B6ACFBBA7E45F7160E6B6761CE7F7454 /* SecureTokenRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75BA7FEFCF0F7E5DFD673F307D6657B9 /* SecureTokenRequest.swift */; };
+		B6B46F53E80380BD05E3249789C9BFD7 /* FirebaseAuth-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F4C149F5F8FDB9185589B3F16FFD3DD /* FirebaseAuth-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B8B726D1DB10D7B64AEBDB1124494705 /* AuthBackendRPCIssuer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AA95191BF45B7C71E6E97EB098BA0F /* AuthBackendRPCIssuer.swift */; };
+		B95B93CDED5E7A9FAF50B703E6CE794B /* SignUpNewUserResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B5A50A422BA37DE94293DCB32E139E /* SignUpNewUserResponse.swift */; };
+		BA8717D11D8D261F14CF6E9646556D08 /* DeleteAccountResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85592863BACAB4BFF0FCE3709C86303 /* DeleteAccountResponse.swift */; };
+		BAAB7F3B438E6D91373D97E89E564EF3 /* AuthOperationType.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0D4C089B9AE318317B9AF033FF12CF /* AuthOperationType.swift */; };
+		C20354E54BB5B72A3FA8C6A4CEC2C6C0 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B36EA5297470B6A4A0A15ACA736234 /* User.swift */; };
+		C274F4934AB972F201CE7D677BCF6D24 /* GetProjectConfigRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C89795D97656EAFCB95C5868B92963D /* GetProjectConfigRequest.swift */; };
+		C4A58C764E5061BF5358316748E02902 /* AuthBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4287CEAF18E2814A4288FCB10624EA2D /* AuthBackend.swift */; };
+		C545750B005C1E6F53C8914D739E1C4F /* AuthComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6958BBFAA8914B1020E33F8386E23F8C /* AuthComponent.swift */; };
+		C5A8FEA9C02B18052A7CD56714807917 /* AuthDataResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D477C3F7A53371A750C06BFE486E881A /* AuthDataResult.swift */; };
+		C6CB6DF30CD6322064D59118E281C044 /* UserProfileUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33060F334FF50491EB479C3D76F28021 /* UserProfileUpdate.swift */; };
+		C8F471F2D3100DF5861036D302CD6501 /* AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1E99ADEF0365EF376E40675D5D5E14D /* AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift */; };
+		C91F10C6E806268300899CCF680382D5 /* FIRMultiFactorConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 47384A53D1FC1AA1EDEA398776D9F92B /* FIRMultiFactorConstants.m */; };
+		CA4B12362056662D1DC7403FA5369BB7 /* FirebaseAuth-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = C9ABA3D61287AC235D5AD153F34701E3 /* FirebaseAuth-dummy.m */; };
+		CC9F8708D66B2AEF010827700ADADEB7 /* FIRGoogleAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 38690F3A4B29DC939A95EFF5EB99200F /* FIRGoogleAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CDA8280D88178D3457BFFA046742370D /* FederatedAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670097F16F5D803A0425B780948707D2 /* FederatedAuthProvider.swift */; };
+		CEB545D620E7EAF52139D95754263607 /* CreateAuthURIResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58DE97FB4CAD7393E65A0B288FDC1E1 /* CreateAuthURIResponse.swift */; };
+		CF00333CD95F352892D5B4D358BE736E /* MultiFactorAssertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09B5FB0D84A89214200EF530386D4812 /* MultiFactorAssertion.swift */; };
+		D0A4906E3FC0DAC466306124241B9813 /* FIRAuthErrorUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 0526D17F6E252717B11E433F54EF1DB1 /* FIRAuthErrorUtils.m */; };
+		D33BA8F7B6B927FA86B77FED80E1B9AB /* FIRPhoneAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 693284CF02C3F7803559394566268622 /* FIRPhoneAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D38EBBEBAAF3D9DD9B9A9F10BC379303 /* FIRFacebookAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 7FF51BBF42A79A370841D31607C7D999 /* FIRFacebookAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D450D7ADF06405189046CFE6825669CE /* AuthInternalErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A193827DC82ECC01C4F1A9165F48332 /* AuthInternalErrors.swift */; };
+		D4CA0EC7DBFF13E4637EDF1B5B234118 /* GetAccountInfoRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9164362A1ACF2C7A48042631B33C60DA /* GetAccountInfoRequest.swift */; };
+		D6DAAB6A66FF81F03FEACF580B8544EF /* AuthWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B5991B3BE5F63EDA3A637518FBA9A4 /* AuthWebViewController.swift */; };
+		D80541031401BD6F64FED92B3527A146 /* PhoneMultiFactorAssertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72BD8BFD233ACD20FEAF7673EC94C1E7 /* PhoneMultiFactorAssertion.swift */; };
+		D97716505C3409B8691AD69FBD48B3B2 /* IdentityToolkitRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C32191A5B277D41155181B0B3D85E0 /* IdentityToolkitRequest.swift */; };
+		DA2692D9D3B80F283A433B3517561BDF /* SignInWithGameCenterRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D05763213EDDC2311ABF794E1FAB2D /* SignInWithGameCenterRequest.swift */; };
+		DAB5F3F0CE478AED8D20A71381D4CEAE /* VerifyClientRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686F59BB71DB167058509BA8D347594A /* VerifyClientRequest.swift */; };
+		DCB38C7CF3BA8115DCEED7B1ECB6B5FA /* EmailLinkSignInResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548F4EC98CD884901C8CAD256667696D /* EmailLinkSignInResponse.swift */; };
+		DEBB92B996A227DF3A8D38A6A613C0FF /* FIRFederatedAuthProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 2DEC6C27E05E7B646E813155526D2E6B /* FIRFederatedAuthProvider.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E12F908518ACD7CB644FDCE07E4AB258 /* SetAccountInfoRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4350160474083CA5053A318D689D092E /* SetAccountInfoRequest.swift */; };
+		E3529C2FADE1998572881AF821ABD593 /* TokenRefreshCoalescer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479350F53FE2A6A748576576E1603DC5 /* TokenRefreshCoalescer.swift */; };
+		E95F2B990254016AEB5105F94312D17E /* AuthUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC0B50A89B40EE5F3DF06A2A35030EB /* AuthUIDelegate.swift */; };
+		EA11959EA77FBD42B27E0D8AB7D630B0 /* Base64URLEncodedStringExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA9FDD398823A5D9FB5BCB477BC03E3 /* Base64URLEncodedStringExtension.swift */; };
+		EB51DA7D18B5C42419453EB6A72727BB /* AuthKeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C20A41D469EAF52CD4CF2E2C5E1C90 /* AuthKeychainStorage.swift */; };
+		F047E3F4B9FD65E1A4C4B515335DDC31 /* GetOOBConfirmationCodeRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F61302B3D8574D6DDF5AB85591E578 /* GetOOBConfirmationCodeRequest.swift */; };
+		F09CD4335A6DFCC6E6D1A61935146923 /* MultiFactorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DEF465F225BAE405DD479CD7620585 /* MultiFactorSession.swift */; };
+		F15916F38D5C8F8B49AEC04C65797B7C /* GitHubAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90530871E1795CA277CAE11349AA72DD /* GitHubAuthProvider.swift */; };
+		F1B6602D347744DE544E68D0EC986174 /* VerifyAssertionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3051FC11C2459212142D9B1F9D09E687 /* VerifyAssertionResponse.swift */; };
+		F89E5349426A704A1C62DF1C621B524B /* AuthProtoMFAEnrollment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F1197DC3AC14114F987E0D41D7FA2F3 /* AuthProtoMFAEnrollment.swift */; };
+		F8E193AAC6F397B09EDE3033082BFCF6 /* AuthAppCredential.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55FAAEF161239C846A196E9A54B47DB7 /* AuthAppCredential.swift */; };
+		F91BE4B4653191A9542317473FCAEF88 /* AuthRecaptchaVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA60F60ED71AC73E4F8059BC105EBD08 /* AuthRecaptchaVerifier.swift */; };
+		F9B534DAEF4707BD5382B17AEB777233 /* AuthAPNSToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEF39DE09352FC7EBD26AAA1DC1C7CD /* AuthAPNSToken.swift */; };
+		FC463CFC5C2AD610D6ACFECFAE062664 /* ActionCodeInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25410321B45EE354BFE069CEF21033FE /* ActionCodeInfo.swift */; };
+		FCBA05EA8D940353A3C56FD87F319C30 /* AuthProtoStartMFAPhoneResponseInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82ED98804F5A71903605D4171ABFDED /* AuthProtoStartMFAPhoneResponseInfo.swift */; };
+		FD54CC32FFE57A4FAE412EA758410B9E /* AdditionalUserInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFFBBCE1D4969F26BD8384D1CF8BFE84 /* AdditionalUserInfo.swift */; };
+		FF7D10A1ED5F8AE308D8E3A117A21F9B /* ResetPasswordResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45C5CD71778A23422494AA828023D28 /* ResetPasswordResponse.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		22980CEB1B8BC2DBE555D79448A2B5D1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D198C749C7F1F5B68658317E6F031A55 /* RecaptchaInterop.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = B08587251A20C9D55107A410F21D8C50;
+			remoteInfo = RecaptchaInterop;
+		};
+		49C0086C4302D34D6F085C43846E2205 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1562E997B1006127DE78D03FF69F5903 /* FirebaseAppCheckInterop.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 003D3E75F4F4DF9CECA8F5E00621EED8;
+			remoteInfo = FirebaseAppCheckInterop;
+		};
+		4D696B2C22D6B23CC1F9E62E97B8FC01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 17EBBA98DFF11AAB150C919AEF9A4EEF /* FirebaseCore.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 4BD5DE1E00ED67A59118DB4A3CD5F288;
+			remoteInfo = FirebaseCore;
+		};
+		7B5A31BA610F5B15F5F848F470E1B7D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA90A60B30E5D7EBA0DFB173D9E22D66 /* FirebaseCoreExtension.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 990B821FCC6595B8EBC121BBFD843EBD;
+			remoteInfo = FirebaseCoreExtension;
+		};
+		7DFEF57A594D17F340E565D47570E2E9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F8BB24400CC769502D5E4D493C3C0D17 /* GoogleUtilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 80B861CBFC18436AFD9A3703F00CEEC4;
+			remoteInfo = GoogleUtilities;
+		};
+		DC03B8BD82ACEB6499DC5401D0AA8B07 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 36CC42E076FA6416AA7F1300F08E4020 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D962EB6155FEF0ACDD18C6C8D138F8C0;
+			remoteInfo = "FirebaseAuth-FirebaseAuth_Privacy";
+		};
+		E5D960BD641F652AEA74768E85F4993F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5C36E502DE08F8E71878AF16B3F4D742 /* GTMSessionFetcher.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = BD7A8A3BC22FD28DCB40568BE43D7C70;
+			remoteInfo = GTMSessionFetcher;
+		};
+		FCE5C9F1AB714C9C3936AD1B06E55B80 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 380E813E7BA4BCE4191E9EE3C2B52315 /* FirebaseAuthInterop.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8F8CFC5ED06336C841B5BA0FE32CE60E;
+			remoteInfo = FirebaseAuthInterop;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		00B5A50A422BA37DE94293DCB32E139E /* SignUpNewUserResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignUpNewUserResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SignUpNewUserResponse.swift; sourceTree = "<group>"; };
+		035036560EA9A3067EDD35CCB35E5D70 /* AuthProtoStartMFATOTPEnrollmentRequestInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoStartMFATOTPEnrollmentRequestInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/TOTP/AuthProtoStartMFATOTPEnrollmentRequestInfo.swift; sourceTree = "<group>"; };
+		0407F3D9042ADF36E7C19D83E9927C02 /* RevokeTokenRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RevokeTokenRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/RevokeTokenRequest.swift; sourceTree = "<group>"; };
+		0526D17F6E252717B11E433F54EF1DB1 /* FIRAuthErrorUtils.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRAuthErrorUtils.m; path = FirebaseAuth/Sources/ObjC/FIRAuthErrorUtils.m; sourceTree = "<group>"; };
+		09B5FB0D84A89214200EF530386D4812 /* MultiFactorAssertion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MultiFactorAssertion.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/MultiFactorAssertion.swift; sourceTree = "<group>"; };
+		0B735FC37931990DD4A06C824D85A556 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = FirebaseAuth/Sources/Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		0C3E65C07B1D187F42D2F87F5E52BFDF /* FinalizeMFAEnrollmentRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinalizeMFAEnrollmentRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Enroll/FinalizeMFAEnrollmentRequest.swift; sourceTree = "<group>"; };
+		0D7D9215A2B16C4A8DE924447502C973 /* PhoneAuthCredential.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhoneAuthCredential.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/PhoneAuthCredential.swift; sourceTree = "<group>"; };
+		0F4C149F5F8FDB9185589B3F16FFD3DD /* FirebaseAuth-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "FirebaseAuth-umbrella.h"; sourceTree = "<group>"; };
+		0FC0B50A89B40EE5F3DF06A2A35030EB /* AuthUIDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthUIDelegate.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthUIDelegate.swift; sourceTree = "<group>"; };
+		1068E6CA5286315E22C1D399DEB87201 /* FirebaseAuth.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = FirebaseAuth.modulemap; sourceTree = "<group>"; };
+		11B307349C0C934BC2FA5C131E90DFFE /* AuthProtoFinalizeMFAPhoneRequestInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoFinalizeMFAPhoneRequestInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/Phone/AuthProtoFinalizeMFAPhoneRequestInfo.swift; sourceTree = "<group>"; };
+		12A1A6BF51F06C7C6E8CACAEBDB05B7D /* AuthProviderID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProviderID.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/AuthProviderID.swift; sourceTree = "<group>"; };
+		132CAF4FBB03AB7D240F5BC8CFA6C161 /* StartMFASignInResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartMFASignInResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/SignIn/StartMFASignInResponse.swift; sourceTree = "<group>"; };
+		13D05763213EDDC2311ABF794E1FAB2D /* SignInWithGameCenterRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignInWithGameCenterRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SignInWithGameCenterRequest.swift; sourceTree = "<group>"; };
+		14E2982EFA91728C2A8A28D6D0ECBE2C /* FirebaseAuth.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseAuth.release.xcconfig; sourceTree = "<group>"; };
+		1562E997B1006127DE78D03FF69F5903 /* FirebaseAppCheckInterop */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseAppCheckInterop; path = FirebaseAppCheckInterop.xcodeproj; sourceTree = "<group>"; };
+		17EBBA98DFF11AAB150C919AEF9A4EEF /* FirebaseCore */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseCore; path = FirebaseCore.xcodeproj; sourceTree = "<group>"; };
+		1A193827DC82ECC01C4F1A9165F48332 /* AuthInternalErrors.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthInternalErrors.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthInternalErrors.swift; sourceTree = "<group>"; };
+		1D998AB8C915BDCAFC55D1EF55229759 /* AuthProtoFinalizeMFAPhoneResponseInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoFinalizeMFAPhoneResponseInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/Phone/AuthProtoFinalizeMFAPhoneResponseInfo.swift; sourceTree = "<group>"; };
+		23B04D168C7C442E9607ACDFEBAF0B18 /* GetRecaptchaConfigRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetRecaptchaConfigRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetRecaptchaConfigRequest.swift; sourceTree = "<group>"; };
+		2523E748D66BDAD3C1B494444EE80689 /* ResetPasswordRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResetPasswordRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/ResetPasswordRequest.swift; sourceTree = "<group>"; };
+		25410321B45EE354BFE069CEF21033FE /* ActionCodeInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActionCodeInfo.swift; path = FirebaseAuth/Sources/Swift/ActionCode/ActionCodeInfo.swift; sourceTree = "<group>"; };
+		2633903D3B4EA7AFF10846BE7D5AFD7D /* AuthKeychainServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthKeychainServices.swift; path = FirebaseAuth/Sources/Swift/Storage/AuthKeychainServices.swift; sourceTree = "<group>"; };
+		28B5991B3BE5F63EDA3A637518FBA9A4 /* AuthWebViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthWebViewController.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthWebViewController.swift; sourceTree = "<group>"; };
+		2DBDDFAEE9F7B8F547FCBDCDEB2FBD73 /* SecureTokenResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SecureTokenResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SecureTokenResponse.swift; sourceTree = "<group>"; };
+		2DEC6C27E05E7B646E813155526D2E6B /* FIRFederatedAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRFederatedAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRFederatedAuthProvider.h; sourceTree = "<group>"; };
+		2FF250C29C7FB35D3257C313B8174A60 /* FIRAuth.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAuth.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRAuth.h; sourceTree = "<group>"; };
+		3051FC11C2459212142D9B1F9D09E687 /* VerifyAssertionResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyAssertionResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyAssertionResponse.swift; sourceTree = "<group>"; };
+		32F61302B3D8574D6DDF5AB85591E578 /* GetOOBConfirmationCodeRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetOOBConfirmationCodeRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetOOBConfirmationCodeRequest.swift; sourceTree = "<group>"; };
+		33060F334FF50491EB479C3D76F28021 /* UserProfileUpdate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserProfileUpdate.swift; path = FirebaseAuth/Sources/Swift/User/UserProfileUpdate.swift; sourceTree = "<group>"; };
+		35C1F730B8B2E6EB9613CBA3CEF68542 /* ActionCodeOperation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActionCodeOperation.swift; path = FirebaseAuth/Sources/Swift/ActionCode/ActionCodeOperation.swift; sourceTree = "<group>"; };
+		36B36EA5297470B6A4A0A15ACA736234 /* User.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = User.swift; path = FirebaseAuth/Sources/Swift/User/User.swift; sourceTree = "<group>"; };
+		375866B5BD8EE4B03DF2DFA338C57570 /* AuthGlobalWorkQueue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthGlobalWorkQueue.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthGlobalWorkQueue.swift; sourceTree = "<group>"; };
+		380E813E7BA4BCE4191E9EE3C2B52315 /* FirebaseAuthInterop */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseAuthInterop; path = FirebaseAuthInterop.xcodeproj; sourceTree = "<group>"; };
+		38690F3A4B29DC939A95EFF5EB99200F /* FIRGoogleAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRGoogleAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRGoogleAuthProvider.h; sourceTree = "<group>"; };
+		3C4AD0C4C2FAEBD6C4E1826B1847942B /* FirebaseAuth */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = FirebaseAuth; path = FirebaseAuth.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3D57A72B5E4C887EDCAED842938C0208 /* AuthCredential.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthCredential.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/AuthCredential.swift; sourceTree = "<group>"; };
+		3D6E59FD235CB3A4E769F092BA586225 /* MultiFactorResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MultiFactorResolver.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/MultiFactorResolver.swift; sourceTree = "<group>"; };
+		3E5BAB40DC8043452256B767D7A1EA77 /* AuthRPCResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthRPCResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/AuthRPCResponse.swift; sourceTree = "<group>"; };
+		4287CEAF18E2814A4288FCB10624EA2D /* AuthBackend.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthBackend.swift; path = FirebaseAuth/Sources/Swift/Backend/AuthBackend.swift; sourceTree = "<group>"; };
+		42BDC09AAFA14C41223BC6568FFAB8E0 /* AuthTokenResult.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthTokenResult.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthTokenResult.swift; sourceTree = "<group>"; };
+		4350160474083CA5053A318D689D092E /* SetAccountInfoRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetAccountInfoRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SetAccountInfoRequest.swift; sourceTree = "<group>"; };
+		47384A53D1FC1AA1EDEA398776D9F92B /* FIRMultiFactorConstants.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRMultiFactorConstants.m; path = FirebaseAuth/Sources/ObjC/FIRMultiFactorConstants.m; sourceTree = "<group>"; };
+		479350F53FE2A6A748576576E1603DC5 /* TokenRefreshCoalescer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TokenRefreshCoalescer.swift; path = FirebaseAuth/Sources/Swift/SystemService/TokenRefreshCoalescer.swift; sourceTree = "<group>"; };
+		49D118C6240E53E2E385B36B976E5CED /* GetProjectConfigResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetProjectConfigResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetProjectConfigResponse.swift; sourceTree = "<group>"; };
+		4C4ECC77E4E26A0D23956CCCBEACB89F /* AuthCondition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthCondition.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthCondition.swift; sourceTree = "<group>"; };
+		4F1197DC3AC14114F987E0D41D7FA2F3 /* AuthProtoMFAEnrollment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoMFAEnrollment.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/AuthProtoMFAEnrollment.swift; sourceTree = "<group>"; };
+		5028A2DC29E9E009314A46CAFBFD3B7A /* TOTPMultiFactorInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TOTPMultiFactorInfo.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/TOTP/TOTPMultiFactorInfo.swift; sourceTree = "<group>"; };
+		52326348FD434E0231E349ADAAF82A59 /* FirebaseAuth-FirebaseAuth_Privacy */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = "FirebaseAuth-FirebaseAuth_Privacy"; path = FirebaseAuth_Privacy.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		548F4EC98CD884901C8CAD256667696D /* EmailLinkSignInResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EmailLinkSignInResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/EmailLinkSignInResponse.swift; sourceTree = "<group>"; };
+		55FAAEF161239C846A196E9A54B47DB7 /* AuthAppCredential.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthAppCredential.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthAppCredential.swift; sourceTree = "<group>"; };
+		5758834F0E725CF622DCBD0FC612E222 /* AuthErrors.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthErrors.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthErrors.swift; sourceTree = "<group>"; };
+		57FED197CBA541409771D6B4B016F84B /* AuthSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthSettings.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthSettings.swift; sourceTree = "<group>"; };
+		59C74042B980BD37DF752F1B98A38A99 /* VerifyCustomTokenResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyCustomTokenResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyCustomTokenResponse.swift; sourceTree = "<group>"; };
+		5BB1D24F3174FB0672D7F6DCC34DBAB9 /* MultiFactor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MultiFactor.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/MultiFactor.swift; sourceTree = "<group>"; };
+		5C36E502DE08F8E71878AF16B3F4D742 /* GTMSessionFetcher */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = GTMSessionFetcher; path = GTMSessionFetcher.xcodeproj; sourceTree = "<group>"; };
+		5D15654B6EC89B242C8771546E4EC3C8 /* VerifyPhoneNumberRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyPhoneNumberRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyPhoneNumberRequest.swift; sourceTree = "<group>"; };
+		5D89C4DB1F315CCACFB4CCE0F1741AF0 /* AuthDispatcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthDispatcher.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthDispatcher.swift; sourceTree = "<group>"; };
+		5E123047DF34249BC59E3F6411DB1DBD /* StartMFAEnrollmentRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartMFAEnrollmentRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Enroll/StartMFAEnrollmentRequest.swift; sourceTree = "<group>"; };
+		5EF30AB8ECCEEF1227F1CA9871CCAF86 /* AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/TOTP/AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift; sourceTree = "<group>"; };
+		5EF3AA2EAE953ACFFF0CBA2AA9F96875 /* VerifyClientResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyClientResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/VerifyClientResponse.swift; sourceTree = "<group>"; };
+		61160F0ECD303CA1DD4FAA65AD44A165 /* AuthAPNSTokenManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthAPNSTokenManager.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthAPNSTokenManager.swift; sourceTree = "<group>"; };
+		61581F4855842E911AFC4DED5320AE6A /* VerifyCustomTokenRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyCustomTokenRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyCustomTokenRequest.swift; sourceTree = "<group>"; };
+		6355BCC6DEB4C260C09650E962DB09BA /* DeleteAccountRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeleteAccountRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/DeleteAccountRequest.swift; sourceTree = "<group>"; };
+		670097F16F5D803A0425B780948707D2 /* FederatedAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FederatedAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/FederatedAuthProvider.swift; sourceTree = "<group>"; };
+		673C031FD850B30D32430D93AE12E63F /* FirebaseAuth.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FirebaseAuth.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FirebaseAuth.h; sourceTree = "<group>"; };
+		686F59BB71DB167058509BA8D347594A /* VerifyClientRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyClientRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/VerifyClientRequest.swift; sourceTree = "<group>"; };
+		693284CF02C3F7803559394566268622 /* FIRPhoneAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRPhoneAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRPhoneAuthProvider.h; sourceTree = "<group>"; };
+		6958BBFAA8914B1020E33F8386E23F8C /* AuthComponent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthComponent.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthComponent.swift; sourceTree = "<group>"; };
+		6B22D5575D1DD9F8323BEF688272EA26 /* AuthProtoStartMFAPhoneRequestInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoStartMFAPhoneRequestInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/Phone/AuthProtoStartMFAPhoneRequestInfo.swift; sourceTree = "<group>"; };
+		6D22879FF85D91A9755CDCB610DCD21C /* VerifyAssertionRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyAssertionRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyAssertionRequest.swift; sourceTree = "<group>"; };
+		72BD8BFD233ACD20FEAF7673EC94C1E7 /* PhoneMultiFactorAssertion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhoneMultiFactorAssertion.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/Phone/PhoneMultiFactorAssertion.swift; sourceTree = "<group>"; };
+		75BA7FEFCF0F7E5DFD673F307D6657B9 /* SecureTokenRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SecureTokenRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SecureTokenRequest.swift; sourceTree = "<group>"; };
+		75D2D91DA10517918AB0E9002EF05F32 /* FirebaseAuth-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "FirebaseAuth-Info.plist"; sourceTree = "<group>"; };
+		76D4F960543785133C812840BA17318C /* AuthURLPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthURLPresenter.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthURLPresenter.swift; sourceTree = "<group>"; };
+		79271B93D943CAEABFFAB7068A831D19 /* GetOOBConfirmationCodeResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetOOBConfirmationCodeResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetOOBConfirmationCodeResponse.swift; sourceTree = "<group>"; };
+		7966A6953CDD14E6132A76A3E29E8C01 /* AuthRequestConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthRequestConfiguration.swift; path = FirebaseAuth/Sources/Swift/Backend/AuthRequestConfiguration.swift; sourceTree = "<group>"; };
+		7B6D2CB04915186DD022114A1D531BA5 /* SendVerificationTokenResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SendVerificationTokenResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SendVerificationTokenResponse.swift; sourceTree = "<group>"; };
+		7C89795D97656EAFCB95C5868B92963D /* GetProjectConfigRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetProjectConfigRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetProjectConfigRequest.swift; sourceTree = "<group>"; };
+		7DA9FDD398823A5D9FB5BCB477BC03E3 /* Base64URLEncodedStringExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Base64URLEncodedStringExtension.swift; path = FirebaseAuth/Sources/Swift/Base64URLEncodedStringExtension.swift; sourceTree = "<group>"; };
+		7E9791E54946CA8681AA1AF8AE2E99BF /* AuthAPNSTokenType.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthAPNSTokenType.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthAPNSTokenType.swift; sourceTree = "<group>"; };
+		7F0E63EA0A9F00B71C163375B48CAB54 /* CreateAuthURIRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreateAuthURIRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/CreateAuthURIRequest.swift; sourceTree = "<group>"; };
+		7FF51BBF42A79A370841D31607C7D999 /* FIRFacebookAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRFacebookAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRFacebookAuthProvider.h; sourceTree = "<group>"; };
+		87A7787BA44F61B8102C78329103A707 /* FinalizeMFAEnrollmentResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinalizeMFAEnrollmentResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Enroll/FinalizeMFAEnrollmentResponse.swift; sourceTree = "<group>"; };
+		87DF4D99D31E80FBB00116A4AA4FE942 /* UserProfileChangeRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserProfileChangeRequest.swift; path = FirebaseAuth/Sources/Swift/User/UserProfileChangeRequest.swift; sourceTree = "<group>"; };
+		8865B321D0075BAE95233AB40EF87DA2 /* FIRGitHubAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRGitHubAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRGitHubAuthProvider.h; sourceTree = "<group>"; };
+		8BF1D16B35E4E809626B481FA7A97F39 /* WithdrawMFARequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WithdrawMFARequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Unenroll/WithdrawMFARequest.swift; sourceTree = "<group>"; };
+		8C71C718FD7B921953142172A0240917 /* VerifyPhoneNumberResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyPhoneNumberResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyPhoneNumberResponse.swift; sourceTree = "<group>"; };
+		8CD1ADBC857BC02B6B8E01A5DC4D6D11 /* OAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/OAuthProvider.swift; sourceTree = "<group>"; };
+		8DF1BFA34F100650FEA79B4306B1DBDE /* AuthKeychainStorageReal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthKeychainStorageReal.swift; path = FirebaseAuth/Sources/Swift/Storage/AuthKeychainStorageReal.swift; sourceTree = "<group>"; };
+		90530871E1795CA277CAE11349AA72DD /* GitHubAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GitHubAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/GitHubAuthProvider.swift; sourceTree = "<group>"; };
+		9164362A1ACF2C7A48042631B33C60DA /* GetAccountInfoRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetAccountInfoRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetAccountInfoRequest.swift; sourceTree = "<group>"; };
+		91E5B598DA917F623285DB4C704C98BE /* FIRMultiFactor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRMultiFactor.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRMultiFactor.h; sourceTree = "<group>"; };
+		92E6D9C8DB4412DD3869988F239A05C4 /* ActionCodeURL.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActionCodeURL.swift; path = FirebaseAuth/Sources/Swift/ActionCode/ActionCodeURL.swift; sourceTree = "<group>"; };
+		93AA95191BF45B7C71E6E97EB098BA0F /* AuthBackendRPCIssuer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthBackendRPCIssuer.swift; path = FirebaseAuth/Sources/Swift/Backend/AuthBackendRPCIssuer.swift; sourceTree = "<group>"; };
+		96BC192F1D771EA19259900E1D842F73 /* UserMetadata.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserMetadata.swift; path = FirebaseAuth/Sources/Swift/User/UserMetadata.swift; sourceTree = "<group>"; };
+		9C85C2F2B9CEBDBBADBA46CA1BC4B965 /* TOTPMultFactorAssertion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TOTPMultFactorAssertion.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/TOTP/TOTPMultFactorAssertion.swift; sourceTree = "<group>"; };
+		9E0028C84D2AAAFD9F645813A4CFF47B /* StartMFAEnrollmentResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartMFAEnrollmentResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Enroll/StartMFAEnrollmentResponse.swift; sourceTree = "<group>"; };
+		9F51AEA018FC780F2B0073D9EEDE555C /* PhoneMultiFactorGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhoneMultiFactorGenerator.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/Phone/PhoneMultiFactorGenerator.swift; sourceTree = "<group>"; };
+		A0C20A41D469EAF52CD4CF2E2C5E1C90 /* AuthKeychainStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthKeychainStorage.swift; path = FirebaseAuth/Sources/Swift/Storage/AuthKeychainStorage.swift; sourceTree = "<group>"; };
+		A1D9B40D33914D7B355B5B3E3E15B261 /* OAuthCredential.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OAuthCredential.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/OAuthCredential.swift; sourceTree = "<group>"; };
+		A1EDB9405B931EF7AFCD729C4A2F9B10 /* PhoneMultiFactorInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhoneMultiFactorInfo.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/Phone/PhoneMultiFactorInfo.swift; sourceTree = "<group>"; };
+		A376E9F23CF34FAD7E7D042F091BAA07 /* TwitterAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TwitterAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/TwitterAuthProvider.swift; sourceTree = "<group>"; };
+		A3FBFA93826C6F4FD8B6A0225C928FD8 /* FacebookAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FacebookAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/FacebookAuthProvider.swift; sourceTree = "<group>"; };
+		A82ED98804F5A71903605D4171ABFDED /* AuthProtoStartMFAPhoneResponseInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoStartMFAPhoneResponseInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/Phone/AuthProtoStartMFAPhoneResponseInfo.swift; sourceTree = "<group>"; };
+		A8423D83D23ACB268925DDBBB609FA04 /* FIRAuthProvider.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRAuthProvider.m; path = FirebaseAuth/Sources/ObjC/FIRAuthProvider.m; sourceTree = "<group>"; };
+		A95D6AC970F2D609A7A06AF3B5F15A65 /* SendVerificationTokenRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SendVerificationTokenRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SendVerificationTokenRequest.swift; sourceTree = "<group>"; };
+		AA90A60B30E5D7EBA0DFB173D9E22D66 /* FirebaseCoreExtension */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseCoreExtension; path = FirebaseCoreExtension.xcodeproj; sourceTree = "<group>"; };
+		ABEF39DE09352FC7EBD26AAA1DC1C7CD /* AuthAPNSToken.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthAPNSToken.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthAPNSToken.swift; sourceTree = "<group>"; };
+		AD8A39095F9A57622E4624BBC7E308B5 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		AFF2F94965E366C399538307BDEB75E7 /* FinalizeMFASignInResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinalizeMFASignInResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/SignIn/FinalizeMFASignInResponse.swift; sourceTree = "<group>"; };
+		B054C3B1CAE324472C9E45E97C026995 /* FIRAuth.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRAuth.m; path = FirebaseAuth/Sources/ObjC/FIRAuth.m; sourceTree = "<group>"; };
+		B1E99ADEF0365EF376E40675D5D5E14D /* AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/TOTP/AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift; sourceTree = "<group>"; };
+		B3CCF337E2E1A6BB7B3DF77DBAA86C44 /* PhoneAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhoneAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/PhoneAuthProvider.swift; sourceTree = "<group>"; };
+		B3E82AF6DFBF0FD58828A7BA9301CDD7 /* EmailAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EmailAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/EmailAuthProvider.swift; sourceTree = "<group>"; };
+		B45C5CD71778A23422494AA828023D28 /* ResetPasswordResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResetPasswordResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/ResetPasswordResponse.swift; sourceTree = "<group>"; };
+		B60320B135823E62BDC27DC52F586C95 /* AuthProtoFinalizeMFATOTPSignInRequestInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoFinalizeMFATOTPSignInRequestInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/TOTP/AuthProtoFinalizeMFATOTPSignInRequestInfo.swift; sourceTree = "<group>"; };
+		B6CC93EA30E15C7CD149EA9D92C7C619 /* AuthNotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthNotificationManager.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthNotificationManager.swift; sourceTree = "<group>"; };
+		B6EF0D86967E532EC050724F0B5AE52F /* FIRUser.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRUser.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRUser.h; sourceTree = "<group>"; };
+		B79036BCAC98D93B1A08DA3B47E25639 /* SignInWithGameCenterResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignInWithGameCenterResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SignInWithGameCenterResponse.swift; sourceTree = "<group>"; };
+		B8B6488ECE0B5EB6F325E29E0DBA45DC /* Auth.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Auth.swift; path = FirebaseAuth/Sources/Swift/Auth/Auth.swift; sourceTree = "<group>"; };
+		BE37E24F35E0CE92D3AEA53B3E080F53 /* WithdrawMFAResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WithdrawMFAResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/Unenroll/WithdrawMFAResponse.swift; sourceTree = "<group>"; };
+		BF0F5DDC067030DA55063655C48568AA /* Auth+Async.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "Auth+Async.swift"; path = "FirebaseAuth/Sources/Swift/Auth/Auth+Async.swift"; sourceTree = "<group>"; };
+		C822A5387FE5DCB395FB08DA8A968BDB /* MultiFactorInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MultiFactorInfo.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/MultiFactorInfo.swift; sourceTree = "<group>"; };
+		C85592863BACAB4BFF0FCE3709C86303 /* DeleteAccountResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeleteAccountResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/DeleteAccountResponse.swift; sourceTree = "<group>"; };
+		C8739058FD1D6997D575EB59800392A0 /* TOTPSecret.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TOTPSecret.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/TOTP/TOTPSecret.swift; sourceTree = "<group>"; };
+		C8945BFF6B721426BEF7D115D1B2DCC9 /* AuthWebUtils.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthWebUtils.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthWebUtils.swift; sourceTree = "<group>"; };
+		C9ABA3D61287AC235D5AD153F34701E3 /* FirebaseAuth-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "FirebaseAuth-dummy.m"; sourceTree = "<group>"; };
+		CA0D4C089B9AE318317B9AF033FF12CF /* AuthOperationType.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthOperationType.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthOperationType.swift; sourceTree = "<group>"; };
+		CEF5A2ECF00DB3639CAFE70FEA0B6EDA /* GetAccountInfoResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetAccountInfoResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetAccountInfoResponse.swift; sourceTree = "<group>"; };
+		CFFBBCE1D4969F26BD8384D1CF8BFE84 /* AdditionalUserInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AdditionalUserInfo.swift; path = FirebaseAuth/Sources/Swift/User/AdditionalUserInfo.swift; sourceTree = "<group>"; };
+		D198C749C7F1F5B68658317E6F031A55 /* RecaptchaInterop */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = RecaptchaInterop; path = RecaptchaInterop.xcodeproj; sourceTree = "<group>"; };
+		D316022F2B87F5132FBAA75D5061D1B8 /* AuthRPCRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthRPCRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/AuthRPCRequest.swift; sourceTree = "<group>"; };
+		D477C3F7A53371A750C06BFE486E881A /* AuthDataResult.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthDataResult.swift; path = FirebaseAuth/Sources/Swift/Auth/AuthDataResult.swift; sourceTree = "<group>"; };
+		D47D4730BD5094044977729CD136A128 /* SetAccountInfoResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SetAccountInfoResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SetAccountInfoResponse.swift; sourceTree = "<group>"; };
+		D5504CB5B1531EFFB57DC7D9711E5EC6 /* AuthAppCredentialManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthAppCredentialManager.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthAppCredentialManager.swift; sourceTree = "<group>"; };
+		D60B4AAE5E84E6A5E29E0E2462901762 /* AuthUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthUserDefaults.swift; path = FirebaseAuth/Sources/Swift/Storage/AuthUserDefaults.swift; sourceTree = "<group>"; };
+		D7A0F6D8196E38EC9B5F36DF29688C2D /* AuthProtoStartMFATOTPEnrollmentResponseInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProtoStartMFATOTPEnrollmentResponseInfo.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/TOTP/AuthProtoStartMFATOTPEnrollmentResponseInfo.swift; sourceTree = "<group>"; };
+		D93F97CC4E9CEDB4B67E05B8363068BD /* FIREmailAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIREmailAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIREmailAuthProvider.h; sourceTree = "<group>"; };
+		DA60F60ED71AC73E4F8059BC105EBD08 /* AuthRecaptchaVerifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthRecaptchaVerifier.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthRecaptchaVerifier.swift; sourceTree = "<group>"; };
+		DAA57CB7FF5BD23D82E10E8DC341E31A /* UserInfoImpl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserInfoImpl.swift; path = FirebaseAuth/Sources/Swift/User/UserInfoImpl.swift; sourceTree = "<group>"; };
+		DBDD9C6DCCDBD8842D9DE6B221F8868D /* TOTPMultiFactorGenerator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TOTPMultiFactorGenerator.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/TOTP/TOTPMultiFactorGenerator.swift; sourceTree = "<group>"; };
+		DF6A008AC2618A1E7ECDC25F0F975841 /* ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist"; sourceTree = "<group>"; };
+		E02FEA58A34EC1D98672EF77EC78B072 /* AuthErrorUtils.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthErrorUtils.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthErrorUtils.swift; sourceTree = "<group>"; };
+		E0711590112994A43B635743062A0F76 /* FinalizeMFASignInRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FinalizeMFASignInRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/SignIn/FinalizeMFASignInRequest.swift; sourceTree = "<group>"; };
+		E105FF5B32AE7BD27FAD3E9B01442F7E /* ActionCodeSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActionCodeSettings.swift; path = FirebaseAuth/Sources/Swift/ActionCode/ActionCodeSettings.swift; sourceTree = "<group>"; };
+		E1BEC6961FCDD3AE3F19FE319BAD3643 /* UserInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserInfo.swift; path = FirebaseAuth/Sources/Swift/User/UserInfo.swift; sourceTree = "<group>"; };
+		E2D2A2FFB7BE7AD52409679EDF2A0BED /* FIRGameCenterAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRGameCenterAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRGameCenterAuthProvider.h; sourceTree = "<group>"; };
+		E3FF49A4F289908948EDC33128BF70EC /* GameCenterAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GameCenterAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/GameCenterAuthProvider.swift; sourceTree = "<group>"; };
+		E5DEF465F225BAE405DD479CD7620585 /* MultiFactorSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MultiFactorSession.swift; path = FirebaseAuth/Sources/Swift/MultiFactor/MultiFactorSession.swift; sourceTree = "<group>"; };
+		E60DC7DC966DA52DF7FDF2CF5A7870EE /* GoogleAuthProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GoogleAuthProvider.swift; path = FirebaseAuth/Sources/Swift/AuthProvider/GoogleAuthProvider.swift; sourceTree = "<group>"; };
+		E706FF4B314BDCD0A2FA7A587CFF692E /* FIRAuthErrors.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAuthErrors.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRAuthErrors.h; sourceTree = "<group>"; };
+		E83E0326C13632E674A254D14C5A1627 /* SecureTokenService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SecureTokenService.swift; path = FirebaseAuth/Sources/Swift/SystemService/SecureTokenService.swift; sourceTree = "<group>"; };
+		E889575538FF241B876E7012C9E317E1 /* FIRTwitterAuthProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRTwitterAuthProvider.h; path = FirebaseAuth/Sources/Public/FirebaseAuth/FIRTwitterAuthProvider.h; sourceTree = "<group>"; };
+		E902D2174BD548F21B945060B3B62459 /* VerifyPasswordResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyPasswordResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyPasswordResponse.swift; sourceTree = "<group>"; };
+		EA3C88AEF2D3E8F1B14D0A87C0063504 /* FirebaseAuth.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseAuth.debug.xcconfig; sourceTree = "<group>"; };
+		EAAA94DAE247CA048F5EC428966C9E5E /* AuthDefaultUIDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthDefaultUIDelegate.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthDefaultUIDelegate.swift; sourceTree = "<group>"; };
+		F21AA46260FE7FBFD087B77D600B0C9D /* VerifyPasswordRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VerifyPasswordRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/VerifyPasswordRequest.swift; sourceTree = "<group>"; };
+		F4287BC188AD399B5C138A09B27B9B6D /* RevokeTokenResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RevokeTokenResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/RevokeTokenResponse.swift; sourceTree = "<group>"; };
+		F4C32191A5B277D41155181B0B3D85E0 /* IdentityToolkitRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IdentityToolkitRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/IdentityToolkitRequest.swift; sourceTree = "<group>"; };
+		F53271D1E7E73A78D7C7F2AA6AA6CBD6 /* AuthMFAResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthMFAResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/AuthMFAResponse.swift; sourceTree = "<group>"; };
+		F54F11DD2AD42915BFE8DCF9A211B93E /* AuthLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthLog.swift; path = FirebaseAuth/Sources/Swift/Utilities/AuthLog.swift; sourceTree = "<group>"; };
+		F58DE97FB4CAD7393E65A0B288FDC1E1 /* CreateAuthURIResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreateAuthURIResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/CreateAuthURIResponse.swift; sourceTree = "<group>"; };
+		F8BB24400CC769502D5E4D493C3C0D17 /* GoogleUtilities */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = GoogleUtilities; path = GoogleUtilities.xcodeproj; sourceTree = "<group>"; };
+		F9A3A8886DE2EFE8289A5EE9B662F2BA /* AuthProto.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthProto.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/Proto/AuthProto.swift; sourceTree = "<group>"; };
+		FAACBA452F3CD8AF0DF3EB505BCF4E14 /* GetRecaptchaConfigResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetRecaptchaConfigResponse.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/GetRecaptchaConfigResponse.swift; sourceTree = "<group>"; };
+		FBC1D2622698B34265F524A641859DCD /* EmailLinkSignInRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EmailLinkSignInRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/EmailLinkSignInRequest.swift; sourceTree = "<group>"; };
+		FC17E4E72CA323F083289323A6A0B149 /* StartMFASignInRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartMFASignInRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/MultiFactor/SignIn/StartMFASignInRequest.swift; sourceTree = "<group>"; };
+		FDF55761031E188B5EEC446D244E9DE8 /* SignUpNewUserRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignUpNewUserRequest.swift; path = FirebaseAuth/Sources/Swift/Backend/RPC/SignUpNewUserRequest.swift; sourceTree = "<group>"; };
+		FFBC48CECE297DB93F0BD81ED0902499 /* AuthStoredUserManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthStoredUserManager.swift; path = FirebaseAuth/Sources/Swift/SystemService/AuthStoredUserManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		844499E13055181CFD0CFCF74D002C18 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8AD557ADB2D30A548F7975475BAEC420 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A919A2B6A285157B56B4B76AB60A8360 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		22BCA3EF3FAEB1C67A08A04C0F092429 /* Dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				1562E997B1006127DE78D03FF69F5903 /* FirebaseAppCheckInterop */,
+				380E813E7BA4BCE4191E9EE3C2B52315 /* FirebaseAuthInterop */,
+				17EBBA98DFF11AAB150C919AEF9A4EEF /* FirebaseCore */,
+				AA90A60B30E5D7EBA0DFB173D9E22D66 /* FirebaseCoreExtension */,
+				F8BB24400CC769502D5E4D493C3C0D17 /* GoogleUtilities */,
+				5C36E502DE08F8E71878AF16B3F4D742 /* GTMSessionFetcher */,
+				D198C749C7F1F5B68658317E6F031A55 /* RecaptchaInterop */,
+			);
+			name = Dependencies;
+			sourceTree = "<group>";
+		};
+		24B2FABC53B27E4ED09324829CF57A65 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0B735FC37931990DD4A06C824D85A556 /* PrivacyInfo.xcprivacy */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		4F97268103AFD06345FCF9A8E1050CC0 /* FirebaseAuth */ = {
+			isa = PBXGroup;
+			children = (
+				25410321B45EE354BFE069CEF21033FE /* ActionCodeInfo.swift */,
+				35C1F730B8B2E6EB9613CBA3CEF68542 /* ActionCodeOperation.swift */,
+				E105FF5B32AE7BD27FAD3E9B01442F7E /* ActionCodeSettings.swift */,
+				92E6D9C8DB4412DD3869988F239A05C4 /* ActionCodeURL.swift */,
+				CFFBBCE1D4969F26BD8384D1CF8BFE84 /* AdditionalUserInfo.swift */,
+				B8B6488ECE0B5EB6F325E29E0DBA45DC /* Auth.swift */,
+				BF0F5DDC067030DA55063655C48568AA /* Auth+Async.swift */,
+				ABEF39DE09352FC7EBD26AAA1DC1C7CD /* AuthAPNSToken.swift */,
+				61160F0ECD303CA1DD4FAA65AD44A165 /* AuthAPNSTokenManager.swift */,
+				7E9791E54946CA8681AA1AF8AE2E99BF /* AuthAPNSTokenType.swift */,
+				55FAAEF161239C846A196E9A54B47DB7 /* AuthAppCredential.swift */,
+				D5504CB5B1531EFFB57DC7D9711E5EC6 /* AuthAppCredentialManager.swift */,
+				4287CEAF18E2814A4288FCB10624EA2D /* AuthBackend.swift */,
+				93AA95191BF45B7C71E6E97EB098BA0F /* AuthBackendRPCIssuer.swift */,
+				6958BBFAA8914B1020E33F8386E23F8C /* AuthComponent.swift */,
+				4C4ECC77E4E26A0D23956CCCBEACB89F /* AuthCondition.swift */,
+				3D57A72B5E4C887EDCAED842938C0208 /* AuthCredential.swift */,
+				D477C3F7A53371A750C06BFE486E881A /* AuthDataResult.swift */,
+				EAAA94DAE247CA048F5EC428966C9E5E /* AuthDefaultUIDelegate.swift */,
+				5D89C4DB1F315CCACFB4CCE0F1741AF0 /* AuthDispatcher.swift */,
+				5758834F0E725CF622DCBD0FC612E222 /* AuthErrors.swift */,
+				E02FEA58A34EC1D98672EF77EC78B072 /* AuthErrorUtils.swift */,
+				375866B5BD8EE4B03DF2DFA338C57570 /* AuthGlobalWorkQueue.swift */,
+				1A193827DC82ECC01C4F1A9165F48332 /* AuthInternalErrors.swift */,
+				2633903D3B4EA7AFF10846BE7D5AFD7D /* AuthKeychainServices.swift */,
+				A0C20A41D469EAF52CD4CF2E2C5E1C90 /* AuthKeychainStorage.swift */,
+				8DF1BFA34F100650FEA79B4306B1DBDE /* AuthKeychainStorageReal.swift */,
+				F54F11DD2AD42915BFE8DCF9A211B93E /* AuthLog.swift */,
+				F53271D1E7E73A78D7C7F2AA6AA6CBD6 /* AuthMFAResponse.swift */,
+				B6CC93EA30E15C7CD149EA9D92C7C619 /* AuthNotificationManager.swift */,
+				CA0D4C089B9AE318317B9AF033FF12CF /* AuthOperationType.swift */,
+				F9A3A8886DE2EFE8289A5EE9B662F2BA /* AuthProto.swift */,
+				11B307349C0C934BC2FA5C131E90DFFE /* AuthProtoFinalizeMFAPhoneRequestInfo.swift */,
+				1D998AB8C915BDCAFC55D1EF55229759 /* AuthProtoFinalizeMFAPhoneResponseInfo.swift */,
+				B1E99ADEF0365EF376E40675D5D5E14D /* AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift */,
+				5EF30AB8ECCEEF1227F1CA9871CCAF86 /* AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift */,
+				B60320B135823E62BDC27DC52F586C95 /* AuthProtoFinalizeMFATOTPSignInRequestInfo.swift */,
+				4F1197DC3AC14114F987E0D41D7FA2F3 /* AuthProtoMFAEnrollment.swift */,
+				6B22D5575D1DD9F8323BEF688272EA26 /* AuthProtoStartMFAPhoneRequestInfo.swift */,
+				A82ED98804F5A71903605D4171ABFDED /* AuthProtoStartMFAPhoneResponseInfo.swift */,
+				035036560EA9A3067EDD35CCB35E5D70 /* AuthProtoStartMFATOTPEnrollmentRequestInfo.swift */,
+				D7A0F6D8196E38EC9B5F36DF29688C2D /* AuthProtoStartMFATOTPEnrollmentResponseInfo.swift */,
+				12A1A6BF51F06C7C6E8CACAEBDB05B7D /* AuthProviderID.swift */,
+				DA60F60ED71AC73E4F8059BC105EBD08 /* AuthRecaptchaVerifier.swift */,
+				7966A6953CDD14E6132A76A3E29E8C01 /* AuthRequestConfiguration.swift */,
+				D316022F2B87F5132FBAA75D5061D1B8 /* AuthRPCRequest.swift */,
+				3E5BAB40DC8043452256B767D7A1EA77 /* AuthRPCResponse.swift */,
+				57FED197CBA541409771D6B4B016F84B /* AuthSettings.swift */,
+				FFBC48CECE297DB93F0BD81ED0902499 /* AuthStoredUserManager.swift */,
+				42BDC09AAFA14C41223BC6568FFAB8E0 /* AuthTokenResult.swift */,
+				0FC0B50A89B40EE5F3DF06A2A35030EB /* AuthUIDelegate.swift */,
+				76D4F960543785133C812840BA17318C /* AuthURLPresenter.swift */,
+				D60B4AAE5E84E6A5E29E0E2462901762 /* AuthUserDefaults.swift */,
+				C8945BFF6B721426BEF7D115D1B2DCC9 /* AuthWebUtils.swift */,
+				28B5991B3BE5F63EDA3A637518FBA9A4 /* AuthWebViewController.swift */,
+				7DA9FDD398823A5D9FB5BCB477BC03E3 /* Base64URLEncodedStringExtension.swift */,
+				7F0E63EA0A9F00B71C163375B48CAB54 /* CreateAuthURIRequest.swift */,
+				F58DE97FB4CAD7393E65A0B288FDC1E1 /* CreateAuthURIResponse.swift */,
+				6355BCC6DEB4C260C09650E962DB09BA /* DeleteAccountRequest.swift */,
+				C85592863BACAB4BFF0FCE3709C86303 /* DeleteAccountResponse.swift */,
+				B3E82AF6DFBF0FD58828A7BA9301CDD7 /* EmailAuthProvider.swift */,
+				FBC1D2622698B34265F524A641859DCD /* EmailLinkSignInRequest.swift */,
+				548F4EC98CD884901C8CAD256667696D /* EmailLinkSignInResponse.swift */,
+				A3FBFA93826C6F4FD8B6A0225C928FD8 /* FacebookAuthProvider.swift */,
+				670097F16F5D803A0425B780948707D2 /* FederatedAuthProvider.swift */,
+				0C3E65C07B1D187F42D2F87F5E52BFDF /* FinalizeMFAEnrollmentRequest.swift */,
+				87A7787BA44F61B8102C78329103A707 /* FinalizeMFAEnrollmentResponse.swift */,
+				E0711590112994A43B635743062A0F76 /* FinalizeMFASignInRequest.swift */,
+				AFF2F94965E366C399538307BDEB75E7 /* FinalizeMFASignInResponse.swift */,
+				2FF250C29C7FB35D3257C313B8174A60 /* FIRAuth.h */,
+				B054C3B1CAE324472C9E45E97C026995 /* FIRAuth.m */,
+				E706FF4B314BDCD0A2FA7A587CFF692E /* FIRAuthErrors.h */,
+				0526D17F6E252717B11E433F54EF1DB1 /* FIRAuthErrorUtils.m */,
+				A8423D83D23ACB268925DDBBB609FA04 /* FIRAuthProvider.m */,
+				673C031FD850B30D32430D93AE12E63F /* FirebaseAuth.h */,
+				D93F97CC4E9CEDB4B67E05B8363068BD /* FIREmailAuthProvider.h */,
+				7FF51BBF42A79A370841D31607C7D999 /* FIRFacebookAuthProvider.h */,
+				2DEC6C27E05E7B646E813155526D2E6B /* FIRFederatedAuthProvider.h */,
+				E2D2A2FFB7BE7AD52409679EDF2A0BED /* FIRGameCenterAuthProvider.h */,
+				8865B321D0075BAE95233AB40EF87DA2 /* FIRGitHubAuthProvider.h */,
+				38690F3A4B29DC939A95EFF5EB99200F /* FIRGoogleAuthProvider.h */,
+				91E5B598DA917F623285DB4C704C98BE /* FIRMultiFactor.h */,
+				47384A53D1FC1AA1EDEA398776D9F92B /* FIRMultiFactorConstants.m */,
+				693284CF02C3F7803559394566268622 /* FIRPhoneAuthProvider.h */,
+				E889575538FF241B876E7012C9E317E1 /* FIRTwitterAuthProvider.h */,
+				B6EF0D86967E532EC050724F0B5AE52F /* FIRUser.h */,
+				E3FF49A4F289908948EDC33128BF70EC /* GameCenterAuthProvider.swift */,
+				9164362A1ACF2C7A48042631B33C60DA /* GetAccountInfoRequest.swift */,
+				CEF5A2ECF00DB3639CAFE70FEA0B6EDA /* GetAccountInfoResponse.swift */,
+				32F61302B3D8574D6DDF5AB85591E578 /* GetOOBConfirmationCodeRequest.swift */,
+				79271B93D943CAEABFFAB7068A831D19 /* GetOOBConfirmationCodeResponse.swift */,
+				7C89795D97656EAFCB95C5868B92963D /* GetProjectConfigRequest.swift */,
+				49D118C6240E53E2E385B36B976E5CED /* GetProjectConfigResponse.swift */,
+				23B04D168C7C442E9607ACDFEBAF0B18 /* GetRecaptchaConfigRequest.swift */,
+				FAACBA452F3CD8AF0DF3EB505BCF4E14 /* GetRecaptchaConfigResponse.swift */,
+				90530871E1795CA277CAE11349AA72DD /* GitHubAuthProvider.swift */,
+				E60DC7DC966DA52DF7FDF2CF5A7870EE /* GoogleAuthProvider.swift */,
+				F4C32191A5B277D41155181B0B3D85E0 /* IdentityToolkitRequest.swift */,
+				5BB1D24F3174FB0672D7F6DCC34DBAB9 /* MultiFactor.swift */,
+				09B5FB0D84A89214200EF530386D4812 /* MultiFactorAssertion.swift */,
+				C822A5387FE5DCB395FB08DA8A968BDB /* MultiFactorInfo.swift */,
+				3D6E59FD235CB3A4E769F092BA586225 /* MultiFactorResolver.swift */,
+				E5DEF465F225BAE405DD479CD7620585 /* MultiFactorSession.swift */,
+				A1D9B40D33914D7B355B5B3E3E15B261 /* OAuthCredential.swift */,
+				8CD1ADBC857BC02B6B8E01A5DC4D6D11 /* OAuthProvider.swift */,
+				0D7D9215A2B16C4A8DE924447502C973 /* PhoneAuthCredential.swift */,
+				B3CCF337E2E1A6BB7B3DF77DBAA86C44 /* PhoneAuthProvider.swift */,
+				72BD8BFD233ACD20FEAF7673EC94C1E7 /* PhoneMultiFactorAssertion.swift */,
+				9F51AEA018FC780F2B0073D9EEDE555C /* PhoneMultiFactorGenerator.swift */,
+				A1EDB9405B931EF7AFCD729C4A2F9B10 /* PhoneMultiFactorInfo.swift */,
+				2523E748D66BDAD3C1B494444EE80689 /* ResetPasswordRequest.swift */,
+				B45C5CD71778A23422494AA828023D28 /* ResetPasswordResponse.swift */,
+				0407F3D9042ADF36E7C19D83E9927C02 /* RevokeTokenRequest.swift */,
+				F4287BC188AD399B5C138A09B27B9B6D /* RevokeTokenResponse.swift */,
+				75BA7FEFCF0F7E5DFD673F307D6657B9 /* SecureTokenRequest.swift */,
+				2DBDDFAEE9F7B8F547FCBDCDEB2FBD73 /* SecureTokenResponse.swift */,
+				E83E0326C13632E674A254D14C5A1627 /* SecureTokenService.swift */,
+				A95D6AC970F2D609A7A06AF3B5F15A65 /* SendVerificationTokenRequest.swift */,
+				7B6D2CB04915186DD022114A1D531BA5 /* SendVerificationTokenResponse.swift */,
+				4350160474083CA5053A318D689D092E /* SetAccountInfoRequest.swift */,
+				D47D4730BD5094044977729CD136A128 /* SetAccountInfoResponse.swift */,
+				13D05763213EDDC2311ABF794E1FAB2D /* SignInWithGameCenterRequest.swift */,
+				B79036BCAC98D93B1A08DA3B47E25639 /* SignInWithGameCenterResponse.swift */,
+				FDF55761031E188B5EEC446D244E9DE8 /* SignUpNewUserRequest.swift */,
+				00B5A50A422BA37DE94293DCB32E139E /* SignUpNewUserResponse.swift */,
+				5E123047DF34249BC59E3F6411DB1DBD /* StartMFAEnrollmentRequest.swift */,
+				9E0028C84D2AAAFD9F645813A4CFF47B /* StartMFAEnrollmentResponse.swift */,
+				FC17E4E72CA323F083289323A6A0B149 /* StartMFASignInRequest.swift */,
+				132CAF4FBB03AB7D240F5BC8CFA6C161 /* StartMFASignInResponse.swift */,
+				479350F53FE2A6A748576576E1603DC5 /* TokenRefreshCoalescer.swift */,
+				9C85C2F2B9CEBDBBADBA46CA1BC4B965 /* TOTPMultFactorAssertion.swift */,
+				DBDD9C6DCCDBD8842D9DE6B221F8868D /* TOTPMultiFactorGenerator.swift */,
+				5028A2DC29E9E009314A46CAFBFD3B7A /* TOTPMultiFactorInfo.swift */,
+				C8739058FD1D6997D575EB59800392A0 /* TOTPSecret.swift */,
+				A376E9F23CF34FAD7E7D042F091BAA07 /* TwitterAuthProvider.swift */,
+				36B36EA5297470B6A4A0A15ACA736234 /* User.swift */,
+				E1BEC6961FCDD3AE3F19FE319BAD3643 /* UserInfo.swift */,
+				DAA57CB7FF5BD23D82E10E8DC341E31A /* UserInfoImpl.swift */,
+				96BC192F1D771EA19259900E1D842F73 /* UserMetadata.swift */,
+				87DF4D99D31E80FBB00116A4AA4FE942 /* UserProfileChangeRequest.swift */,
+				33060F334FF50491EB479C3D76F28021 /* UserProfileUpdate.swift */,
+				6D22879FF85D91A9755CDCB610DCD21C /* VerifyAssertionRequest.swift */,
+				3051FC11C2459212142D9B1F9D09E687 /* VerifyAssertionResponse.swift */,
+				686F59BB71DB167058509BA8D347594A /* VerifyClientRequest.swift */,
+				5EF3AA2EAE953ACFFF0CBA2AA9F96875 /* VerifyClientResponse.swift */,
+				61581F4855842E911AFC4DED5320AE6A /* VerifyCustomTokenRequest.swift */,
+				59C74042B980BD37DF752F1B98A38A99 /* VerifyCustomTokenResponse.swift */,
+				F21AA46260FE7FBFD087B77D600B0C9D /* VerifyPasswordRequest.swift */,
+				E902D2174BD548F21B945060B3B62459 /* VerifyPasswordResponse.swift */,
+				5D15654B6EC89B242C8771546E4EC3C8 /* VerifyPhoneNumberRequest.swift */,
+				8C71C718FD7B921953142172A0240917 /* VerifyPhoneNumberResponse.swift */,
+				8BF1D16B35E4E809626B481FA7A97F39 /* WithdrawMFARequest.swift */,
+				BE37E24F35E0CE92D3AEA53B3E080F53 /* WithdrawMFAResponse.swift */,
+				24B2FABC53B27E4ED09324829CF57A65 /* Resources */,
+				C86E7934C1C9828F8D0098A933868C7E /* Support Files */,
+			);
+			name = FirebaseAuth;
+			path = FirebaseAuth;
+			sourceTree = "<group>";
+		};
+		52F2B6C9614EDA9F2409B4003F4BBE99 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B811FE180B56D3796EA0FC2CFFDC5423 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		9B16E3118EAFD5B7C9F66BCED5DB8620 = {
+			isa = PBXGroup;
+			children = (
+				22BCA3EF3FAEB1C67A08A04C0F092429 /* Dependencies */,
+				4F97268103AFD06345FCF9A8E1050CC0 /* FirebaseAuth */,
+				52F2B6C9614EDA9F2409B4003F4BBE99 /* Frameworks */,
+				9D10B6BB103497A8954B43FEE9CD30E5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9D10B6BB103497A8954B43FEE9CD30E5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3C4AD0C4C2FAEBD6C4E1826B1847942B /* FirebaseAuth */,
+				52326348FD434E0231E349ADAAF82A59 /* FirebaseAuth-FirebaseAuth_Privacy */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B811FE180B56D3796EA0FC2CFFDC5423 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				AD8A39095F9A57622E4624BBC7E308B5 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		C86E7934C1C9828F8D0098A933868C7E /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				1068E6CA5286315E22C1D399DEB87201 /* FirebaseAuth.modulemap */,
+				C9ABA3D61287AC235D5AD153F34701E3 /* FirebaseAuth-dummy.m */,
+				75D2D91DA10517918AB0E9002EF05F32 /* FirebaseAuth-Info.plist */,
+				0F4C149F5F8FDB9185589B3F16FFD3DD /* FirebaseAuth-umbrella.h */,
+				EA3C88AEF2D3E8F1B14D0A87C0063504 /* FirebaseAuth.debug.xcconfig */,
+				14E2982EFA91728C2A8A28D6D0ECBE2C /* FirebaseAuth.release.xcconfig */,
+				DF6A008AC2618A1E7ECDC25F0F975841 /* ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/FirebaseAuth";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		8530799213DBA22BB7682F3995EAD099 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79D327353ADCA06C478C2D7444AB7D6A /* FIRAuth.h in Headers */,
+				13C2AA37542DAC14A20B9376B44B7957 /* FIRAuthErrors.h in Headers */,
+				85977C6208A5972CB5557BC6C6847218 /* FirebaseAuth.h in Headers */,
+				B6B46F53E80380BD05E3249789C9BFD7 /* FirebaseAuth-umbrella.h in Headers */,
+				376307E803E13BB9D73C25D7FA86AA7A /* FIREmailAuthProvider.h in Headers */,
+				D38EBBEBAAF3D9DD9B9A9F10BC379303 /* FIRFacebookAuthProvider.h in Headers */,
+				DEBB92B996A227DF3A8D38A6A613C0FF /* FIRFederatedAuthProvider.h in Headers */,
+				26EB7C798FBEC1C86EFAE8112A5210D8 /* FIRGameCenterAuthProvider.h in Headers */,
+				A38155E5C3156BE21302352D394B6888 /* FIRGitHubAuthProvider.h in Headers */,
+				CC9F8708D66B2AEF010827700ADADEB7 /* FIRGoogleAuthProvider.h in Headers */,
+				9B1F4D1ABD54125D3C001EE96169CCFF /* FIRMultiFactor.h in Headers */,
+				D33BA8F7B6B927FA86B77FED80E1B9AB /* FIRPhoneAuthProvider.h in Headers */,
+				5B853F813D5A87B05A821895DACC0CD9 /* FIRTwitterAuthProvider.h in Headers */,
+				325E05D3F974DB1D917C65996E488E78 /* FIRUser.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		778027BEB23AE53B0BE6A1F081647B14 /* FirebaseAuth */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5FEE9B8BD0762B9071E060EA1A2DB1F /* Build configuration list for PBXNativeTarget "FirebaseAuth" */;
+			buildPhases = (
+				8530799213DBA22BB7682F3995EAD099 /* Headers */,
+				8EB56C0384A9F774FDC066E52961691E /* Sources */,
+				8AD557ADB2D30A548F7975475BAEC420 /* Frameworks */,
+				8FE32A82FC0BC71C5A421689C4A24A12 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4BF7A96C08A342AD3222945D2FC2E835 /* PBXTargetDependency */,
+				DB3FE6883752AE56A5C627A4962522E1 /* PBXTargetDependency */,
+				FF44078C8383799C61B5FDFD114DD296 /* PBXTargetDependency */,
+				9E98E0055EC902255228DAD3CFC5E99F /* PBXTargetDependency */,
+				610EDAEEDBB978F88619DCB5A3E91135 /* PBXTargetDependency */,
+				F84398189E79130BF8EBE3D3F2265C61 /* PBXTargetDependency */,
+				96B3B0A8F74877CD60F1CBF59CCA40A0 /* PBXTargetDependency */,
+				0C46439AA6C9DF08FFEA875DCB97C5DD /* PBXTargetDependency */,
+			);
+			name = FirebaseAuth;
+			productName = FirebaseAuth;
+			productReference = 3C4AD0C4C2FAEBD6C4E1826B1847942B /* FirebaseAuth */;
+			productType = "com.apple.product-type.framework";
+		};
+		D962EB6155FEF0ACDD18C6C8D138F8C0 /* FirebaseAuth-FirebaseAuth_Privacy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE9F87027E847EC0A14BDF4478F93C1C /* Build configuration list for PBXNativeTarget "FirebaseAuth-FirebaseAuth_Privacy" */;
+			buildPhases = (
+				3FE7772553BC8E47329F28B1D592F2EC /* Sources */,
+				844499E13055181CFD0CFCF74D002C18 /* Frameworks */,
+				5E6CCE13CBDBF2317FB3E980311B194B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "FirebaseAuth-FirebaseAuth_Privacy";
+			productName = FirebaseAuth_Privacy;
+			productReference = 52326348FD434E0231E349ADAAF82A59 /* FirebaseAuth-FirebaseAuth_Privacy */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		36CC42E076FA6416AA7F1300F08E4020 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 8D0862BFBE223D6FF9865B91DCB62979 /* Build configuration list for PBXProject "FirebaseAuth" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9B16E3118EAFD5B7C9F66BCED5DB8620;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 9D10B6BB103497A8954B43FEE9CD30E5 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProjectRef = 380E813E7BA4BCE4191E9EE3C2B52315 /* FirebaseAuthInterop */;
+				},
+				{
+					ProjectRef = 1562E997B1006127DE78D03FF69F5903 /* FirebaseAppCheckInterop */;
+				},
+				{
+					ProjectRef = 17EBBA98DFF11AAB150C919AEF9A4EEF /* FirebaseCore */;
+				},
+				{
+					ProjectRef = AA90A60B30E5D7EBA0DFB173D9E22D66 /* FirebaseCoreExtension */;
+				},
+				{
+					ProjectRef = F8BB24400CC769502D5E4D493C3C0D17 /* GoogleUtilities */;
+				},
+				{
+					ProjectRef = 5C36E502DE08F8E71878AF16B3F4D742 /* GTMSessionFetcher */;
+				},
+				{
+					ProjectRef = D198C749C7F1F5B68658317E6F031A55 /* RecaptchaInterop */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				778027BEB23AE53B0BE6A1F081647B14 /* FirebaseAuth */,
+				D962EB6155FEF0ACDD18C6C8D138F8C0 /* FirebaseAuth-FirebaseAuth_Privacy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5E6CCE13CBDBF2317FB3E980311B194B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68E353880472A6F00B339DD245AC441C /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8FE32A82FC0BC71C5A421689C4A24A12 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3FE7772553BC8E47329F28B1D592F2EC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8EB56C0384A9F774FDC066E52961691E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC463CFC5C2AD610D6ACFECFAE062664 /* ActionCodeInfo.swift in Sources */,
+				927F664C596908FD2E88F377EE74421D /* ActionCodeOperation.swift in Sources */,
+				A6ED7E24462861471F243CFA4D308821 /* ActionCodeSettings.swift in Sources */,
+				23F8410C681C68C442687203F5BF6FBD /* ActionCodeURL.swift in Sources */,
+				FD54CC32FFE57A4FAE412EA758410B9E /* AdditionalUserInfo.swift in Sources */,
+				3D76EFC63D12023787ED73450AD7DD42 /* Auth.swift in Sources */,
+				27D88131F7F5F0B66C6B5DDC4DD2B5C2 /* Auth+Async.swift in Sources */,
+				F9B534DAEF4707BD5382B17AEB777233 /* AuthAPNSToken.swift in Sources */,
+				1D7564FF4EEABC204A00353C330E08C3 /* AuthAPNSTokenManager.swift in Sources */,
+				6A2BC9CFA14692611646C1E1ADEF8956 /* AuthAPNSTokenType.swift in Sources */,
+				F8E193AAC6F397B09EDE3033082BFCF6 /* AuthAppCredential.swift in Sources */,
+				049529EC98D18E5D71EBA2204028EB71 /* AuthAppCredentialManager.swift in Sources */,
+				C4A58C764E5061BF5358316748E02902 /* AuthBackend.swift in Sources */,
+				B8B726D1DB10D7B64AEBDB1124494705 /* AuthBackendRPCIssuer.swift in Sources */,
+				C545750B005C1E6F53C8914D739E1C4F /* AuthComponent.swift in Sources */,
+				A111B049B470FD82029CDB570215A556 /* AuthCondition.swift in Sources */,
+				24786D38B7236510218A4F21347C6598 /* AuthCredential.swift in Sources */,
+				C5A8FEA9C02B18052A7CD56714807917 /* AuthDataResult.swift in Sources */,
+				071CE2406F02DE9188C15A5F1A2C26F6 /* AuthDefaultUIDelegate.swift in Sources */,
+				85C7148B9B3147067B5B1A37A4C50461 /* AuthDispatcher.swift in Sources */,
+				90027D5A6DD1B8FF0152FE08B5BFE148 /* AuthErrors.swift in Sources */,
+				4C30BE54688174AC3EFFD43F5D75BF57 /* AuthErrorUtils.swift in Sources */,
+				A29580C44F56A25F7FE9C079A3AD30F0 /* AuthGlobalWorkQueue.swift in Sources */,
+				D450D7ADF06405189046CFE6825669CE /* AuthInternalErrors.swift in Sources */,
+				77D592571C8BF22DB8F374832F1285DF /* AuthKeychainServices.swift in Sources */,
+				EB51DA7D18B5C42419453EB6A72727BB /* AuthKeychainStorage.swift in Sources */,
+				188F7721036001069E4EC61873A19250 /* AuthKeychainStorageReal.swift in Sources */,
+				8756496983C8221EC9AD406681F2B7B9 /* AuthLog.swift in Sources */,
+				B26EA35AAAEAF9CD5C7B355E562A92A6 /* AuthMFAResponse.swift in Sources */,
+				4FBD234702372EAE1A29D6021916A888 /* AuthNotificationManager.swift in Sources */,
+				BAAB7F3B438E6D91373D97E89E564EF3 /* AuthOperationType.swift in Sources */,
+				8E7FA2E59A9A0E4212F2E02F9A15AA70 /* AuthProto.swift in Sources */,
+				52ED9384DD7A1D7560C1B4EBD308BB7A /* AuthProtoFinalizeMFAPhoneRequestInfo.swift in Sources */,
+				40D4288AA005C0EACC8211C0F71E90B7 /* AuthProtoFinalizeMFAPhoneResponseInfo.swift in Sources */,
+				C8F471F2D3100DF5861036D302CD6501 /* AuthProtoFinalizeMFATOTPEnrollmentRequestInfo.swift in Sources */,
+				20D4723C8976FBCEB006F94BED77E101 /* AuthProtoFinalizeMFATOTPEnrollmentResponseInfo.swift in Sources */,
+				94A3AB34D1E90EB2BC22C647A5AB2372 /* AuthProtoFinalizeMFATOTPSignInRequestInfo.swift in Sources */,
+				F89E5349426A704A1C62DF1C621B524B /* AuthProtoMFAEnrollment.swift in Sources */,
+				861B496BA2644C70387EDFA7BFE6498A /* AuthProtoStartMFAPhoneRequestInfo.swift in Sources */,
+				FCBA05EA8D940353A3C56FD87F319C30 /* AuthProtoStartMFAPhoneResponseInfo.swift in Sources */,
+				81F517A51016A013D8F0B09951C5B442 /* AuthProtoStartMFATOTPEnrollmentRequestInfo.swift in Sources */,
+				935DAC19D4638A02E10F5970DCBA4E5E /* AuthProtoStartMFATOTPEnrollmentResponseInfo.swift in Sources */,
+				26385487E9096A90717BCD20769AB429 /* AuthProviderID.swift in Sources */,
+				F91BE4B4653191A9542317473FCAEF88 /* AuthRecaptchaVerifier.swift in Sources */,
+				0F44208029B316B4B1326C9965330E15 /* AuthRequestConfiguration.swift in Sources */,
+				8BE94BBB785F80A61B5C6BBEDD4E28DC /* AuthRPCRequest.swift in Sources */,
+				491D3A122798EFD440BE6B8739F9C352 /* AuthRPCResponse.swift in Sources */,
+				0A5CFC8DCE3460A2F8CF489E0D2C3D8D /* AuthSettings.swift in Sources */,
+				B4D9BE9A843D12CF57F6015C6F3025DD /* AuthStoredUserManager.swift in Sources */,
+				02C191B763E73B0FA6D38EF627BE9F18 /* AuthTokenResult.swift in Sources */,
+				E95F2B990254016AEB5105F94312D17E /* AuthUIDelegate.swift in Sources */,
+				195F613A03D5E5297129A431241C4659 /* AuthURLPresenter.swift in Sources */,
+				00CA20D1089F2B5BF47C36B68AEE1BAC /* AuthUserDefaults.swift in Sources */,
+				9886EF79DB5E99586D10A6E4EBDA4545 /* AuthWebUtils.swift in Sources */,
+				D6DAAB6A66FF81F03FEACF580B8544EF /* AuthWebViewController.swift in Sources */,
+				EA11959EA77FBD42B27E0D8AB7D630B0 /* Base64URLEncodedStringExtension.swift in Sources */,
+				6A8EE28BC4C037544E8E533F2E286233 /* CreateAuthURIRequest.swift in Sources */,
+				CEB545D620E7EAF52139D95754263607 /* CreateAuthURIResponse.swift in Sources */,
+				9C174A0EE69FC0039EDB72A211A0EE6B /* DeleteAccountRequest.swift in Sources */,
+				BA8717D11D8D261F14CF6E9646556D08 /* DeleteAccountResponse.swift in Sources */,
+				479ADC5BEA35B6F32A6E44BB1ECFCF89 /* EmailAuthProvider.swift in Sources */,
+				655356E212260E07C32046D9984FAF89 /* EmailLinkSignInRequest.swift in Sources */,
+				DCB38C7CF3BA8115DCEED7B1ECB6B5FA /* EmailLinkSignInResponse.swift in Sources */,
+				A82755F9705BBA1CE337630F736A04FF /* FacebookAuthProvider.swift in Sources */,
+				CDA8280D88178D3457BFFA046742370D /* FederatedAuthProvider.swift in Sources */,
+				AC2F8A2AEDB5CC8054AE571AB69EE759 /* FinalizeMFAEnrollmentRequest.swift in Sources */,
+				860BB7E79CE46C99E98AC2DB941FA36C /* FinalizeMFAEnrollmentResponse.swift in Sources */,
+				5F060923462363133843F81E77862BA6 /* FinalizeMFASignInRequest.swift in Sources */,
+				7E25111C97E83382F5762E8C19DE74F2 /* FinalizeMFASignInResponse.swift in Sources */,
+				639A261DA50DEF48457B7FAEB3ADA09A /* FIRAuth.m in Sources */,
+				D0A4906E3FC0DAC466306124241B9813 /* FIRAuthErrorUtils.m in Sources */,
+				0F594929EE01648F9619F91F81CABFC9 /* FIRAuthProvider.m in Sources */,
+				CA4B12362056662D1DC7403FA5369BB7 /* FirebaseAuth-dummy.m in Sources */,
+				C91F10C6E806268300899CCF680382D5 /* FIRMultiFactorConstants.m in Sources */,
+				2D9971779F09AB7F7DC572D715E998AB /* GameCenterAuthProvider.swift in Sources */,
+				D4CA0EC7DBFF13E4637EDF1B5B234118 /* GetAccountInfoRequest.swift in Sources */,
+				7E19058D69190407DAC657A2E9683D2A /* GetAccountInfoResponse.swift in Sources */,
+				F047E3F4B9FD65E1A4C4B515335DDC31 /* GetOOBConfirmationCodeRequest.swift in Sources */,
+				7DE594A5A69A2881C71227BB8F62C0CD /* GetOOBConfirmationCodeResponse.swift in Sources */,
+				C274F4934AB972F201CE7D677BCF6D24 /* GetProjectConfigRequest.swift in Sources */,
+				332DF6FD8DA24175A62ACDE2B7F133B9 /* GetProjectConfigResponse.swift in Sources */,
+				0B206DC5E64E435D4E8F5A24EA6ED84B /* GetRecaptchaConfigRequest.swift in Sources */,
+				50AF2FB7EADE194D2AF8D95C3E73F0B0 /* GetRecaptchaConfigResponse.swift in Sources */,
+				F15916F38D5C8F8B49AEC04C65797B7C /* GitHubAuthProvider.swift in Sources */,
+				247D88F1882E452FB17C0E0131A4EF60 /* GoogleAuthProvider.swift in Sources */,
+				D97716505C3409B8691AD69FBD48B3B2 /* IdentityToolkitRequest.swift in Sources */,
+				38919181D65191D5EC2C8F9EFABA3D1F /* MultiFactor.swift in Sources */,
+				CF00333CD95F352892D5B4D358BE736E /* MultiFactorAssertion.swift in Sources */,
+				8970B35E49E9116FEC70E9621AE79348 /* MultiFactorInfo.swift in Sources */,
+				8DC1BC685F29D67E66A0F705B4C3BAC4 /* MultiFactorResolver.swift in Sources */,
+				F09CD4335A6DFCC6E6D1A61935146923 /* MultiFactorSession.swift in Sources */,
+				3589431B39BF9E2D14B9E46EEC836E4E /* OAuthCredential.swift in Sources */,
+				6B28ED15FFA23A228D436EEAB386416B /* OAuthProvider.swift in Sources */,
+				59CCFBAF9B47B0190A6EE39296CE3DF4 /* PhoneAuthCredential.swift in Sources */,
+				409A922984F0C5166F7049033491F289 /* PhoneAuthProvider.swift in Sources */,
+				D80541031401BD6F64FED92B3527A146 /* PhoneMultiFactorAssertion.swift in Sources */,
+				87E74994D0C45E4BCB2ED378AE2F2E4E /* PhoneMultiFactorGenerator.swift in Sources */,
+				51825916508D46DF773CE8A2EFA4F2FE /* PhoneMultiFactorInfo.swift in Sources */,
+				905F604D5F1BAF472D80E56E5C25157B /* ResetPasswordRequest.swift in Sources */,
+				FF7D10A1ED5F8AE308D8E3A117A21F9B /* ResetPasswordResponse.swift in Sources */,
+				B032ED745E39F64CE3983F1E7923981A /* RevokeTokenRequest.swift in Sources */,
+				4B5DEB9119071A42CCBE2C4BD0AAE550 /* RevokeTokenResponse.swift in Sources */,
+				B6ACFBBA7E45F7160E6B6761CE7F7454 /* SecureTokenRequest.swift in Sources */,
+				3A73392D26BD53AB5E6B831CFF6098B1 /* SecureTokenResponse.swift in Sources */,
+				B510D18473A355931837106CB358DC7D /* SecureTokenService.swift in Sources */,
+				93CCC02C02C885F1370CC97D29D49F11 /* SendVerificationTokenRequest.swift in Sources */,
+				00B15885A15EA28962A36C0CEA49C249 /* SendVerificationTokenResponse.swift in Sources */,
+				E12F908518ACD7CB644FDCE07E4AB258 /* SetAccountInfoRequest.swift in Sources */,
+				66A0F7E92C89F8F9758002DB7C81018C /* SetAccountInfoResponse.swift in Sources */,
+				DA2692D9D3B80F283A433B3517561BDF /* SignInWithGameCenterRequest.swift in Sources */,
+				87E06CF2917683C5276F18CD2D9562CA /* SignInWithGameCenterResponse.swift in Sources */,
+				67F1514268F740722F01A6B6D284594D /* SignUpNewUserRequest.swift in Sources */,
+				B95B93CDED5E7A9FAF50B703E6CE794B /* SignUpNewUserResponse.swift in Sources */,
+				2D7ED3094CCA3F4112F9BF8ECA0951C7 /* StartMFAEnrollmentRequest.swift in Sources */,
+				62ED7F835E23F32B4928B1B6CAEBC2EE /* StartMFAEnrollmentResponse.swift in Sources */,
+				08AE8D786000B9E4922135B5298C0D31 /* StartMFASignInRequest.swift in Sources */,
+				5C6F1874B9B18EA129907CC42848508C /* StartMFASignInResponse.swift in Sources */,
+				E3529C2FADE1998572881AF821ABD593 /* TokenRefreshCoalescer.swift in Sources */,
+				15D45091BB077FDE6CD1BA3B2604FB50 /* TOTPMultFactorAssertion.swift in Sources */,
+				4E0A6DB0C4B7D93F901A17EC05F9EE1F /* TOTPMultiFactorGenerator.swift in Sources */,
+				6E6CDC76A7EA8EEC09B3CA3A66362D9E /* TOTPMultiFactorInfo.swift in Sources */,
+				55C26AA2E87E39A28663B8D33AFD2BB7 /* TOTPSecret.swift in Sources */,
+				442D25366F7AE342437D76035D1FEF2A /* TwitterAuthProvider.swift in Sources */,
+				C20354E54BB5B72A3FA8C6A4CEC2C6C0 /* User.swift in Sources */,
+				64BF8CDF3B37A9B53B98D639AECA8F25 /* UserInfo.swift in Sources */,
+				247F953ECDD1941D0C74DD4F6BAEC744 /* UserInfoImpl.swift in Sources */,
+				268F6AF9B1B8C37DC849CCCBF3298E97 /* UserMetadata.swift in Sources */,
+				7BC808D0808D91D3D70E9E8D60169AA8 /* UserProfileChangeRequest.swift in Sources */,
+				C6CB6DF30CD6322064D59118E281C044 /* UserProfileUpdate.swift in Sources */,
+				2E2DAE03A8001AB2E7A8120B1BE47A74 /* VerifyAssertionRequest.swift in Sources */,
+				F1B6602D347744DE544E68D0EC986174 /* VerifyAssertionResponse.swift in Sources */,
+				DAB5F3F0CE478AED8D20A71381D4CEAE /* VerifyClientRequest.swift in Sources */,
+				930C91929472D6815061D9AA0E393639 /* VerifyClientResponse.swift in Sources */,
+				A80B130C221DB1512644DE1D982D753E /* VerifyCustomTokenRequest.swift in Sources */,
+				3D2CF23F116A28EA21C43D5DE79BCA09 /* VerifyCustomTokenResponse.swift in Sources */,
+				04961E0E6944214F8AA9C8A6080046A3 /* VerifyPasswordRequest.swift in Sources */,
+				19A292D32130B771C7287DCC066BA9D5 /* VerifyPasswordResponse.swift in Sources */,
+				6760CC019C2482C56735474075EB792A /* VerifyPhoneNumberRequest.swift in Sources */,
+				63CAB60204C72B1C6CC323C7C01333B3 /* VerifyPhoneNumberResponse.swift in Sources */,
+				2F62F4B491EDBC27C787980BBC7AF5FD /* WithdrawMFARequest.swift in Sources */,
+				751BD65986E1C7B2659361365E71BB54 /* WithdrawMFAResponse.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0C46439AA6C9DF08FFEA875DCB97C5DD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RecaptchaInterop;
+			targetProxy = 22980CEB1B8BC2DBE555D79448A2B5D1 /* PBXContainerItemProxy */;
+		};
+		4BF7A96C08A342AD3222945D2FC2E835 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseAppCheckInterop;
+			targetProxy = 49C0086C4302D34D6F085C43846E2205 /* PBXContainerItemProxy */;
+		};
+		610EDAEEDBB978F88619DCB5A3E91135 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseCoreExtension;
+			targetProxy = 7B5A31BA610F5B15F5F848F470E1B7D8 /* PBXContainerItemProxy */;
+		};
+		96B3B0A8F74877CD60F1CBF59CCA40A0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GoogleUtilities;
+			targetProxy = 7DFEF57A594D17F340E565D47570E2E9 /* PBXContainerItemProxy */;
+		};
+		9E98E0055EC902255228DAD3CFC5E99F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseCore;
+			targetProxy = 4D696B2C22D6B23CC1F9E62E97B8FC01 /* PBXContainerItemProxy */;
+		};
+		DB3FE6883752AE56A5C627A4962522E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "FirebaseAuth-FirebaseAuth_Privacy";
+			target = D962EB6155FEF0ACDD18C6C8D138F8C0 /* FirebaseAuth-FirebaseAuth_Privacy */;
+			targetProxy = DC03B8BD82ACEB6499DC5401D0AA8B07 /* PBXContainerItemProxy */;
+		};
+		F84398189E79130BF8EBE3D3F2265C61 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GTMSessionFetcher;
+			targetProxy = E5D960BD641F652AEA74768E85F4993F /* PBXContainerItemProxy */;
+		};
+		FF44078C8383799C61B5FDFD114DD296 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseAuthInterop;
+			targetProxy = FCE5C9F1AB714C9C3936AD1B06E55B80 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		24AACCA809D617F516A4FB9CFCB2FEC4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		250B3B3891F3FC3E6AF1CBCECD17458E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EA3C88AEF2D3E8F1B14D0A87C0063504 /* FirebaseAuth.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseAuth;
+				PRODUCT_NAME = FirebaseAuth;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		3F48F1D9A0A961DA572AC08135899A9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 14E2982EFA91728C2A8A28D6D0ECBE2C /* FirebaseAuth.release.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseAuth";
+				IBSC_MODULE = FirebaseAuth;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_NAME = FirebaseAuth_Privacy;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+		44783A48B44634E84F5F7FEB8683B0E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 14E2982EFA91728C2A8A28D6D0ECBE2C /* FirebaseAuth.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseAuth;
+				PRODUCT_NAME = FirebaseAuth;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		9B6D7A79C203BC2F8C9E7973143C98D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EA3C88AEF2D3E8F1B14D0A87C0063504 /* FirebaseAuth.debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseAuth";
+				IBSC_MODULE = FirebaseAuth;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_NAME = FirebaseAuth_Privacy;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		C5CA5E553F5640691E7025B4B7198AD7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8D0862BFBE223D6FF9865B91DCB62979 /* Build configuration list for PBXProject "FirebaseAuth" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				24AACCA809D617F516A4FB9CFCB2FEC4 /* Debug */,
+				C5CA5E553F5640691E7025B4B7198AD7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D5FEE9B8BD0762B9071E060EA1A2DB1F /* Build configuration list for PBXNativeTarget "FirebaseAuth" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				250B3B3891F3FC3E6AF1CBCECD17458E /* Debug */,
+				44783A48B44634E84F5F7FEB8683B0E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE9F87027E847EC0A14BDF4478F93C1C /* Build configuration list for PBXNativeTarget "FirebaseAuth-FirebaseAuth_Privacy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9B6D7A79C203BC2F8C9E7973143C98D3 /* Debug */,
+				3F48F1D9A0A961DA572AC08135899A9C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 36CC42E076FA6416AA7F1300F08E4020 /* Project object */;
+}

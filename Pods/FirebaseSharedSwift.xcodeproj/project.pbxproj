@@ -1,0 +1,423 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		609081511721ACAA7B2E39BA1432C8D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0CC5D5F3E0110A3882D66F6053D884C /* Foundation.framework */; };
+		7C3E65E5F858CA05536365BC82A2B9F2 /* FirebaseSharedSwift-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D4E5EF155A54F254AD6A288FA886153 /* FirebaseSharedSwift-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		8933ADB8B3139E75DA6858B1FC71C330 /* FirebaseRemoteConfigValueDecoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9280A5706A390E3B33606FE5F780C669 /* FirebaseRemoteConfigValueDecoding.swift */; };
+		CE7C6C507F0E1DF7B181BE052B169FCF /* FirebaseSharedSwift-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 46B9976850E2DDC63945EFFD1A0442B9 /* FirebaseSharedSwift-dummy.m */; };
+		D74816F19E4D2C3ECE8BDBEDAA1570E1 /* FirebaseDataEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774F15D4F2DF44BCA797544CB2A9C94B /* FirebaseDataEncoder.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		09CD23543A7B26C4EED0FAB21FB2DB50 /* FirebaseSharedSwift-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "FirebaseSharedSwift-Info.plist"; sourceTree = "<group>"; };
+		40C99DE4BB0D5A5597EA9DE7FADA40CD /* FirebaseSharedSwift.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = FirebaseSharedSwift.modulemap; sourceTree = "<group>"; };
+		46B9976850E2DDC63945EFFD1A0442B9 /* FirebaseSharedSwift-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "FirebaseSharedSwift-dummy.m"; sourceTree = "<group>"; };
+		4D4E5EF155A54F254AD6A288FA886153 /* FirebaseSharedSwift-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "FirebaseSharedSwift-umbrella.h"; sourceTree = "<group>"; };
+		5ACCFB35CDA67B0302DB949E3609E297 /* FirebaseSharedSwift.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseSharedSwift.debug.xcconfig; sourceTree = "<group>"; };
+		5FB3766620B5FE1D9CFE9D65992DDFA5 /* FirebaseSharedSwift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseSharedSwift.release.xcconfig; sourceTree = "<group>"; };
+		774F15D4F2DF44BCA797544CB2A9C94B /* FirebaseDataEncoder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirebaseDataEncoder.swift; path = FirebaseSharedSwift/Sources/third_party/FirebaseDataEncoder/FirebaseDataEncoder.swift; sourceTree = "<group>"; };
+		9280A5706A390E3B33606FE5F780C669 /* FirebaseRemoteConfigValueDecoding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirebaseRemoteConfigValueDecoding.swift; path = FirebaseSharedSwift/Sources/FirebaseRemoteConfigValueDecoding.swift; sourceTree = "<group>"; };
+		C0CC5D5F3E0110A3882D66F6053D884C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		DB7B7C8BF9BDFC104C358F12B4BD21E6 /* FirebaseSharedSwift */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = FirebaseSharedSwift; path = FirebaseSharedSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1182EF681F3EE379E6823FFAC7E7F23E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				609081511721ACAA7B2E39BA1432C8D5 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3A62861C8279E66FF3B045E9A83CCE60 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C0CC5D5F3E0110A3882D66F6053D884C /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		82BDE4016F2EF66DA274ECA60D72E18A = {
+			isa = PBXGroup;
+			children = (
+				D9C473C4FD4C8D0A0AB9C478396A2CA7 /* FirebaseSharedSwift */,
+				BD227F88FF2F9FED4675EE231EB753C6 /* Frameworks */,
+				D8C79E6AA59E299C6C9DF6066257FDC4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BD227F88FF2F9FED4675EE231EB753C6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3A62861C8279E66FF3B045E9A83CCE60 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C4F8B0350AF56954FF752B3CAF2CA800 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				40C99DE4BB0D5A5597EA9DE7FADA40CD /* FirebaseSharedSwift.modulemap */,
+				46B9976850E2DDC63945EFFD1A0442B9 /* FirebaseSharedSwift-dummy.m */,
+				09CD23543A7B26C4EED0FAB21FB2DB50 /* FirebaseSharedSwift-Info.plist */,
+				4D4E5EF155A54F254AD6A288FA886153 /* FirebaseSharedSwift-umbrella.h */,
+				5ACCFB35CDA67B0302DB949E3609E297 /* FirebaseSharedSwift.debug.xcconfig */,
+				5FB3766620B5FE1D9CFE9D65992DDFA5 /* FirebaseSharedSwift.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/FirebaseSharedSwift";
+			sourceTree = "<group>";
+		};
+		D8C79E6AA59E299C6C9DF6066257FDC4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DB7B7C8BF9BDFC104C358F12B4BD21E6 /* FirebaseSharedSwift */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D9C473C4FD4C8D0A0AB9C478396A2CA7 /* FirebaseSharedSwift */ = {
+			isa = PBXGroup;
+			children = (
+				774F15D4F2DF44BCA797544CB2A9C94B /* FirebaseDataEncoder.swift */,
+				9280A5706A390E3B33606FE5F780C669 /* FirebaseRemoteConfigValueDecoding.swift */,
+				C4F8B0350AF56954FF752B3CAF2CA800 /* Support Files */,
+			);
+			name = FirebaseSharedSwift;
+			path = FirebaseSharedSwift;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		76BEE0B43FAB53AF12D1C1BF385C15A2 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C3E65E5F858CA05536365BC82A2B9F2 /* FirebaseSharedSwift-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		B8A1E2A95FD92A431BF7D409C7B5D51D /* FirebaseSharedSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F2CBC22700EF028E2520880D57678F4A /* Build configuration list for PBXNativeTarget "FirebaseSharedSwift" */;
+			buildPhases = (
+				76BEE0B43FAB53AF12D1C1BF385C15A2 /* Headers */,
+				BC799518C975D8A16C788EA9C7C95B26 /* Sources */,
+				1182EF681F3EE379E6823FFAC7E7F23E /* Frameworks */,
+				763BF57408674379A769B254D9177CE9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FirebaseSharedSwift;
+			productName = FirebaseSharedSwift;
+			productReference = DB7B7C8BF9BDFC104C358F12B4BD21E6 /* FirebaseSharedSwift */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4A1BEECB2720857DBD83DD0F9AC54C2F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = D1E68C3C324B521F1CB3EED40FB874CF /* Build configuration list for PBXProject "FirebaseSharedSwift" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 82BDE4016F2EF66DA274ECA60D72E18A;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = D8C79E6AA59E299C6C9DF6066257FDC4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B8A1E2A95FD92A431BF7D409C7B5D51D /* FirebaseSharedSwift */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		763BF57408674379A769B254D9177CE9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BC799518C975D8A16C788EA9C7C95B26 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D74816F19E4D2C3ECE8BDBEDAA1570E1 /* FirebaseDataEncoder.swift in Sources */,
+				8933ADB8B3139E75DA6858B1FC71C330 /* FirebaseRemoteConfigValueDecoding.swift in Sources */,
+				CE7C6C507F0E1DF7B181BE052B169FCF /* FirebaseSharedSwift-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0301792F53EE0817A52567732C476149 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		1746E955B20203EF22603072D70975D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5FB3766620B5FE1D9CFE9D65992DDFA5 /* FirebaseSharedSwift.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseSharedSwift;
+				PRODUCT_NAME = FirebaseSharedSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		36FAF0D32657BBDBAAAF3981A019F9A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5ACCFB35CDA67B0302DB949E3609E297 /* FirebaseSharedSwift.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseSharedSwift;
+				PRODUCT_NAME = FirebaseSharedSwift;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		4D0ADB559E3C6F2D09B906DF12B8FF04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D1E68C3C324B521F1CB3EED40FB874CF /* Build configuration list for PBXProject "FirebaseSharedSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0301792F53EE0817A52567732C476149 /* Debug */,
+				4D0ADB559E3C6F2D09B906DF12B8FF04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F2CBC22700EF028E2520880D57678F4A /* Build configuration list for PBXNativeTarget "FirebaseSharedSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36FAF0D32657BBDBAAAF3981A019F9A0 /* Debug */,
+				1746E955B20203EF22603072D70975D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4A1BEECB2720857DBD83DD0F9AC54C2F /* Project object */;
+}

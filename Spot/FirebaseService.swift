@@ -284,6 +284,51 @@ public struct FirebaseModeratedPostResult: Codable {
     }
 }
 
+public enum FirebaseIDVerificationProvider: String, Codable {
+    case localHeuristic
+    case persona
+    case onfido
+    case veriff
+    case sumsub
+    case stripeIdentity
+}
+
+public struct FirebaseIDVerificationRoutingContext: Codable {
+    public let documentFamily: String
+    public let countryHint: String
+    public let parseRoute: String
+    public let nameExtractionConfidence: Double
+
+    public init(documentFamily: String, countryHint: String, parseRoute: String, nameExtractionConfidence: Double) {
+        self.documentFamily = documentFamily
+        self.countryHint = countryHint
+        self.parseRoute = parseRoute
+        self.nameExtractionConfidence = min(1.0, max(0.0, nameExtractionConfidence))
+    }
+}
+
+public struct FirebaseIDVerificationProviderResult: Codable {
+    public let accepted: Bool
+    public let provider: FirebaseIDVerificationProvider
+    public let status: String
+    public let providerSessionID: String?
+    public let recordedAt: TimeInterval
+
+    public init(
+        accepted: Bool,
+        provider: FirebaseIDVerificationProvider,
+        status: String,
+        providerSessionID: String? = nil,
+        recordedAt: TimeInterval = Date().timeIntervalSince1970
+    ) {
+        self.accepted = accepted
+        self.provider = provider
+        self.status = status
+        self.providerSessionID = providerSessionID
+        self.recordedAt = recordedAt
+    }
+}
+
 public struct FirebaseChatMessage: Codable, Identifiable {
     public let id: String
     public let senderID: String
@@ -567,6 +612,56 @@ public final class FirebaseSpotService {
             throw FirebaseSpotError.userNotAuthenticated
         }
         return userID
+    }
+
+    public func submitIDVerificationExtractionStub(
+        userID: String,
+        firstName: String,
+        lastName: String,
+        username: String,
+        routingContext: FirebaseIDVerificationRoutingContext,
+        provider: FirebaseIDVerificationProvider = .localHeuristic
+    ) async throws -> FirebaseIDVerificationProviderResult {
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedUserID.isEmpty, !cleanedFirst.isEmpty, !cleanedLast.isEmpty, !cleanedUsername.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        let now = Date().timeIntervalSince1970
+        let verificationRef = db.collection("users")
+            .document(cleanedUserID)
+            .collection("verification")
+            .document("latest")
+
+        let payload: [String: Any] = [
+            "userID": cleanedUserID,
+            "firstName": cleanedFirst,
+            "lastName": cleanedLast,
+            "username": cleanedUsername,
+            "routing": [
+                "documentFamily": routingContext.documentFamily,
+                "countryHint": routingContext.countryHint,
+                "parseRoute": routingContext.parseRoute,
+                "nameExtractionConfidence": routingContext.nameExtractionConfidence
+            ],
+            "provider": provider.rawValue,
+            "status": "stub_recorded_local_parser",
+            "updatedAt": now
+        ]
+
+        try await verificationRef.setData(payload, merge: true)
+
+        return FirebaseIDVerificationProviderResult(
+            accepted: true,
+            provider: provider,
+            status: "stub_recorded_local_parser",
+            providerSessionID: nil,
+            recordedAt: now
+        )
     }
 
     public func uploadMedia(data: Data, folder: String, fileName: String) async throws -> String {
@@ -1610,8 +1705,10 @@ public final class FirebaseSpotService {
     public static func normalizeUsername(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let withoutAt = trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed
-        let lowered = withoutAt.lowercased()
-        let allowed = lowered.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." }
+        let verifiedSymbols = CharacterSet(charactersIn: "%@#$&*!?+=")
+        let containsVerifiedSymbol = withoutAt.rangeOfCharacter(from: verifiedSymbols) != nil
+        let base = containsVerifiedSymbol ? withoutAt : withoutAt.lowercased()
+        let allowed = base.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." || verifiedSymbols.contains($0.unicodeScalars.first!) }
         return String(String(allowed).prefix(15))
     }
 
@@ -1660,7 +1757,7 @@ public final class FirebaseSpotService {
         guard !normalized.isEmpty else { return false }
         guard normalized.count >= 3, normalized.count <= 15 else { return false }
 
-        let range = normalized.range(of: "^[a-z0-9._]+$", options: .regularExpression)
+        let range = normalized.range(of: "^[a-zA-Z0-9._%@#$&*!?+=]+$", options: .regularExpression)
         guard range != nil && range == normalized.startIndex..<normalized.endIndex else { return false }
 
         if let reserved = reservedAgainst?.trimmingCharacters(in: .whitespacesAndNewlines), !reserved.isEmpty {
@@ -2928,14 +3025,15 @@ public final class FirebaseSpotService {
                 "isAnonymous": isAnonymous,
                 "createdAt": Date().timeIntervalSince1970,
                 "updatedAt": Date().timeIntervalSince1970,
-                "lastMessage": ""
+                "lastMessage": "",
+                "lastSenderID": ""
             ])
         }
 
         return chatID
     }
 
-    public func sendChatMessage(chatID: String, senderID: String, text: String, sharedPostID: String? = nil) async throws {
+    public func sendChatMessage(chatID: String, senderID: String, text: String, sharedPostID: String? = nil) async throws -> String {
         let now = Date().timeIntervalSince1970
         let messageID = UUID().uuidString
         let chatRef = db.collection("chats").document(chatID)
@@ -2951,8 +3049,47 @@ public final class FirebaseSpotService {
 
         try await chatRef.updateData([
             "lastMessage": text,
+            "lastSenderID": senderID,
             "updatedAt": now
         ])
+
+        return messageID
+    }
+
+    public func deleteChatMessage(chatID: String, messageID: String) async throws -> Bool {
+        let cleanedChatID = chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedMessageID = messageID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedChatID.isEmpty, !cleanedMessageID.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        let chatRef = db.collection("chats").document(cleanedChatID)
+        let messageRef = chatRef.collection("messages").document(cleanedMessageID)
+        try await messageRef.delete()
+
+        let remaining = try await chatRef.collection("messages")
+            .limit(to: 1)
+            .getDocuments()
+
+        if remaining.documents.isEmpty {
+            try await chatRef.delete()
+            return true
+        }
+
+        let latest = try await chatRef.collection("messages")
+            .order(by: "createdAt", descending: true)
+            .limit(to: 1)
+            .getDocuments()
+
+        let latestText = (latest.documents.first?.data()["text"] as? String) ?? ""
+        let latestSenderID = (latest.documents.first?.data()["senderID"] as? String) ?? ""
+        try await chatRef.updateData([
+            "lastMessage": latestText,
+            "lastSenderID": latestSenderID,
+            "updatedAt": Date().timeIntervalSince1970
+        ])
+
+        return false
     }
 
     public func fetchChatMessages(chatID: String, limit: Int = 200) async throws -> [FirebaseChatMessage] {
@@ -2996,6 +3133,20 @@ public final class FirebaseSpotService {
             .whereField("participantIDs", arrayContains: userID)
             .getDocuments()
         return snapshot.documents.map { $0.data() }
+    }
+
+    public func fetchLatestChatSenderID(chatID: String) async throws -> String? {
+        let cleanedChatID = chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedChatID.isEmpty else { return nil }
+
+        let latestSnapshot = try await db.collection("chats")
+            .document(cleanedChatID)
+            .collection("messages")
+            .order(by: "createdAt", descending: true)
+            .limit(to: 1)
+            .getDocuments()
+
+        return latestSnapshot.documents.first?.data()["senderID"] as? String
     }
 
     public func listenToChatMessages(chatID: String, completion: @escaping ([FirebaseChatMessage]) -> Void) -> ListenerRegistration? {

@@ -1,0 +1,393 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		F53D357392763B3BC8501CB3792A518F /* MLKitVision */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E73185CA9C5380780775547335DFBB87 /* Build configuration list for PBXAggregateTarget "MLKitVision" */;
+			buildPhases = (
+			);
+			dependencies = (
+				32AB346F453824F9644322FCDA214B2C /* PBXTargetDependency */,
+				6894BA1CD9104E1F003E108F24691482 /* PBXTargetDependency */,
+				45C574554F01E09881011C035FB05C9B /* PBXTargetDependency */,
+				1670D3B6B34A1148700C6054ED8360B9 /* PBXTargetDependency */,
+			);
+			name = MLKitVision;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		0AE5A269EB65B783616942837B0867D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE29DD59CB7CBA7322165FF02141D7F9 /* MLImage.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 2B445A44600FA188DF16995FB1CAE6DD;
+			remoteInfo = MLImage;
+		};
+		60015EAD98440C358641F56B829094C8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D5DEB9B944D11A372DDA08A28EEDE856 /* GTMSessionFetcher.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = BD7A8A3BC22FD28DCB40568BE43D7C70;
+			remoteInfo = GTMSessionFetcher;
+		};
+		8BED1B49D54C7E22D8471159726A34C3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C36EDD55CD857E3343A83CB9871073B8 /* MLKitCommon.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8C2A273675CD8B6097B5EF5BCDD199A5;
+			remoteInfo = MLKitCommon;
+		};
+		9E5AC76A27ADF0CCDDF39CA955254068 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2417D558215456889E790EE3460F0439 /* GoogleToolboxForMac.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 6A6C31AF5480BB69EDDFCD50D28967CD;
+			remoteInfo = GoogleToolboxForMac;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2417D558215456889E790EE3460F0439 /* GoogleToolboxForMac */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = GoogleToolboxForMac; path = GoogleToolboxForMac.xcodeproj; sourceTree = "<group>"; };
+		BB74421CAED2584C94165510A1C7D420 /* MLKitVision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MLKitVision.framework; path = Frameworks/MLKitVision.framework; sourceTree = "<group>"; };
+		C36EDD55CD857E3343A83CB9871073B8 /* MLKitCommon */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitCommon; path = MLKitCommon.xcodeproj; sourceTree = "<group>"; };
+		CEB71F7EC02BAE51453189C684EA8F4B /* MLKitVision.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitVision.debug.xcconfig; sourceTree = "<group>"; };
+		D5DEB9B944D11A372DDA08A28EEDE856 /* GTMSessionFetcher */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = GTMSessionFetcher; path = GTMSessionFetcher.xcodeproj; sourceTree = "<group>"; };
+		EE29DD59CB7CBA7322165FF02141D7F9 /* MLImage */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLImage; path = MLImage.xcodeproj; sourceTree = "<group>"; };
+		FF6625EE0667C6B46CB5E26CA91B83C4 /* MLKitVision.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitVision.release.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0A06CDCA2AF58439B0D3C9E8FDE340B2 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				CEB71F7EC02BAE51453189C684EA8F4B /* MLKitVision.debug.xcconfig */,
+				FF6625EE0667C6B46CB5E26CA91B83C4 /* MLKitVision.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/MLKitVision";
+			sourceTree = "<group>";
+		};
+		862BB374783262D00E23DF2F5735D2BD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		96D062ADED85D5AA2AD0B628DBE4E31C /* Dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				2417D558215456889E790EE3460F0439 /* GoogleToolboxForMac */,
+				D5DEB9B944D11A372DDA08A28EEDE856 /* GTMSessionFetcher */,
+				EE29DD59CB7CBA7322165FF02141D7F9 /* MLImage */,
+				C36EDD55CD857E3343A83CB9871073B8 /* MLKitCommon */,
+			);
+			name = Dependencies;
+			sourceTree = "<group>";
+		};
+		C9CD5568EA4BC119168242F3287AAEF3 /* MLKitVision */ = {
+			isa = PBXGroup;
+			children = (
+				F2276DE6C35A6AD27C34DEA534DA6A5F /* Frameworks */,
+				0A06CDCA2AF58439B0D3C9E8FDE340B2 /* Support Files */,
+			);
+			name = MLKitVision;
+			path = MLKitVision;
+			sourceTree = "<group>";
+		};
+		D3236070BE292F60600E8E4EBAB62FD1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F2276DE6C35A6AD27C34DEA534DA6A5F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BB74421CAED2584C94165510A1C7D420 /* MLKitVision.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FC6CF100B560171D27EE0F39605AE592 = {
+			isa = PBXGroup;
+			children = (
+				96D062ADED85D5AA2AD0B628DBE4E31C /* Dependencies */,
+				D3236070BE292F60600E8E4EBAB62FD1 /* Frameworks */,
+				C9CD5568EA4BC119168242F3287AAEF3 /* MLKitVision */,
+				862BB374783262D00E23DF2F5735D2BD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		0705E04D667EE743752325388219B9A6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 395F0C4C8BBD986D68A8D10A50FC1096 /* Build configuration list for PBXProject "MLKitVision" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FC6CF100B560171D27EE0F39605AE592;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 862BB374783262D00E23DF2F5735D2BD /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProjectRef = D5DEB9B944D11A372DDA08A28EEDE856 /* GTMSessionFetcher */;
+				},
+				{
+					ProjectRef = 2417D558215456889E790EE3460F0439 /* GoogleToolboxForMac */;
+				},
+				{
+					ProjectRef = EE29DD59CB7CBA7322165FF02141D7F9 /* MLImage */;
+				},
+				{
+					ProjectRef = C36EDD55CD857E3343A83CB9871073B8 /* MLKitCommon */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				F53D357392763B3BC8501CB3792A518F /* MLKitVision */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXTargetDependency section */
+		1670D3B6B34A1148700C6054ED8360B9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitCommon;
+			targetProxy = 8BED1B49D54C7E22D8471159726A34C3 /* PBXContainerItemProxy */;
+		};
+		32AB346F453824F9644322FCDA214B2C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GoogleToolboxForMac;
+			targetProxy = 9E5AC76A27ADF0CCDDF39CA955254068 /* PBXContainerItemProxy */;
+		};
+		45C574554F01E09881011C035FB05C9B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLImage;
+			targetProxy = 0AE5A269EB65B783616942837B0867D2 /* PBXContainerItemProxy */;
+		};
+		6894BA1CD9104E1F003E108F24691482 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GTMSessionFetcher;
+			targetProxy = 60015EAD98440C358641F56B829094C8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1353736761A815AF8AEB612DD748C601 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CEB71F7EC02BAE51453189C684EA8F4B /* MLKitVision.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1911FCE1268EFA9A66D34D4183295135 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		34693B0CDB03D62E55352C9649121998 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FF6625EE0667C6B46CB5E26CA91B83C4 /* MLKitVision.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F0013D1B775221C5544D9226EEF2D7E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		395F0C4C8BBD986D68A8D10A50FC1096 /* Build configuration list for PBXProject "MLKitVision" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1911FCE1268EFA9A66D34D4183295135 /* Debug */,
+				F0013D1B775221C5544D9226EEF2D7E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E73185CA9C5380780775547335DFBB87 /* Build configuration list for PBXAggregateTarget "MLKitVision" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1353736761A815AF8AEB612DD748C601 /* Debug */,
+				34693B0CDB03D62E55352C9649121998 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0705E04D667EE743752325388219B9A6 /* Project object */;
+}

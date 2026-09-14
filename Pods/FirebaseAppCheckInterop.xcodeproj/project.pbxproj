@@ -1,0 +1,435 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8E58B2B2C673DC5CAB3A732974835DF8 /* FirebaseAppCheckInterop-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D6BD113F26EB6BD2FB379D053BACF556 /* FirebaseAppCheckInterop-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A228228E261645E3C8B6BF03D2B23310 /* FIRAppCheckInterop.h in Headers */ = {isa = PBXBuildFile; fileRef = A3F7C71A6A999A5C53C59D505795459B /* FIRAppCheckInterop.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A66B1D964CE69E11C2FBEFC22F6C003A /* dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = A20609692EE938FC20A761183D0EE4DC /* dummy.m */; };
+		A74B03580CE8EF297929F1A00219955A /* FirebaseAppCheckInterop.h in Headers */ = {isa = PBXBuildFile; fileRef = 896A296F3336BF51DB0FEF6A27328035 /* FirebaseAppCheckInterop.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AE0874D5F0EBA3BD5B4CA4DDD899E6E9 /* FirebaseAppCheckInterop-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = DDE2B7F5FF67CCDAE5A2D76878AA8D57 /* FirebaseAppCheckInterop-dummy.m */; };
+		AF79DD88F37858F4270C629561CEC876 /* FIRAppCheckTokenResultInterop.h in Headers */ = {isa = PBXBuildFile; fileRef = AD87850E0A6A0FEBD07C28555ED9D06A /* FIRAppCheckTokenResultInterop.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B1F9524732CCD14CBB252780C2273281 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A8511719212B7065C9BECFDD9070B18 /* Foundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		019BDA4852442C34D67510AC6167E00D /* FirebaseAppCheckInterop-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "FirebaseAppCheckInterop-Info.plist"; sourceTree = "<group>"; };
+		1338B21AC6C73748F61CC8B1A15A0371 /* FirebaseAppCheckInterop.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseAppCheckInterop.debug.xcconfig; sourceTree = "<group>"; };
+		3F2ED2E423332426AD4C5A17D7BE9C3C /* FirebaseAppCheckInterop */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = FirebaseAppCheckInterop; path = FirebaseAppCheckInterop.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D5745B536697FD4EC98A1DE579A20C2 /* FirebaseAppCheckInterop.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = FirebaseAppCheckInterop.modulemap; sourceTree = "<group>"; };
+		896A296F3336BF51DB0FEF6A27328035 /* FirebaseAppCheckInterop.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FirebaseAppCheckInterop.h; path = FirebaseAppCheck/Interop/Public/FirebaseAppCheckInterop/FirebaseAppCheckInterop.h; sourceTree = "<group>"; };
+		9A8511719212B7065C9BECFDD9070B18 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		A20609692EE938FC20A761183D0EE4DC /* dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = dummy.m; path = FirebaseAppCheck/Interop/dummy.m; sourceTree = "<group>"; };
+		A3F7C71A6A999A5C53C59D505795459B /* FIRAppCheckInterop.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAppCheckInterop.h; path = FirebaseAppCheck/Interop/Public/FirebaseAppCheckInterop/FIRAppCheckInterop.h; sourceTree = "<group>"; };
+		A8EF68538A5F8BF727025C9E9509A65B /* FirebaseAppCheckInterop-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "FirebaseAppCheckInterop-prefix.pch"; sourceTree = "<group>"; };
+		AD87850E0A6A0FEBD07C28555ED9D06A /* FIRAppCheckTokenResultInterop.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAppCheckTokenResultInterop.h; path = FirebaseAppCheck/Interop/Public/FirebaseAppCheckInterop/FIRAppCheckTokenResultInterop.h; sourceTree = "<group>"; };
+		BD7F18FA3BD41DEE34FE8D9C646F302D /* FirebaseAppCheckInterop.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseAppCheckInterop.release.xcconfig; sourceTree = "<group>"; };
+		D6BD113F26EB6BD2FB379D053BACF556 /* FirebaseAppCheckInterop-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "FirebaseAppCheckInterop-umbrella.h"; sourceTree = "<group>"; };
+		DDE2B7F5FF67CCDAE5A2D76878AA8D57 /* FirebaseAppCheckInterop-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "FirebaseAppCheckInterop-dummy.m"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		872AD0BAA6C47E73A86E443F234ED453 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1F9524732CCD14CBB252780C2273281 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1A48962E8710E060904DE21039267242 /* FirebaseAppCheckInterop */ = {
+			isa = PBXGroup;
+			children = (
+				A20609692EE938FC20A761183D0EE4DC /* dummy.m */,
+				A3F7C71A6A999A5C53C59D505795459B /* FIRAppCheckInterop.h */,
+				AD87850E0A6A0FEBD07C28555ED9D06A /* FIRAppCheckTokenResultInterop.h */,
+				896A296F3336BF51DB0FEF6A27328035 /* FirebaseAppCheckInterop.h */,
+				2468ECABF034BD4A7A8E47EECDF2E4AF /* Support Files */,
+			);
+			name = FirebaseAppCheckInterop;
+			path = FirebaseAppCheckInterop;
+			sourceTree = "<group>";
+		};
+		2468ECABF034BD4A7A8E47EECDF2E4AF /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				4D5745B536697FD4EC98A1DE579A20C2 /* FirebaseAppCheckInterop.modulemap */,
+				DDE2B7F5FF67CCDAE5A2D76878AA8D57 /* FirebaseAppCheckInterop-dummy.m */,
+				019BDA4852442C34D67510AC6167E00D /* FirebaseAppCheckInterop-Info.plist */,
+				A8EF68538A5F8BF727025C9E9509A65B /* FirebaseAppCheckInterop-prefix.pch */,
+				D6BD113F26EB6BD2FB379D053BACF556 /* FirebaseAppCheckInterop-umbrella.h */,
+				1338B21AC6C73748F61CC8B1A15A0371 /* FirebaseAppCheckInterop.debug.xcconfig */,
+				BD7F18FA3BD41DEE34FE8D9C646F302D /* FirebaseAppCheckInterop.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/FirebaseAppCheckInterop";
+			sourceTree = "<group>";
+		};
+		5B790D40DBE36028EFDACDDF7A827504 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3F2ED2E423332426AD4C5A17D7BE9C3C /* FirebaseAppCheckInterop */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A298DDB7486D5AAB06C179BD2AADD58E /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				9A8511719212B7065C9BECFDD9070B18 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		AB2E15ED471BCDF50863C54A5B726FE5 = {
+			isa = PBXGroup;
+			children = (
+				1A48962E8710E060904DE21039267242 /* FirebaseAppCheckInterop */,
+				BFF65E871A5CBCC2B9CE83C9C7D7758C /* Frameworks */,
+				5B790D40DBE36028EFDACDDF7A827504 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BFF65E871A5CBCC2B9CE83C9C7D7758C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A298DDB7486D5AAB06C179BD2AADD58E /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A4337716ABDEE1B1CFA8486E91B13F5C /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A228228E261645E3C8B6BF03D2B23310 /* FIRAppCheckInterop.h in Headers */,
+				AF79DD88F37858F4270C629561CEC876 /* FIRAppCheckTokenResultInterop.h in Headers */,
+				A74B03580CE8EF297929F1A00219955A /* FirebaseAppCheckInterop.h in Headers */,
+				8E58B2B2C673DC5CAB3A732974835DF8 /* FirebaseAppCheckInterop-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		003D3E75F4F4DF9CECA8F5E00621EED8 /* FirebaseAppCheckInterop */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9829207DAA259A921A069C5C79CA3817 /* Build configuration list for PBXNativeTarget "FirebaseAppCheckInterop" */;
+			buildPhases = (
+				A4337716ABDEE1B1CFA8486E91B13F5C /* Headers */,
+				6B2E7DBEAC5A44B83C39DB334DF0457D /* Sources */,
+				872AD0BAA6C47E73A86E443F234ED453 /* Frameworks */,
+				339F3307BB53CAF1109F5193608654CA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FirebaseAppCheckInterop;
+			productName = FirebaseAppCheckInterop;
+			productReference = 3F2ED2E423332426AD4C5A17D7BE9C3C /* FirebaseAppCheckInterop */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B43576AC58FA8595DE9112EEA9222076 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = B692C7DF4916DB9CE6ABFF1D7BB76E24 /* Build configuration list for PBXProject "FirebaseAppCheckInterop" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = AB2E15ED471BCDF50863C54A5B726FE5;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 5B790D40DBE36028EFDACDDF7A827504 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				003D3E75F4F4DF9CECA8F5E00621EED8 /* FirebaseAppCheckInterop */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		339F3307BB53CAF1109F5193608654CA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6B2E7DBEAC5A44B83C39DB334DF0457D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A66B1D964CE69E11C2FBEFC22F6C003A /* dummy.m in Sources */,
+				AE0874D5F0EBA3BD5B4CA4DDD899E6E9 /* FirebaseAppCheckInterop-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1B1C4DD4A1DD6547A80198AE06591B67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		6162D730BBA368696105E4D7AB3F1794 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1338B21AC6C73748F61CC8B1A15A0371 /* FirebaseAppCheckInterop.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_PREFIX_HEADER = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop-prefix.pch";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseAppCheckInterop;
+				PRODUCT_NAME = FirebaseAppCheckInterop;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		AD1C90C57CEB34DA703E78ECDDF176F9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		AD959B8EDB37BC6DC71BB37D7E3F3607 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BD7F18FA3BD41DEE34FE8D9C646F302D /* FirebaseAppCheckInterop.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_PREFIX_HEADER = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop-prefix.pch";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseAppCheckInterop;
+				PRODUCT_NAME = FirebaseAppCheckInterop;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9829207DAA259A921A069C5C79CA3817 /* Build configuration list for PBXNativeTarget "FirebaseAppCheckInterop" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6162D730BBA368696105E4D7AB3F1794 /* Debug */,
+				AD959B8EDB37BC6DC71BB37D7E3F3607 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B692C7DF4916DB9CE6ABFF1D7BB76E24 /* Build configuration list for PBXProject "FirebaseAppCheckInterop" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1B1C4DD4A1DD6547A80198AE06591B67 /* Debug */,
+				AD1C90C57CEB34DA703E78ECDDF176F9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B43576AC58FA8595DE9112EEA9222076 /* Project object */;
+}

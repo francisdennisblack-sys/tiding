@@ -1,0 +1,1545 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0038D093407B0EDF1762436F1C782925 /* FTupleOnDisconnect.m in Sources */ = {isa = PBXBuildFile; fileRef = 9722BA7D27E7E2ECA98114BF9A44766B /* FTupleOnDisconnect.m */; };
+		016E8F8243BBF45D5F9DDD830520A04B /* FUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = AF83E47DEFBE7A3C862529B64E1B23B1 /* FUtilities.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		01E24908CEF05054739C02BABF515D22 /* FPersistenceManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E84DEA518158C2F7D057F4047367A24 /* FPersistenceManager.m */; };
+		02BDDEC2A82DE9CF75492DF559F8B102 /* FValueIndex.m in Sources */ = {isa = PBXBuildFile; fileRef = 2C782F244F18644F1F2C3C166C92631F /* FValueIndex.m */; };
+		0534DEC1D56928E4E7C4A0208A9C44B2 /* FEventGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 9ED83E6C3DD985F27019A5F4BA857D07 /* FEventGenerator.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		05C818D560655796D726E04BBBF246FB /* FRepoInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = F7BDF009BFFC361D36AB3779AD5C3D68 /* FRepoInfo.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		065FCD3A84E1C8B57C0D78D51CC6F764 /* FTrackedQuery.h in Headers */ = {isa = PBXBuildFile; fileRef = 48FDECFA74EE82568B42A54124FC37DE /* FTrackedQuery.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		06BB929B8CE0768DFD75E1062DCB4A63 /* FArraySortedDictionary.m in Sources */ = {isa = PBXBuildFile; fileRef = 8511729B1BC1FB1D88FB08C060219476 /* FArraySortedDictionary.m */; };
+		074BEBDAADDE68C99E48B192DDC5C782 /* FUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0AEF2FF554FF69C3180492EF18B983 /* FUtilities.m */; };
+		07A0FEB7F9E6A12AE196517CEC2368AC /* ServerTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EE4BCDA5046AD034ED60A52BC61BF7 /* ServerTimestamp.swift */; };
+		07AD27C23716C14A2F1A79A0B90216E3 /* FNextPushId.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBEF1D97994B6982B5049B3AD66FC8D /* FNextPushId.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		08A984051E548B4C265DE728E84A9985 /* FKeyIndex.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FAD28C75604F4B1827D2777A2BFFEF1 /* FKeyIndex.m */; };
+		0929C365EB839A401BBEEE7C38F50813 /* FTupleBoolBlock.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A869D2BD94E6B06F49536EE754DE5F4 /* FTupleBoolBlock.m */; };
+		098E89292781B44A6B82ADB98599A241 /* FIRDatabaseComponent.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F207588D017AC4FF4CD71A38999E484 /* FIRDatabaseComponent.m */; };
+		09E6ACE73E7C49DDAD926B34AC3E705F /* FAtomicNumber.m in Sources */ = {isa = PBXBuildFile; fileRef = A0AB0F8867BC167BCA1AC940077A0E44 /* FAtomicNumber.m */; };
+		0A1ECA00B4CBE663B5455D0492C80F47 /* FIRLibrary.h in Headers */ = {isa = PBXBuildFile; fileRef = E0129AD4B592EE7A508D2A1FFAAE1BAE /* FIRLibrary.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		0B5DFD46E5103B7A1B2052A2FCB4B9CC /* FWebSocketConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = AB48A2BF66E8FA282FBB6C36879DA22F /* FWebSocketConnection.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		0B6C3F306C27741F59F1223F7A80C8D4 /* FTupleSetIdPath.m in Sources */ = {isa = PBXBuildFile; fileRef = 6F5B86190FC87BC3057473D3B041F399 /* FTupleSetIdPath.m */; };
+		0BE233C086CC52AD5AF3C60FAE6469FA /* FCompoundWrite.m in Sources */ = {isa = PBXBuildFile; fileRef = E9F142007A427D5BCB767277072BDBC0 /* FCompoundWrite.m */; };
+		0CDE5974334F21D4935AE3317FF6535B /* FIRComponentType.h in Headers */ = {isa = PBXBuildFile; fileRef = 015520719ECEB10B9436A3A8355C78D3 /* FIRComponentType.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		0E4BF6C517909AD29D5C3F0AAF9F690D /* FirebaseCoreInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D9A0E4B53466A4DC6EF718640DCE1FF /* FirebaseCoreInternal.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		0EDF7F0899B82788CCC1606BFF919D4D /* FValueEventRegistration.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D525BD0F4EAAED27EC78C951ADC0400 /* FValueEventRegistration.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		11ECF01A6AB2E767214BB32F42B62F95 /* FChildrenNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 68FC15762C5580935ED9DDDB36ABDCD0 /* FChildrenNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		12E6850146A91AAC2F577E303C92F2BE /* FChildrenNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 2A2D72CF53ADEEFBA246532A28C5B5F1 /* FChildrenNode.m */; };
+		13266451835E908846574CA97F852EEF /* DataSnapshot+ReadDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8438AFFE95DAD4348AC77A05EB5FE0A4 /* DataSnapshot+ReadDecodable.swift */; };
+		17C370D18EF22C6FFB2378A0A7A8317C /* FIRTransactionResult.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BF4B2D05C5B12B386DCFDEB0504CB16 /* FIRTransactionResult.m */; };
+		17E47E79CA3EEB3B79897DFDA00411BF /* FTupleNodePath.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CC83F260185457ABB2B514236144DA1 /* FTupleNodePath.m */; };
+		19BB0ECBA280EC310EE44FAF64DB2357 /* FLLRBValueNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 5801EBFBED20CBDEC901AE0421CD4763 /* FLLRBValueNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		1AD563D19F7763020E36DA5589EBF3E5 /* FTuplePathValue.m in Sources */ = {isa = PBXBuildFile; fileRef = CCDF3AA36AE2C3A9ED1E4E9B18F4BCDA /* FTuplePathValue.m */; };
+		1AFC021357D93168DD8094A0FCBF9591 /* FLevelDBStorageEngine.m in Sources */ = {isa = PBXBuildFile; fileRef = B578CDDEAB7733E131A6A4426E40A29A /* FLevelDBStorageEngine.m */; };
+		1DC1460EC223634376E12D05FEE7356E /* FChildEventRegistration.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E6C6EF115993B18235FF4DA72331075 /* FChildEventRegistration.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		1E23997E7044E4BE9E770BA34A485A5C /* FRepoManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 93C77D0DC2EBDEE0687FE7C4CE719ECA /* FRepoManager.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		2107894B486E8208E48BA77F0E5D7E80 /* FViewCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 99FC82D8D0740820FBDABDCD061C47A0 /* FViewCache.m */; };
+		21B3791D928A92B5B19F192FF713AE13 /* FTreeSortedDictionaryEnumerator.m in Sources */ = {isa = PBXBuildFile; fileRef = 145F5E485CF5ED958E645BC5279E7635 /* FTreeSortedDictionaryEnumerator.m */; };
+		22B1166477FE1296656204CF9EB99E4D /* FTreeNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 01CFFBC56540A34B0424C337A029EC70 /* FTreeNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		23B705224556BCED47780F9448C75A7E /* FPath.h in Headers */ = {isa = PBXBuildFile; fileRef = 1E21524D0489359727126FD3089565DE /* FPath.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		245F73A56D1B8660C1AAD5C566D2BE23 /* FPersistentConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = DC661752DB25700137CD9BD63245D722 /* FPersistentConnection.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		247ACCD30136916EAA22A20A8FF6B17A /* FPendingPut.m in Sources */ = {isa = PBXBuildFile; fileRef = 05C0C51B2EC4794921593C68209EA107 /* FPendingPut.m */; };
+		25787479B33623D07165F40F55F9590E /* FTrackedQueryManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 94E69FAB1F86209CE0661B7A4F862B98 /* FTrackedQueryManager.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		257FCDA4FE0414BB6830386402957E24 /* FIRRetryHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CE317430EB5FC05DB043DADD5C179 /* FIRRetryHelper.m */; };
+		2583B6B18A007401639552613ED3A1F5 /* FQueryParams.h in Headers */ = {isa = PBXBuildFile; fileRef = A31F3E24E075AD43EF83DB6513B6C5EE /* FQueryParams.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		25A707C7A17B97991C0F4B01F0FACB15 /* FSRWebSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 66C34866537782098F8E3ED92D04FE68 /* FSRWebSocket.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		262B28056BC2C2FDF1FDE920A5945669 /* FChildChangeAccumulator.m in Sources */ = {isa = PBXBuildFile; fileRef = A6F08BF6AE33180D7DE6049ED01EB1D5 /* FChildChangeAccumulator.m */; };
+		26DD2F4CFE18570FA0DF60525145CA36 /* FIRLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = CF51CDCA50F1601E5CE41C9168DC8990 /* FIRLogger.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		273AFD6FF42C264E3A1AB4A8221EB02D /* FAckUserWrite.h in Headers */ = {isa = PBXBuildFile; fileRef = 1AC1772E32490D0EFA8CD674871B8678 /* FAckUserWrite.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		289784A0321C8ECD01210D85E387A8B3 /* FStorageEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 999B47E8CACCF597453B42EC19E1E1B8 /* FStorageEngine.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		29293C0B7EF1131FF50E44223925F335 /* FImmutableSortedDictionary.m in Sources */ = {isa = PBXBuildFile; fileRef = D38CD2C4363116590909FF485EDD53B1 /* FImmutableSortedDictionary.m */; };
+		2933CF2E451E5154E90E3F03D0C0561A /* NSData+SRB64Additions.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A5F5E83B0A8F2249C3B4D8C474D9BAB /* NSData+SRB64Additions.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		2A40B0B88747890EAC17C9D49ABB9EF4 /* FPath.m in Sources */ = {isa = PBXBuildFile; fileRef = A1E612B673D0C0FDBD187C5E5248DDDE /* FPath.m */; };
+		2A8285E988AC9A1AB3EFECBC81A89DC2 /* FCancelEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = B368C71766D9D14F1749B879D0500338 /* FCancelEvent.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		2C1CDBBDC33DBC586EA7A089F6CE4228 /* FIRDatabaseConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = D4AB96C9045D1E2F895C4C9563604D85 /* FIRDatabaseConfig.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		2E4B29C956505AFF59160F336183AA24 /* FLLRBEmptyNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 757C71AEFF55FEFB9BE65E3D1E8BE47E /* FLLRBEmptyNode.m */; };
+		2FB546402A83EC714A1935E8326953EF /* FSyncPoint.m in Sources */ = {isa = PBXBuildFile; fileRef = B647EC9ABF72D1365864D1869A00FF31 /* FSyncPoint.m */; };
+		2FD73BFD0AF6FAA2D19292578043595C /* FWebSocketConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = C020B437DF087F7BE7D8203D617F21BF /* FWebSocketConnection.m */; };
+		310951EF8002B7FDA774ADD14273ACC4 /* FEventEmitter.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D44C13EA2B4B48EA12EC7B0341379E9 /* FEventEmitter.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		313A17673D6FC5262421C6AAE9796DA0 /* FCacheNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 711D6A69A9EB828F72455FEBC0C7C18A /* FCacheNode.m */; };
+		3497354C91D9091FC9F511B1032CE27B /* FSyncTree.m in Sources */ = {isa = PBXBuildFile; fileRef = 4891D1664482B9BEAFFC11D14164A77E /* FSyncTree.m */; };
+		3512068EB712AE99FD7F83A4905A9034 /* FChange.h in Headers */ = {isa = PBXBuildFile; fileRef = AFB4982058727FCE7C499A1CCF968F77 /* FChange.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		35C53042F716371080DF66A5A006A44A /* FSnapshotUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C47D5F9247BC3E4D0A0905026053C51 /* FSnapshotUtilities.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		378A6D3E755EE232A23D5324890AA1F0 /* FCancelEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 201C40C5E48AA305BDE555B99E22AE6D /* FCancelEvent.m */; };
+		38D23B0AD07A89BADCB938EAB1BE0139 /* FIndexedNode.h in Headers */ = {isa = PBXBuildFile; fileRef = D0E7737E4BA3F61AEE71EB2E247B17A0 /* FIndexedNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		38F28FAF89C833E2BAE18FD7D13FE421 /* FCompoundHash.h in Headers */ = {isa = PBXBuildFile; fileRef = 7F70249A63BA07A30698EAE7B2C48D44 /* FCompoundHash.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		3A1DCD2BA3F337ED97EB802F81CBB6D8 /* FSRWebSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = 6940BA990151DE1B13679A4FD21FAABF /* FSRWebSocket.m */; };
+		3ADE87AAE5188B20A8C2C2A089B9C870 /* FIRComponentContainer.h in Headers */ = {isa = PBXBuildFile; fileRef = C051216EC74AE70C35E1FDDA63F50530 /* FIRComponentContainer.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		3AFD24B4A3A3E0308299220B04CB6D46 /* FIRDatabaseQuery.h in Headers */ = {isa = PBXBuildFile; fileRef = F42A1A24067F3D9C5C0E9D4183CC7C44 /* FIRDatabaseQuery.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3B2EA6576D643BBC558FEFE759AF6EF7 /* FEventEmitter.m in Sources */ = {isa = PBXBuildFile; fileRef = F5C7256BBFF4DB2E93EEB3FA646D7C14 /* FEventEmitter.m */; };
+		3B2F89D042A15BE72742B6594C138A97 /* FLLRBNode.h in Headers */ = {isa = PBXBuildFile; fileRef = D8F5A38A5A6CB87206ADC3DB0FCE72DD /* FLLRBNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		3BA9B226DD33832041C4D11C2501731B /* FLimitedFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DBA60C53C2FEC24ED7BFB1D7083150B /* FLimitedFilter.m */; };
+		3C2AD25A2BA419D791015AAADB0627B5 /* FWriteTreeRef.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B7E85C026745FF7976D220B961107F0 /* FWriteTreeRef.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		3FF631A520F4043CD8D0D73FFDF6E6D2 /* FConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = 7C348267DC46C06E5126C4F0CA31BB73 /* FConnection.m */; };
+		4032C2F43492B397A496B5F8A9C12D65 /* FLLRBEmptyNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 8D7AA2A270E6F810045104A73EC7D7D0 /* FLLRBEmptyNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		41D421C46027C0E117F70CDCA2A227F8 /* FClock.h in Headers */ = {isa = PBXBuildFile; fileRef = 66BD10773FC78F9B7C6A31BCFBD67632 /* FClock.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		42E48B8D703F6B7DAAC3E79289A08406 /* FIRDatabaseComponent.h in Headers */ = {isa = PBXBuildFile; fileRef = B46E601C6C1A025427DCB155B5DFD668 /* FIRDatabaseComponent.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		43C2C89F0848B1E223388BEB37C3A537 /* FKeepSyncedEventRegistration.m in Sources */ = {isa = PBXBuildFile; fileRef = EABEF786CA96DB205C48DDB1D202FCC0 /* FKeepSyncedEventRegistration.m */; };
+		445BFDE50E7185CA19CFBDAD70B1093D /* FTupleOnDisconnect.h in Headers */ = {isa = PBXBuildFile; fileRef = EBEDA7921D0C09A2B59CD869B20610EA /* FTupleOnDisconnect.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		44624A35DEC85C11ACC0F6AD1A29B34B /* FViewProcessorResult.m in Sources */ = {isa = PBXBuildFile; fileRef = 8537392E3573C5B186748F9D8BD5B2EC /* FViewProcessorResult.m */; };
+		451250592066179E542D800B29748297 /* NSData+SRB64Additions.m in Sources */ = {isa = PBXBuildFile; fileRef = 17575EA52874BDAC5E9D42DF8B8EA8F6 /* NSData+SRB64Additions.m */; };
+		458EA5EC44549C4A283B468D730C8312 /* FSnapshotHolder.h in Headers */ = {isa = PBXBuildFile; fileRef = 79BDA0D177937896B28769F270D19D29 /* FSnapshotHolder.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		464EB393DE0C9A349DCED81482545AA2 /* FTupleTransaction.m in Sources */ = {isa = PBXBuildFile; fileRef = B26FC6E0558036EC623461A85D7277FB /* FTupleTransaction.m */; };
+		46532876C386B14F0F1567BA3F3E8D07 /* FNodeFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 74318614CB6898F22DE2DCC17F99F6DA /* FNodeFilter.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		4685332669555BD1324462B269FF83C9 /* FPendingPut.h in Headers */ = {isa = PBXBuildFile; fileRef = 2CBD0FD23F9F7FC6CAD6D80E189F5EAC /* FPendingPut.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		46854922D1CBEEA4843D16E51608C535 /* FTupleTSN.h in Headers */ = {isa = PBXBuildFile; fileRef = E8D34064349DFB3A0825B71CBA003CC9 /* FTupleTSN.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		49DF78E95BA83F0A3CA81033DDBC5B2A /* DatabaseReference+WriteEncodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = A361528CEC7C866EA04F97BBDDBC5715 /* DatabaseReference+WriteEncodable.swift */; };
+		4A25D82FC22BF06347E00E2005BB2311 /* FIRDatabase.m in Sources */ = {isa = PBXBuildFile; fileRef = F8A02D430D24EE137C7B26E75EF0D5F6 /* FIRDatabase.m */; };
+		4ABCFFB3658D15C1604D3C9440AEA7BF /* FTupleNodePath.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E8A6FBCB6198116336B659819A00BA4 /* FTupleNodePath.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		4B1CA6EC49BFA1A13E491C27B439775E /* FCompoundWrite.h in Headers */ = {isa = PBXBuildFile; fileRef = 5100C6C695B5E67B687E65B2171D096C /* FCompoundWrite.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		4BFEFD33FD40BE3B57E2B012E3459F7B /* FWriteRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = C6228A3F6831F761438EC5EAEB36EC18 /* FWriteRecord.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		5019BF4D61041C4369ACF6771B15F0C6 /* FValidation.m in Sources */ = {isa = PBXBuildFile; fileRef = CEA0CA77F20EF58420E9CF1C9DA3941C /* FValidation.m */; };
+		50DA683CB1BC40370F78DBF9B73E62AF /* FirebaseDatabase-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = A193974633646557BF523E77AED393E2 /* FirebaseDatabase-dummy.m */; };
+		5109E24883A619DCF45B363F61FB08EF /* FIRDatabaseReference_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 788BE5C63B9A56FB390D387FD597A55D /* FIRDatabaseReference_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		51253338634F2DC235FBF50C5287CFA1 /* FEmptyNode.m in Sources */ = {isa = PBXBuildFile; fileRef = FBF036582E3924F96128A1097E02ECED /* FEmptyNode.m */; };
+		5157B2AAFAF77F8979D8DA6DE725996D /* FValueEventRegistration.m in Sources */ = {isa = PBXBuildFile; fileRef = 0A35805B65615E3A6BDE3530296403E9 /* FValueEventRegistration.m */; };
+		52379D3DE26CC3719C1231EB094DCC72 /* FTupleObjectNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 7A5DD03909BD36BD8B7CE5F23C816358 /* FTupleObjectNode.m */; };
+		52F530D5FEFCF3AF0EF8812B21A27FF8 /* FSyncTree.h in Headers */ = {isa = PBXBuildFile; fileRef = 573260CC124C55686AC7F6E6FA04FFF2 /* FSyncTree.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		5457D5A83F2B9FB3E1BFC3DEA8839932 /* FOverwrite.m in Sources */ = {isa = PBXBuildFile; fileRef = C5E2A28CED0A0D5043176843796F89CB /* FOverwrite.m */; };
+		5495F61815063A7A2062A1C279817ED4 /* FTupleUserCallback.m in Sources */ = {isa = PBXBuildFile; fileRef = 32E0239EC5C89A9D3A148E812C8C81B5 /* FTupleUserCallback.m */; };
+		5827759AE051D10781A35892CB31B6D4 /* FRangeMerge.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B7847373B2CB2B1C8779BBA8504FA80 /* FRangeMerge.m */; };
+		59C0757E09FA0328954FC048B0EB45ED /* FLimitedFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = C6336CB9633C6EBECF07AA178F0BE96B /* FLimitedFilter.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		5C1A4BA00F9B1193649E4D0B2B2ECFA0 /* FTupleTSN.m in Sources */ = {isa = PBXBuildFile; fileRef = EE72C5AEB7644DA3C58A02F67685B8FD /* FTupleTSN.m */; };
+		5CF3E27F5F71D3B1DE876928AB74E006 /* FStringUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = EDDDD72CD7A0AB9815D8BFBF29D2695E /* FStringUtilities.m */; };
+		5D09BE98F91223FF3822ADA1ACD43DA3 /* FIRAuthInterop.h in Headers */ = {isa = PBXBuildFile; fileRef = 978F1C19A0C6B2C1A64584BFDA7FA40A /* FIRAuthInterop.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		5D650A0B6346EE2F2DD000067874D1AC /* FPriorityIndex.m in Sources */ = {isa = PBXBuildFile; fileRef = 7576D2A3B6CC4895B1F295AC8C52661C /* FPriorityIndex.m */; };
+		5ED47808F33F26B3B9192F42D4C1CE6B /* FStringUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 844651629B0A1DC61222B16D77F21B18 /* FStringUtilities.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		5F4178B317F03AB21BF201F416590DB4 /* FImmutableSortedDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = 307675B5D0C408584A2E06D37D0CDDD5 /* FImmutableSortedDictionary.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6037C58844FF9857BD903F3200B414CD /* FRepo.h in Headers */ = {isa = PBXBuildFile; fileRef = BC55F2B56AA03146EC54E1659792BEBE /* FRepo.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		60CEF8FFB4DDCF03B382B325FE4079C1 /* FAtomicNumber.h in Headers */ = {isa = PBXBuildFile; fileRef = BDF352AED4DE8C6C8B782702DD84DA05 /* FAtomicNumber.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		61A8C0F69E8201067BE59D48CBC1F307 /* FParsedUrl.h in Headers */ = {isa = PBXBuildFile; fileRef = 74F4402EB09664C1B9DC131D4B1D24D7 /* FParsedUrl.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6205321B347FADD714EE6E99EA4C9262 /* FIRMutableData.h in Headers */ = {isa = PBXBuildFile; fileRef = A96533CB977CEDF019D0366AD3989922 /* FIRMutableData.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		63987C5FB13EF606B2C7BCF25965F946 /* APLevelDB.mm in Sources */ = {isa = PBXBuildFile; fileRef = F60D626228F71594C42F1AECA8E518AC /* APLevelDB.mm */; };
+		64E5D6C976EAF9A1BA4C7853CC672BFD /* FNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 3C145EC81C33EA21DEB4F9B72C557C0B /* FNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6791BC5F8D7493F4F16A548D2A30329D /* FTreeSortedDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = CB55D08A6014D5DE05397260F6E370F5 /* FTreeSortedDictionary.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		689E469BCDB07B4CDE1A517140EA098D /* FDataEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 43E5BFDC458C4D764FD5B0D04C32EA3D /* FDataEvent.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		69215A538DC2D0C63D902386396DD01B /* FClock.m in Sources */ = {isa = PBXBuildFile; fileRef = BFE909480BDFB1AD79E52BE12FAAC562 /* FClock.m */; };
+		6C1FD472E66708A810BC64C33908BC70 /* FWriteTree.h in Headers */ = {isa = PBXBuildFile; fileRef = 3DF938E2A102BB70794F72B442B10D12 /* FWriteTree.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6CF756AECFFC286D89183BF7D358E8A3 /* FRepoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = E3A8E7DA0AF968BE10854B2C4B8F8214 /* FRepoManager.m */; };
+		6D16F2A986A9E99AB22A296C929EF12D /* FTree.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A5E8AFF6EA1FFB2616D8B5EE240331 /* FTree.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6D2814301698744F1715FDFFEA990951 /* FTransformedEnumerator.m in Sources */ = {isa = PBXBuildFile; fileRef = D5FECCA8F096033EADED56425E09FC62 /* FTransformedEnumerator.m */; };
+		6E4D497B2AA1CDA7F541570E66F00937 /* FViewProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = 5DA6366145AC0EF79456240775C2BE93 /* FViewProcessor.m */; };
+		6E4FC4AFE0DAFE9DECC3925328AC48A5 /* FRepo_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = DE65C9A2D1B386A82A120A5CC3D6C89C /* FRepo_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		6F1D72D1202CAC828D48F6BF56A09B1F /* FPriorityIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = B24A60734DEA4EB83034D627341485BB /* FPriorityIndex.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		70415E12D9BB2E7580EEDCE1B0FD93B5 /* FCachePolicy.h in Headers */ = {isa = PBXBuildFile; fileRef = 832165561B48ACB3B27B51B7C1A709D8 /* FCachePolicy.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		70AC2CC9B843302B863EAE95D917876F /* FListenComplete.m in Sources */ = {isa = PBXBuildFile; fileRef = 4AFFEF1CE59D712AD4844232F7E80157 /* FListenComplete.m */; };
+		712AB7D0C3523EBDD505477CDED1D531 /* FTrackedQueryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 0392A4A0E7260795003C8CF7EEF918F8 /* FTrackedQueryManager.m */; };
+		71F795245210E6AE5C97AA9902DF7CE2 /* FValueIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = C72DA6DAA99875562FCA29ED0453DC6D /* FValueIndex.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7342E5FE2AE0CF5A6E5C4B59126BD342 /* FTupleRemovedQueriesEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = 066F84FC0B256DAD4107F1B2A682EB8C /* FTupleRemovedQueriesEvents.m */; };
+		75B7DEDC8A78B90029D01DB045235B6F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D329CDC8C3930551E23114729AFB2651 /* Foundation.framework */; };
+		75D27A00F4DE67CFD3616D61909AD396 /* FListenProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 13F360AB3486EC26D23462B985727D4D /* FListenProvider.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		76132F5CEB768951EC8ED796EDE4CC79 /* FTupleStringNode.h in Headers */ = {isa = PBXBuildFile; fileRef = CAD69E5C83B4E28FFA54718746359780 /* FTupleStringNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		782B1110A0064AD138DDA2EC29CF8639 /* FEventRaiser.m in Sources */ = {isa = PBXBuildFile; fileRef = A49BE073C4A780A0E05A7AE2538428C1 /* FEventRaiser.m */; };
+		7C94F1DA0BC89A36F5B77484EFFD8D10 /* FLevelDBStorageEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 192F7FFE87BE1CF6053380B22CDC1D20 /* FLevelDBStorageEngine.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7CF6E8251A094B764B0408CD4ECA08B1 /* FSyncPoint.h in Headers */ = {isa = PBXBuildFile; fileRef = 123413FF4A3F09DC4E9311B36283A838 /* FSyncPoint.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7D2F7834C424888DFE35C728C160A815 /* FOperationSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 90BE20CA1D8F3B2884B7446762286EDB /* FOperationSource.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7D4376FD6F93060A62996AB4DB3BED21 /* FIRDataSnapshot.h in Headers */ = {isa = PBXBuildFile; fileRef = 2103A83F1BB3D40AFA1252689CD417D9 /* FIRDataSnapshot.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7D93870D03811168A897DF2564154240 /* FCacheNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 52C4EC8B3ABF3DBB9D1AB97250EFB715 /* FCacheNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7EC3B8233D44FA09268CD40A231D40AE /* FIRServerValue.m in Sources */ = {isa = PBXBuildFile; fileRef = 989C84EEDB15F88E161ED94ADA5DB779 /* FIRServerValue.m */; };
+		7ECC68129B672E3D5E5622B614783D48 /* FIRDatabaseConnectionContextProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 25921DFD1B26774C5E8B0360F6DD6DB2 /* FIRDatabaseConnectionContextProvider.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		7F0167752C14C59A9B538F950C13F520 /* FParsedUrl.m in Sources */ = {isa = PBXBuildFile; fileRef = 4E684AA04051335E76245EB2A15E7515 /* FParsedUrl.m */; };
+		816FB7A366C6DADEF4FC4F68C59376B4 /* FIRDatabaseQuery.m in Sources */ = {isa = PBXBuildFile; fileRef = 8FF33A795B90EB813E0FAA674D3F64E0 /* FIRDatabaseQuery.m */; };
+		81D9A79EC241CAD9CB97AAC16CCE09A4 /* FListenProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B7279EEA4F3A9F0A13C79EBB0F86264 /* FListenProvider.m */; };
+		821E297E749B605D9D0266F3EC78C621 /* FPruneForest.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C9D2C94BD906C9533A100B5611D6511 /* FPruneForest.m */; };
+		8282EB4BC623D302A5CF9D23F9798CF3 /* FIRDatabaseReference.h in Headers */ = {isa = PBXBuildFile; fileRef = 6EA840EE0177E9D7845494A380747EAA /* FIRDatabaseReference.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		85F20486E5E5D7C1B4DE041F028714F8 /* FIRDatabaseReference.m in Sources */ = {isa = PBXBuildFile; fileRef = FC49E3F6F34C666A0665AA95298B8AE8 /* FIRDatabaseReference.m */; };
+		8687EF3A3AF1D70D8CCD856BD7F991CC /* FWriteTreeRef.m in Sources */ = {isa = PBXBuildFile; fileRef = AA7638F95F252330F277013E84084AF3 /* FWriteTreeRef.m */; };
+		86C46F662046F94DA3916CFEA19A7703 /* FIRDatabaseConnectionContextProvider.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CD2EE39FDDE20E2C2E62EC77159C021 /* FIRDatabaseConnectionContextProvider.m */; };
+		8738432E0749F7B2FE743B71268A9F1A /* FIRTransactionResult_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 3DCFDDEA7A2298832065C423346223CB /* FIRTransactionResult_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		881D5231F71667E59005961C1E4BCE32 /* FEmptyNode.h in Headers */ = {isa = PBXBuildFile; fileRef = CB43E2657E859DB0CC6F28A7AB5ADD75 /* FEmptyNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		889B50A6661E23A34F9337BE06C84E86 /* FTupleSetIdPath.h in Headers */ = {isa = PBXBuildFile; fileRef = CA62825E4B046D0A0244FE0B54E2E8EA /* FTupleSetIdPath.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8AE027F0C5FE491451CA8722821CA7CF /* FTupleBoolBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = 05B6D80D052751A6AC407FBA3F1419FA /* FTupleBoolBlock.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8B10223F3D101E943F1E2F7655CFCCDF /* FTupleTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = 8A76633D38677E3E0382D901CF5B193E /* FTupleTransaction.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8B13ED97CBFA13FD55F8CD9093775CB5 /* FIRComponent.h in Headers */ = {isa = PBXBuildFile; fileRef = 65B2499458D89E1C32C601A3A42DEFDB /* FIRComponent.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8B71203F31B015EBC0B1C0AA4E3BE6B4 /* FDataEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 396E2ED9203BC82003933760B10866B8 /* FDataEvent.m */; };
+		8C531C738F8BEE944F71D35CA465FD82 /* FIndexedNode.m in Sources */ = {isa = PBXBuildFile; fileRef = BD20FF3C1194C83D50E605D76125F129 /* FIndexedNode.m */; };
+		8CCB97E11357A7A22C64CA4F576371E7 /* FArraySortedDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = 09B797403968316796B48F3A220C2887 /* FArraySortedDictionary.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8EB661B9F0450257EE02ADE8E5C0D06A /* FMaxNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 36DDD86EC0C5C421172E7FD91CE1E570 /* FMaxNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		8FABCC6C3558B7EF25320E936C9DD9B9 /* FRangedFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FBB8062D9F8B5C58590583E960C6BD5 /* FRangedFilter.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		904D49391D10905CD42609CE39E6B92B /* FListenComplete.h in Headers */ = {isa = PBXBuildFile; fileRef = A0026D0705B2778C5C7F40612906BC10 /* FListenComplete.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		91C657BFB1456FF6B43A6288B025258D /* FSparseSnapshotTree.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EF0E1929163C41FEAB9C84A71255C7B /* FSparseSnapshotTree.m */; };
+		934DD195698D0EEAFDC48679F494F266 /* FAckUserWrite.m in Sources */ = {isa = PBXBuildFile; fileRef = 33863BB417B4722EF9B3108FB87F197A /* FAckUserWrite.m */; };
+		940DB505E161F68DEF080609D414AE83 /* FView.m in Sources */ = {isa = PBXBuildFile; fileRef = DF6FBDE105560BD245B9CBC5E7B2F705 /* FView.m */; };
+		9468A2F64EEACCF80FE22F2031F880A7 /* FImmutableSortedSet.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D7077B9A4AA23086D840BA621D85BA3 /* FImmutableSortedSet.m */; };
+		94B09EEB53E2780860162E7EDF64230C /* FTupleObjects.m in Sources */ = {isa = PBXBuildFile; fileRef = 35C7A5371FCC3542081E7033C9C6FAA8 /* FTupleObjects.m */; };
+		94C337EF574524A2FCE23865BA92D9EC /* FTupleCallbackStatus.m in Sources */ = {isa = PBXBuildFile; fileRef = 801B9E07003FEDDE1E2CEE8E552B8E30 /* FTupleCallbackStatus.m */; };
+		958233F342949771BAA255404A9C0FF7 /* FIRServerValue.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2FD45575AC835D8CEF7BE0718BA309 /* FIRServerValue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		95A7B6B10E4BCD2CC2DFAA118E93B722 /* FIRDataEventType.h in Headers */ = {isa = PBXBuildFile; fileRef = 5B9A6DABA7AB276D1A052CFA27E83FD2 /* FIRDataEventType.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		96242B26FBE026C4626971B54C98C996 /* FIRDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = D8CFAC9C0D63680A1EACB6990B9857F9 /* FIRDatabase.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		969C98B1A8701E800B638DBF500081B2 /* FIRDatabase_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9319C81F08DF7E7B401488F9069E5FF /* FIRDatabase_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		96A6A2C7CD650A5683D6F9B0DD71A0CA /* FTupleUserCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = 090AE768D2008D211B8BB4D2F0E577B2 /* FTupleUserCallback.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		971D134228F486DBE826C388AE7C8E29 /* FPersistentConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = AFFCFD892B6E8981C9E4FF7AFCA0A1EC /* FPersistentConnection.m */; };
+		973BE3EA025D101B4C81E696512D55B3 /* APLevelDB.h in Headers */ = {isa = PBXBuildFile; fileRef = 8ABD996315395107FABA3112CAE94AFB /* APLevelDB.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		982F8EE6B584780D5343BB3017FCDD4C /* FKeepSyncedEventRegistration.h in Headers */ = {isa = PBXBuildFile; fileRef = A76AB82AA379361C0281FCF2B595751C /* FKeepSyncedEventRegistration.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		99B7F5154825A05D34E63816E0C779EE /* FPersistenceManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C44C18F012B8897BC8EF0A21E0D9DEB1 /* FPersistenceManager.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		9D64467685E36BCAC2DBBEF94EB17121 /* FViewCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9E8D29747006200FAE2D08003B66A315 /* FViewCache.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		9D7E7EB6EA06FAD127204AD1880879B6 /* FServerValues.m in Sources */ = {isa = PBXBuildFile; fileRef = 43C076B50E5E9FF336688CD70D02E77F /* FServerValues.m */; };
+		9FD110A55A0065A7D054B9D4979C1099 /* SPMSwiftHeaderWorkaround.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23DED63D41611F1EF8C59C3E6389217 /* SPMSwiftHeaderWorkaround.swift */; };
+		A46B9D0B165483FACCBFCBE1370D042C /* FChildEventRegistration.m in Sources */ = {isa = PBXBuildFile; fileRef = 429606FED636C00D9017FDC0AC57A12A /* FChildEventRegistration.m */; };
+		A6D28E24AF6AB461062AAA91007E9DB5 /* FirebaseDatabase-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = BA27AE28193F87B63C313C7E286AAF64 /* FirebaseDatabase-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A8B51B79013503BA9C755D46607DDB6B /* FIRDataSnapshot_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 25C0058B157C3DC117EC060F6375D3BB /* FIRDataSnapshot_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		A95101369718D88B7DAFC492886666DF /* FTupleRemovedQueriesEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F95517728348EEFBACBD67048652215 /* FTupleRemovedQueriesEvents.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		AAB65189635211ADEBA89DBBA53A543F /* FChange.m in Sources */ = {isa = PBXBuildFile; fileRef = 14E219B703CBACC5EA4450C175847A7A /* FChange.m */; };
+		AB4760E6BD3BEB61221A513DFD4A82CC /* FPruneForest.h in Headers */ = {isa = PBXBuildFile; fileRef = F5B580DD68512CF9178A6779F76251CA /* FPruneForest.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		ABD1191A74BF4614E46693BDC2C05E98 /* FTypedefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 8E321F0B608403CCEB22B79E2293A67A /* FTypedefs.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		AC7DC7AC40A441760B7DDB5125482BFD /* FCachePolicy.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B0B0DC495BA10A4CFD1BC410CAC9803 /* FCachePolicy.m */; };
+		AD1F16390269885A8DB653D50FAF8014 /* FRangeMerge.h in Headers */ = {isa = PBXBuildFile; fileRef = D6F021BBA08325245D5723B1CADA4167 /* FRangeMerge.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		ADED0569804CA8A69D20E30E432D4087 /* FSnapshotUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 01C661566B1586084919E8B6858A5DED /* FSnapshotUtilities.m */; };
+		AF508FA1BCE26E93D4661D4621E07684 /* FLeafNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 36614108BE11F99FC198AAA9EBA4FF19 /* FLeafNode.m */; };
+		B00007797AFE365A821BF05BFC3E7A80 /* FIndex.m in Sources */ = {isa = PBXBuildFile; fileRef = 47C958EA6416563FC735CAF9DAA698CF /* FIndex.m */; };
+		B0ABA1DE4A57F6AC3487556F80FF394A /* FIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = 98CBB171F333BACE03EF03C1F6EDD3FD /* FIndex.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B0F0D12783EB16B3BFA974F22E7B45A0 /* FConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 314C2694C1E96EDBA7AE5D017A6A61DE /* FConstants.m */; };
+		B2AF66AABC93865F4A83F6E83D4C54AD /* FIRDataSnapshot.m in Sources */ = {isa = PBXBuildFile; fileRef = F4D3608B0DCB0F0D284A4D03C424817D /* FIRDataSnapshot.m */; };
+		B415EC4E10247ECDE71D70385BBC0C8E /* FRepo.m in Sources */ = {isa = PBXBuildFile; fileRef = A551FF64288D3886C08D3EA105CD6DA0 /* FRepo.m */; };
+		B47B2690C17FB375324B17FD22E59912 /* FTuplePathValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 26790995999A688ED639CC74453670DE /* FTuplePathValue.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B49DF6069E935459CA766E19FE162DD3 /* FTupleFirebase.h in Headers */ = {isa = PBXBuildFile; fileRef = FC6D30A242D9151F67311DD0F422B380 /* FTupleFirebase.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B4E81562440F97F376064C38E2A8AF14 /* FTransformedEnumerator.h in Headers */ = {isa = PBXBuildFile; fileRef = B2A7FCACCE723AB8F7552ED21A192E81 /* FTransformedEnumerator.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B672DA8F94BDCD7032BC60D9F2F7CECB /* FKeyIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = 37A45B68368BEE206DCE4B4332C6AB0B /* FKeyIndex.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B7E453127AAD970F2FC1791C3B9DFBBD /* FNamedNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 9DD82C098DE42D6A0C42198EBDECDE42 /* FNamedNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		B9EA342415D571AA38FA90693834A942 /* FImmutableTree.m in Sources */ = {isa = PBXBuildFile; fileRef = 6DF82399E68C14FA0A74CF24C1CC60D9 /* FImmutableTree.m */; };
+		BA0AB56207005F8AC589701804BB45CA /* FImmutableSortedSet.h in Headers */ = {isa = PBXBuildFile; fileRef = AD61A7D6DE5C7A6EB9F71E5159710D10 /* FImmutableSortedSet.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		BA678F1A6A5466C59CF7E061B032DFA6 /* FPathIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7628C6D94CDA56CA9B9FC33BBC75BE /* FPathIndex.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		BA74BCC247A332D62E9F4F526DD3AF74 /* FCompoundHash.m in Sources */ = {isa = PBXBuildFile; fileRef = 31280D4DC373F2D7E7505512943833F8 /* FCompoundHash.m */; };
+		BC50A058DAA10DA7E718513594D629FE /* FLeafNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 85C116729D41879E9573D7FBB45D9E56 /* FLeafNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		BD79032EFC26A19D0C88ECF6D79C7A26 /* FTrackedQuery.m in Sources */ = {isa = PBXBuildFile; fileRef = BADBF5FCF63FCE0E9E7D962F2C0F2344 /* FTrackedQuery.m */; };
+		BE4E5B8AC3D431129CC263182701345F /* FTupleObjectNode.h in Headers */ = {isa = PBXBuildFile; fileRef = 81E7E6E3C09F19CBEBB8A5B45E1EF19A /* FTupleObjectNode.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		BE9CEBAC8B070E1AC04CF16C15FF7B12 /* FRepoInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F98F23AE3374D57486D93927D8E61C6 /* FRepoInfo.m */; };
+		BEEBDFFD59A6527C7620548CB8C2E412 /* FIRMutableData.m in Sources */ = {isa = PBXBuildFile; fileRef = D5822373C7357F4A1209CF961275A60C /* FIRMutableData.m */; };
+		BFF3EC07E63804A8038ABA5A839B337D /* FTypedefs_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 7D0891B1B2C85A83C879ED2BD31BABB0 /* FTypedefs_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		C25C98EEB4AA41905B13EF3182F1977A /* FImmutableTree.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A6B3EC826C5EEC860DA637BB85A1CED /* FImmutableTree.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		C33F15C2B9DD755538AF5D0165404436 /* FRangedFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = DF94A3F3E0794BA181DC837EC6BCC0D1 /* FRangedFilter.m */; };
+		C4DECC03F01108BF436762AE21714460 /* FView.h in Headers */ = {isa = PBXBuildFile; fileRef = 26EEE7D3C98272F3C960DA79C7B83FE6 /* FView.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		C78BEF7EE5FEEC6B2B6CADCCFADB6BFC /* FTreeNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 8B7C90F771DB1E143E7DCA436DA7863B /* FTreeNode.m */; };
+		C834F0AAB57AD1712CBD5B064AA9BD79 /* FIRHeartbeatLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = D397596C733B37DCFE130454A1B0AD25 /* FIRHeartbeatLogger.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		C8EFA1F56065FA67808015F7C232D601 /* FTupleObjects.h in Headers */ = {isa = PBXBuildFile; fileRef = 392E8A58426E391095E16AC764E115F2 /* FTupleObjects.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		CABA8170007D16AF214D6BCC7A6FA359 /* FMerge.m in Sources */ = {isa = PBXBuildFile; fileRef = 38DF11E8E8D832FDE8E093E5AA1B2A31 /* FMerge.m */; };
+		CEB328F90AE932E91820262C8A90A8DC /* FTupleFirebase.m in Sources */ = {isa = PBXBuildFile; fileRef = 2D1EB4810C3169A8B6D4A68F8BF7AE3E /* FTupleFirebase.m */; };
+		D183C49AC7C65ED0CD8A6F149C11FC1A /* FNextPushId.m in Sources */ = {isa = PBXBuildFile; fileRef = DB7686722699FC424609583B8666E78C /* FNextPushId.m */; };
+		D2E3C6683D00D3C1E756A93816ED8CE2 /* FMaxNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 28673D66657B96695ED2B19B07E7AB89 /* FMaxNode.m */; };
+		D37E67C106CED919B0B471868C87DD78 /* FEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = B3F5EA6E36692C336FD4064BD11E64A6 /* FEvent.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		D79EFDC8367B82B92AB07B04C041E25E /* FQueryParams.m in Sources */ = {isa = PBXBuildFile; fileRef = 43A370742131470E1AA5DFAA0FFED519 /* FQueryParams.m */; };
+		D7FDD47D9299137A22734BF351F460E4 /* FIndexedFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 6C919A2FB9006FCDACB2FA706EEF3A19 /* FIndexedFilter.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		D81A31F24C675A014DB866A332F9F404 /* FIRDatabaseQuery_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9E57ACEAC7532DD1EB4FD2D10F347401 /* FIRDatabaseQuery_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		D8637B51EBC7CD121B9B6FE758081061 /* FIRMutableData_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 76CE640FDF51663645AAE2298E36727C /* FIRMutableData_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		DC412AE5865CD4B352174EAAD87AEA95 /* FPathIndex.m in Sources */ = {isa = PBXBuildFile; fileRef = E8DC18ABF92539645AF626667D52240B /* FPathIndex.m */; };
+		DDBF00A2FFA4EC6562795DD15A3AEE95 /* FSnapshotHolder.m in Sources */ = {isa = PBXBuildFile; fileRef = FFCB00C9250390859A3D65CECD5B9DF9 /* FSnapshotHolder.m */; };
+		DDD8566E5EF67F2816F0A834DD595B9E /* FWriteRecord.m in Sources */ = {isa = PBXBuildFile; fileRef = 54B8F0D308E240A9ABE45B3BC54F2BB5 /* FWriteRecord.m */; };
+		DF182A0FD38211F678BA8CFC544BC23F /* FirebaseDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = 90129E5BBD1BB61A5C7F0858F316A40A /* FirebaseDatabase.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E0F237A94BD254B2F93F0D8810522BE5 /* FOperationSource.m in Sources */ = {isa = PBXBuildFile; fileRef = 2662D411440F1C041865073B67E72F31 /* FOperationSource.m */; };
+		E1A73F1E45A10E0F86D069F3F006D489 /* FViewProcessor.h in Headers */ = {isa = PBXBuildFile; fileRef = 143CCE5A2F8E4341306D263BEFE1BD4A /* FViewProcessor.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E1D0ED7C4443F836EDF962486CB898C5 /* FValidation.h in Headers */ = {isa = PBXBuildFile; fileRef = F7CE032A61EE3393DBA86ABB46763BBC /* FValidation.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E2F8A8BC93CEA8831B221115AC2D1CA0 /* FTree.m in Sources */ = {isa = PBXBuildFile; fileRef = E70C42456D59D5CA6620B7D8CEBD6E76 /* FTree.m */; };
+		E3876CDADD4582623782E02E67997196 /* FSparseSnapshotTree.h in Headers */ = {isa = PBXBuildFile; fileRef = 45F4B31CD5183C212D9B5AFD1448D9D0 /* FSparseSnapshotTree.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E440A430F23962C57252238C13F2FD6E /* FViewProcessorResult.h in Headers */ = {isa = PBXBuildFile; fileRef = C3B0BE39F286E87754773E1675A132FB /* FViewProcessorResult.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E493E94EA04208B59D592963E445E0BB /* FConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = BA3B9600A86F660A08ED7C9496618738 /* FConnection.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E57EEC88F8B6ED564622A9ADB1EB2539 /* FMerge.h in Headers */ = {isa = PBXBuildFile; fileRef = DA1ED66F7DAEA548B46B3B938FBF27E6 /* FMerge.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E60F1F440938990C6184B75CFA184062 /* FIRAppInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = D48D0F98803F7AF30EA7CCC872A35BF4 /* FIRAppInternal.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E66A2C5242B458FA666A21B674ECA492 /* FChildChangeAccumulator.h in Headers */ = {isa = PBXBuildFile; fileRef = 136E2787E6027818ACD80F0F8F57507D /* FChildChangeAccumulator.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		E9CA4D0399E430831A9352182B30147B /* fbase64.c in Sources */ = {isa = PBXBuildFile; fileRef = 53DE39E8A28A04574AB6271D65683024 /* fbase64.c */; };
+		EA600B9BCB1FF12526FD3795E3952CA5 /* FIRRetryHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = F1E3B8B53A995E12F649EC44338E9B13 /* FIRRetryHelper.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		EBD3B2429289BC2EA74804515E221552 /* FQuerySpec.h in Headers */ = {isa = PBXBuildFile; fileRef = D817ADD582E11DA59374932D44B875A9 /* FQuerySpec.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		ED3C20EEF5E6C23326DD99B305C2859E /* FQuerySpec.m in Sources */ = {isa = PBXBuildFile; fileRef = F3ED98E0C73ACBC36C37D26AD6DBE634 /* FQuerySpec.m */; };
+		ED4BDDCF4B38CFA94EC4F588EE6AAA65 /* fbase64.h in Headers */ = {isa = PBXBuildFile; fileRef = B4913A0D4BAB1C005AB0A861DB5ED706 /* fbase64.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		ED508731CEC951D9D963EE8108E429F6 /* FNamedNode.m in Sources */ = {isa = PBXBuildFile; fileRef = F31B6155BD660BC4FDBEFD6470E5B0C3 /* FNamedNode.m */; };
+		EE079C0E4CD20CF2C8C4CD84F60583CA /* FTreeSortedDictionary.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E6691DDE7EFB6F49F549D81C7C6EA83 /* FTreeSortedDictionary.m */; };
+		EF0DB4E043056F671D4603CE8F455EE9 /* FWriteTree.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EEE438AC705D7C5BE8FACF7A8338F61 /* FWriteTree.m */; };
+		EFDB441EAFCFB2D72351C8F11682F99D /* FIRDatabaseConfig_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = EA325325D8DAB05969D9C79E9C16D8D9 /* FIRDatabaseConfig_Private.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		F2B77619091B1663312C7AA9EA7B6C07 /* FOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = 2AD19BE2316314E6EC03D3C8AB78A055 /* FOperation.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		F3529EBA557AECB07308C157B6C44F77 /* EncoderDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21AAE2374F4DE430B514925E02AC06F3 /* EncoderDecoder.swift */; };
+		F4C79B44BE5FDFB99658DD905EC214A4 /* FIRTransactionResult.h in Headers */ = {isa = PBXBuildFile; fileRef = D597EBE53401EBC2C94D06626467D4AC /* FIRTransactionResult.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F7507B6E295872A118439242D30DB56A /* FEventRaiser.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8BCB9B65D16F6F4B29179D6795F27B /* FEventRaiser.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		F98D69921A67B5E561C60DD75763243C /* FIRDatabaseConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = EBE2E384A608268091215876DF247C84 /* FIRDatabaseConfig.m */; };
+		FB34673348715FE6018CC72FF1A1F1BA /* FTreeSortedDictionaryEnumerator.h in Headers */ = {isa = PBXBuildFile; fileRef = DB1D4596B8A93CD8FDB2230A36CC15E2 /* FTreeSortedDictionaryEnumerator.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FB373A1ECDAD938DA24E762E3D8E3119 /* FIndexedFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7DCA567193D491F9DAD2C9F009ADE217 /* FIndexedFilter.m */; };
+		FB8AEF1E29400FF866E9E037F2B29061 /* FTupleStringNode.m in Sources */ = {isa = PBXBuildFile; fileRef = CD098764A9977A58C1F60408C6CAD581 /* FTupleStringNode.m */; };
+		FC1055A6FE1C40201E17894C719C7711 /* FEventGenerator.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EFD224636350983226B29240B82363B /* FEventGenerator.m */; };
+		FC83200481310EF1894C8140ED5B64B7 /* FLLRBValueNode.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBF6E155AE44CAA432DCD650BDD4699 /* FLLRBValueNode.m */; };
+		FD0A4919C8139333376A07D745BB3EC3 /* FServerValues.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E0D95D8B59E42CA27FA4E70EE8B15BB /* FServerValues.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FD2891105E34598477FD9F9011BA896D /* FConstants.h in Headers */ = {isa = PBXBuildFile; fileRef = B1C1D04C99269AACC2D0EB5F35EB06B3 /* FConstants.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FD58C874C66B4460BE39C202A455659F /* FTupleCallbackStatus.h in Headers */ = {isa = PBXBuildFile; fileRef = BB64B13BCF90351CF272AEC25019D81A /* FTupleCallbackStatus.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FDC8AB67DBE689395AD8068AF1202EAC /* FEventRegistration.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ACE41C1177B6D2F1D67B7BEAE6303DC /* FEventRegistration.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FEBFB4058E62A67053E72A0316D3BF56 /* FCompleteChildSource.h in Headers */ = {isa = PBXBuildFile; fileRef = AC739C64771B77BDC36AAB18B32F1F0F /* FCompleteChildSource.h */; settings = {ATTRIBUTES = (Project, ); }; };
+		FF6D8C4492CB946E385E4DBEC94927ED /* FOverwrite.h in Headers */ = {isa = PBXBuildFile; fileRef = A1515B7F4FF6330CF5EC1EB34F9CA655 /* FOverwrite.h */; settings = {ATTRIBUTES = (Project, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		33CD835356A0159EF9092B4241DEBF8B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5424D61ED27AF0202DC48776FC264B8B /* leveldb-library.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 4327AB0D83611FEE34D5C92C06ADDD2C;
+			remoteInfo = "leveldb-library";
+		};
+		76551C0B25FCCFED7D871313786C4248 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5F49100D8087B73FF1E5A6B85C57AF65 /* FirebaseSharedSwift.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = B8A1E2A95FD92A431BF7D409C7B5D51D;
+			remoteInfo = FirebaseSharedSwift;
+		};
+		856E55419DB9CE2F3C7C5077A8C73FBD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A77ABA0DF3A8FB855A9E1B59E15FAF10 /* FirebaseCore.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 4BD5DE1E00ED67A59118DB4A3CD5F288;
+			remoteInfo = FirebaseCore;
+		};
+		9E4FAF830F66FD7752F2573ED9BB7E01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B21C207F242CC5BDDC4644DB0F205EF6 /* GoogleUtilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 80B861CBFC18436AFD9A3703F00CEEC4;
+			remoteInfo = GoogleUtilities;
+		};
+		F309C934467B18F3F59D5139AEC430E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1EDBA112D596CF703440261D2E3001DA /* FirebaseAppCheckInterop.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 003D3E75F4F4DF9CECA8F5E00621EED8;
+			remoteInfo = FirebaseAppCheckInterop;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		015520719ECEB10B9436A3A8355C78D3 /* FIRComponentType.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRComponentType.h; path = FirebaseCore/Extension/FIRComponentType.h; sourceTree = "<group>"; };
+		01C661566B1586084919E8B6858A5DED /* FSnapshotUtilities.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSnapshotUtilities.m; path = FirebaseDatabase/Sources/Snapshot/FSnapshotUtilities.m; sourceTree = "<group>"; };
+		01CFFBC56540A34B0424C337A029EC70 /* FTreeNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTreeNode.h; path = FirebaseDatabase/Sources/Core/Utilities/FTreeNode.h; sourceTree = "<group>"; };
+		0392A4A0E7260795003C8CF7EEF918F8 /* FTrackedQueryManager.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTrackedQueryManager.m; path = FirebaseDatabase/Sources/Persistence/FTrackedQueryManager.m; sourceTree = "<group>"; };
+		05B6D80D052751A6AC407FBA3F1419FA /* FTupleBoolBlock.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleBoolBlock.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleBoolBlock.h; sourceTree = "<group>"; };
+		05C0C51B2EC4794921593C68209EA107 /* FPendingPut.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPendingPut.m; path = FirebaseDatabase/Sources/Persistence/FPendingPut.m; sourceTree = "<group>"; };
+		05E2ACF172ED99D59E734330A88733EB /* FirebaseDatabase.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseDatabase.debug.xcconfig; sourceTree = "<group>"; };
+		066F84FC0B256DAD4107F1B2A682EB8C /* FTupleRemovedQueriesEvents.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleRemovedQueriesEvents.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleRemovedQueriesEvents.m; sourceTree = "<group>"; };
+		090AE768D2008D211B8BB4D2F0E577B2 /* FTupleUserCallback.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleUserCallback.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleUserCallback.h; sourceTree = "<group>"; };
+		09B797403968316796B48F3A220C2887 /* FArraySortedDictionary.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FArraySortedDictionary.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FArraySortedDictionary.h; sourceTree = "<group>"; };
+		0A35805B65615E3A6BDE3530296403E9 /* FValueEventRegistration.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FValueEventRegistration.m; path = FirebaseDatabase/Sources/Core/View/FValueEventRegistration.m; sourceTree = "<group>"; };
+		0C47D5F9247BC3E4D0A0905026053C51 /* FSnapshotUtilities.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSnapshotUtilities.h; path = FirebaseDatabase/Sources/Snapshot/FSnapshotUtilities.h; sourceTree = "<group>"; };
+		0D9A0E4B53466A4DC6EF718640DCE1FF /* FirebaseCoreInternal.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FirebaseCoreInternal.h; path = FirebaseCore/Extension/FirebaseCoreInternal.h; sourceTree = "<group>"; };
+		0EEE438AC705D7C5BE8FACF7A8338F61 /* FWriteTree.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FWriteTree.m; path = FirebaseDatabase/Sources/Core/FWriteTree.m; sourceTree = "<group>"; };
+		0F95517728348EEFBACBD67048652215 /* FTupleRemovedQueriesEvents.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleRemovedQueriesEvents.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleRemovedQueriesEvents.h; sourceTree = "<group>"; };
+		0F98F23AE3374D57486D93927D8E61C6 /* FRepoInfo.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FRepoInfo.m; path = FirebaseDatabase/Sources/Core/FRepoInfo.m; sourceTree = "<group>"; };
+		123413FF4A3F09DC4E9311B36283A838 /* FSyncPoint.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSyncPoint.h; path = FirebaseDatabase/Sources/Core/FSyncPoint.h; sourceTree = "<group>"; };
+		136E2787E6027818ACD80F0F8F57507D /* FChildChangeAccumulator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FChildChangeAccumulator.h; path = FirebaseDatabase/Sources/Core/View/Filter/FChildChangeAccumulator.h; sourceTree = "<group>"; };
+		13F360AB3486EC26D23462B985727D4D /* FListenProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FListenProvider.h; path = FirebaseDatabase/Sources/Core/FListenProvider.h; sourceTree = "<group>"; };
+		143CCE5A2F8E4341306D263BEFE1BD4A /* FViewProcessor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FViewProcessor.h; path = FirebaseDatabase/Sources/FViewProcessor.h; sourceTree = "<group>"; };
+		145F5E485CF5ED958E645BC5279E7635 /* FTreeSortedDictionaryEnumerator.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTreeSortedDictionaryEnumerator.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FTreeSortedDictionaryEnumerator.m; sourceTree = "<group>"; };
+		14E219B703CBACC5EA4450C175847A7A /* FChange.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FChange.m; path = FirebaseDatabase/Sources/Core/View/FChange.m; sourceTree = "<group>"; };
+		172CE317430EB5FC05DB043DADD5C179 /* FIRRetryHelper.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRRetryHelper.m; path = FirebaseDatabase/Sources/Core/Utilities/FIRRetryHelper.m; sourceTree = "<group>"; };
+		17575EA52874BDAC5E9D42DF8B8EA8F6 /* NSData+SRB64Additions.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = "NSData+SRB64Additions.m"; path = "FirebaseDatabase/Sources/third_party/SocketRocket/NSData+SRB64Additions.m"; sourceTree = "<group>"; };
+		192F7FFE87BE1CF6053380B22CDC1D20 /* FLevelDBStorageEngine.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLevelDBStorageEngine.h; path = FirebaseDatabase/Sources/Persistence/FLevelDBStorageEngine.h; sourceTree = "<group>"; };
+		1A5F5E83B0A8F2249C3B4D8C474D9BAB /* NSData+SRB64Additions.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = "NSData+SRB64Additions.h"; path = "FirebaseDatabase/Sources/third_party/SocketRocket/NSData+SRB64Additions.h"; sourceTree = "<group>"; };
+		1AC1772E32490D0EFA8CD674871B8678 /* FAckUserWrite.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FAckUserWrite.h; path = FirebaseDatabase/Sources/Core/Operation/FAckUserWrite.h; sourceTree = "<group>"; };
+		1B0B0DC495BA10A4CFD1BC410CAC9803 /* FCachePolicy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FCachePolicy.m; path = FirebaseDatabase/Sources/Persistence/FCachePolicy.m; sourceTree = "<group>"; };
+		1BF4B2D05C5B12B386DCFDEB0504CB16 /* FIRTransactionResult.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRTransactionResult.m; path = FirebaseDatabase/Sources/Api/FIRTransactionResult.m; sourceTree = "<group>"; };
+		1D7077B9A4AA23086D840BA621D85BA3 /* FImmutableSortedSet.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FImmutableSortedSet.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FImmutableSortedSet.m; sourceTree = "<group>"; };
+		1E21524D0489359727126FD3089565DE /* FPath.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPath.h; path = FirebaseDatabase/Sources/Core/Utilities/FPath.h; sourceTree = "<group>"; };
+		1E84DEA518158C2F7D057F4047367A24 /* FPersistenceManager.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPersistenceManager.m; path = FirebaseDatabase/Sources/Persistence/FPersistenceManager.m; sourceTree = "<group>"; };
+		1EDBA112D596CF703440261D2E3001DA /* FirebaseAppCheckInterop */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseAppCheckInterop; path = FirebaseAppCheckInterop.xcodeproj; sourceTree = "<group>"; };
+		1EFD224636350983226B29240B82363B /* FEventGenerator.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FEventGenerator.m; path = FirebaseDatabase/Sources/FEventGenerator.m; sourceTree = "<group>"; };
+		1FAD28C75604F4B1827D2777A2BFFEF1 /* FKeyIndex.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FKeyIndex.m; path = FirebaseDatabase/Sources/FKeyIndex.m; sourceTree = "<group>"; };
+		201C40C5E48AA305BDE555B99E22AE6D /* FCancelEvent.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FCancelEvent.m; path = FirebaseDatabase/Sources/Core/View/FCancelEvent.m; sourceTree = "<group>"; };
+		207BCC2FC1EEFA8014AACE1ECB0B89BF /* FirebaseDatabase-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "FirebaseDatabase-Info.plist"; sourceTree = "<group>"; };
+		2103A83F1BB3D40AFA1252689CD417D9 /* FIRDataSnapshot.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDataSnapshot.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRDataSnapshot.h; sourceTree = "<group>"; };
+		21AAE2374F4DE430B514925E02AC06F3 /* EncoderDecoder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EncoderDecoder.swift; path = FirebaseDatabase/Swift/Sources/Codable/EncoderDecoder.swift; sourceTree = "<group>"; };
+		25921DFD1B26774C5E8B0360F6DD6DB2 /* FIRDatabaseConnectionContextProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseConnectionContextProvider.h; path = FirebaseDatabase/Sources/Login/FIRDatabaseConnectionContextProvider.h; sourceTree = "<group>"; };
+		25C0058B157C3DC117EC060F6375D3BB /* FIRDataSnapshot_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDataSnapshot_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRDataSnapshot_Private.h; sourceTree = "<group>"; };
+		2662D411440F1C041865073B67E72F31 /* FOperationSource.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FOperationSource.m; path = FirebaseDatabase/Sources/Core/Operation/FOperationSource.m; sourceTree = "<group>"; };
+		26790995999A688ED639CC74453670DE /* FTuplePathValue.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTuplePathValue.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTuplePathValue.h; sourceTree = "<group>"; };
+		26EEE7D3C98272F3C960DA79C7B83FE6 /* FView.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FView.h; path = FirebaseDatabase/Sources/Core/View/FView.h; sourceTree = "<group>"; };
+		28673D66657B96695ED2B19B07E7AB89 /* FMaxNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FMaxNode.m; path = FirebaseDatabase/Sources/FMaxNode.m; sourceTree = "<group>"; };
+		2A2D72CF53ADEEFBA246532A28C5B5F1 /* FChildrenNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FChildrenNode.m; path = FirebaseDatabase/Sources/Snapshot/FChildrenNode.m; sourceTree = "<group>"; };
+		2AD19BE2316314E6EC03D3C8AB78A055 /* FOperation.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FOperation.h; path = FirebaseDatabase/Sources/Core/Operation/FOperation.h; sourceTree = "<group>"; };
+		2C782F244F18644F1F2C3C166C92631F /* FValueIndex.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FValueIndex.m; path = FirebaseDatabase/Sources/FValueIndex.m; sourceTree = "<group>"; };
+		2CBD0FD23F9F7FC6CAD6D80E189F5EAC /* FPendingPut.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPendingPut.h; path = FirebaseDatabase/Sources/Persistence/FPendingPut.h; sourceTree = "<group>"; };
+		2D1EB4810C3169A8B6D4A68F8BF7AE3E /* FTupleFirebase.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleFirebase.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleFirebase.m; sourceTree = "<group>"; };
+		307675B5D0C408584A2E06D37D0CDDD5 /* FImmutableSortedDictionary.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FImmutableSortedDictionary.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FImmutableSortedDictionary.h; sourceTree = "<group>"; };
+		31280D4DC373F2D7E7505512943833F8 /* FCompoundHash.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FCompoundHash.m; path = FirebaseDatabase/Sources/Core/FCompoundHash.m; sourceTree = "<group>"; };
+		314C2694C1E96EDBA7AE5D017A6A61DE /* FConstants.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FConstants.m; path = FirebaseDatabase/Sources/Constants/FConstants.m; sourceTree = "<group>"; };
+		32E0239EC5C89A9D3A148E812C8C81B5 /* FTupleUserCallback.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleUserCallback.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleUserCallback.m; sourceTree = "<group>"; };
+		33863BB417B4722EF9B3108FB87F197A /* FAckUserWrite.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FAckUserWrite.m; path = FirebaseDatabase/Sources/Core/Operation/FAckUserWrite.m; sourceTree = "<group>"; };
+		35C7A5371FCC3542081E7033C9C6FAA8 /* FTupleObjects.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleObjects.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleObjects.m; sourceTree = "<group>"; };
+		36614108BE11F99FC198AAA9EBA4FF19 /* FLeafNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FLeafNode.m; path = FirebaseDatabase/Sources/Snapshot/FLeafNode.m; sourceTree = "<group>"; };
+		36DDD86EC0C5C421172E7FD91CE1E570 /* FMaxNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FMaxNode.h; path = FirebaseDatabase/Sources/FMaxNode.h; sourceTree = "<group>"; };
+		37A45B68368BEE206DCE4B4332C6AB0B /* FKeyIndex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FKeyIndex.h; path = FirebaseDatabase/Sources/FKeyIndex.h; sourceTree = "<group>"; };
+		38DF11E8E8D832FDE8E093E5AA1B2A31 /* FMerge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FMerge.m; path = FirebaseDatabase/Sources/Core/Operation/FMerge.m; sourceTree = "<group>"; };
+		392E8A58426E391095E16AC764E115F2 /* FTupleObjects.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleObjects.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleObjects.h; sourceTree = "<group>"; };
+		396E2ED9203BC82003933760B10866B8 /* FDataEvent.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FDataEvent.m; path = FirebaseDatabase/Sources/Core/View/FDataEvent.m; sourceTree = "<group>"; };
+		3C145EC81C33EA21DEB4F9B72C557C0B /* FNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FNode.h; path = FirebaseDatabase/Sources/Snapshot/FNode.h; sourceTree = "<group>"; };
+		3CC83F260185457ABB2B514236144DA1 /* FTupleNodePath.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleNodePath.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleNodePath.m; sourceTree = "<group>"; };
+		3DCFDDEA7A2298832065C423346223CB /* FIRTransactionResult_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRTransactionResult_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRTransactionResult_Private.h; sourceTree = "<group>"; };
+		3DF938E2A102BB70794F72B442B10D12 /* FWriteTree.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FWriteTree.h; path = FirebaseDatabase/Sources/Core/FWriteTree.h; sourceTree = "<group>"; };
+		3E6691DDE7EFB6F49F549D81C7C6EA83 /* FTreeSortedDictionary.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTreeSortedDictionary.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FTreeSortedDictionary.m; sourceTree = "<group>"; };
+		3EF0E1929163C41FEAB9C84A71255C7B /* FSparseSnapshotTree.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSparseSnapshotTree.m; path = FirebaseDatabase/Sources/Core/FSparseSnapshotTree.m; sourceTree = "<group>"; };
+		3FBB8062D9F8B5C58590583E960C6BD5 /* FRangedFilter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRangedFilter.h; path = FirebaseDatabase/Sources/FRangedFilter.h; sourceTree = "<group>"; };
+		429606FED636C00D9017FDC0AC57A12A /* FChildEventRegistration.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FChildEventRegistration.m; path = FirebaseDatabase/Sources/Core/View/FChildEventRegistration.m; sourceTree = "<group>"; };
+		43A370742131470E1AA5DFAA0FFED519 /* FQueryParams.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FQueryParams.m; path = FirebaseDatabase/Sources/Core/FQueryParams.m; sourceTree = "<group>"; };
+		43C076B50E5E9FF336688CD70D02E77F /* FServerValues.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FServerValues.m; path = FirebaseDatabase/Sources/Core/FServerValues.m; sourceTree = "<group>"; };
+		43E5BFDC458C4D764FD5B0D04C32EA3D /* FDataEvent.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FDataEvent.h; path = FirebaseDatabase/Sources/Core/View/FDataEvent.h; sourceTree = "<group>"; };
+		44EE4BCDA5046AD034ED60A52BC61BF7 /* ServerTimestamp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ServerTimestamp.swift; path = FirebaseDatabase/Swift/Sources/Codable/ServerTimestamp.swift; sourceTree = "<group>"; };
+		45F4B31CD5183C212D9B5AFD1448D9D0 /* FSparseSnapshotTree.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSparseSnapshotTree.h; path = FirebaseDatabase/Sources/Core/FSparseSnapshotTree.h; sourceTree = "<group>"; };
+		47C958EA6416563FC735CAF9DAA698CF /* FIndex.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIndex.m; path = FirebaseDatabase/Sources/FIndex.m; sourceTree = "<group>"; };
+		4891D1664482B9BEAFFC11D14164A77E /* FSyncTree.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSyncTree.m; path = FirebaseDatabase/Sources/Core/FSyncTree.m; sourceTree = "<group>"; };
+		48FDECFA74EE82568B42A54124FC37DE /* FTrackedQuery.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTrackedQuery.h; path = FirebaseDatabase/Sources/Persistence/FTrackedQuery.h; sourceTree = "<group>"; };
+		4AFFEF1CE59D712AD4844232F7E80157 /* FListenComplete.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FListenComplete.m; path = FirebaseDatabase/Sources/FListenComplete.m; sourceTree = "<group>"; };
+		4C7628C6D94CDA56CA9B9FC33BBC75BE /* FPathIndex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPathIndex.h; path = FirebaseDatabase/Sources/FPathIndex.h; sourceTree = "<group>"; };
+		4CD2EE39FDDE20E2C2E62EC77159C021 /* FIRDatabaseConnectionContextProvider.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabaseConnectionContextProvider.m; path = FirebaseDatabase/Sources/Login/FIRDatabaseConnectionContextProvider.m; sourceTree = "<group>"; };
+		4D525BD0F4EAAED27EC78C951ADC0400 /* FValueEventRegistration.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FValueEventRegistration.h; path = FirebaseDatabase/Sources/Core/View/FValueEventRegistration.h; sourceTree = "<group>"; };
+		4DBA60C53C2FEC24ED7BFB1D7083150B /* FLimitedFilter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FLimitedFilter.m; path = FirebaseDatabase/Sources/Core/View/Filter/FLimitedFilter.m; sourceTree = "<group>"; };
+		4E0D95D8B59E42CA27FA4E70EE8B15BB /* FServerValues.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FServerValues.h; path = FirebaseDatabase/Sources/Core/FServerValues.h; sourceTree = "<group>"; };
+		4E684AA04051335E76245EB2A15E7515 /* FParsedUrl.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FParsedUrl.m; path = FirebaseDatabase/Sources/Utilities/FParsedUrl.m; sourceTree = "<group>"; };
+		4E6C6EF115993B18235FF4DA72331075 /* FChildEventRegistration.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FChildEventRegistration.h; path = FirebaseDatabase/Sources/Core/View/FChildEventRegistration.h; sourceTree = "<group>"; };
+		4F207588D017AC4FF4CD71A38999E484 /* FIRDatabaseComponent.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabaseComponent.m; path = FirebaseDatabase/Sources/Api/FIRDatabaseComponent.m; sourceTree = "<group>"; };
+		5100C6C695B5E67B687E65B2171D096C /* FCompoundWrite.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCompoundWrite.h; path = FirebaseDatabase/Sources/Snapshot/FCompoundWrite.h; sourceTree = "<group>"; };
+		52C4EC8B3ABF3DBB9D1AB97250EFB715 /* FCacheNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCacheNode.h; path = FirebaseDatabase/Sources/Core/View/FCacheNode.h; sourceTree = "<group>"; };
+		53DE39E8A28A04574AB6271D65683024 /* fbase64.c */ = {isa = PBXFileReference; includeInIndex = 1; name = fbase64.c; path = FirebaseDatabase/Sources/third_party/SocketRocket/fbase64.c; sourceTree = "<group>"; };
+		5424D61ED27AF0202DC48776FC264B8B /* leveldb-library */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = "leveldb-library"; path = "leveldb-library.xcodeproj"; sourceTree = "<group>"; };
+		54B8F0D308E240A9ABE45B3BC54F2BB5 /* FWriteRecord.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FWriteRecord.m; path = FirebaseDatabase/Sources/Core/FWriteRecord.m; sourceTree = "<group>"; };
+		573260CC124C55686AC7F6E6FA04FFF2 /* FSyncTree.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSyncTree.h; path = FirebaseDatabase/Sources/Core/FSyncTree.h; sourceTree = "<group>"; };
+		5801EBFBED20CBDEC901AE0421CD4763 /* FLLRBValueNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLLRBValueNode.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FLLRBValueNode.h; sourceTree = "<group>"; };
+		5B9A6DABA7AB276D1A052CFA27E83FD2 /* FIRDataEventType.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDataEventType.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRDataEventType.h; sourceTree = "<group>"; };
+		5DA6366145AC0EF79456240775C2BE93 /* FViewProcessor.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FViewProcessor.m; path = FirebaseDatabase/Sources/FViewProcessor.m; sourceTree = "<group>"; };
+		5F49100D8087B73FF1E5A6B85C57AF65 /* FirebaseSharedSwift */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseSharedSwift; path = FirebaseSharedSwift.xcodeproj; sourceTree = "<group>"; };
+		64E1C4E957CC8D8FAA6C1649CFAB30FD /* FirebaseDatabase */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = FirebaseDatabase; path = FirebaseDatabase.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		65B2499458D89E1C32C601A3A42DEFDB /* FIRComponent.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRComponent.h; path = FirebaseCore/Extension/FIRComponent.h; sourceTree = "<group>"; };
+		66BD10773FC78F9B7C6A31BCFBD67632 /* FClock.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FClock.h; path = FirebaseDatabase/Sources/FClock.h; sourceTree = "<group>"; };
+		66C34866537782098F8E3ED92D04FE68 /* FSRWebSocket.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSRWebSocket.h; path = FirebaseDatabase/Sources/third_party/SocketRocket/FSRWebSocket.h; sourceTree = "<group>"; };
+		68FC15762C5580935ED9DDDB36ABDCD0 /* FChildrenNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FChildrenNode.h; path = FirebaseDatabase/Sources/Snapshot/FChildrenNode.h; sourceTree = "<group>"; };
+		6940BA990151DE1B13679A4FD21FAABF /* FSRWebSocket.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSRWebSocket.m; path = FirebaseDatabase/Sources/third_party/SocketRocket/FSRWebSocket.m; sourceTree = "<group>"; };
+		6A869D2BD94E6B06F49536EE754DE5F4 /* FTupleBoolBlock.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleBoolBlock.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleBoolBlock.m; sourceTree = "<group>"; };
+		6ACE41C1177B6D2F1D67B7BEAE6303DC /* FEventRegistration.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEventRegistration.h; path = FirebaseDatabase/Sources/Core/View/FEventRegistration.h; sourceTree = "<group>"; };
+		6B7279EEA4F3A9F0A13C79EBB0F86264 /* FListenProvider.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FListenProvider.m; path = FirebaseDatabase/Sources/Core/FListenProvider.m; sourceTree = "<group>"; };
+		6B7847373B2CB2B1C8779BBA8504FA80 /* FRangeMerge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FRangeMerge.m; path = FirebaseDatabase/Sources/Core/FRangeMerge.m; sourceTree = "<group>"; };
+		6C919A2FB9006FCDACB2FA706EEF3A19 /* FIndexedFilter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIndexedFilter.h; path = FirebaseDatabase/Sources/Core/View/Filter/FIndexedFilter.h; sourceTree = "<group>"; };
+		6C9D2C94BD906C9533A100B5611D6511 /* FPruneForest.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPruneForest.m; path = FirebaseDatabase/Sources/Persistence/FPruneForest.m; sourceTree = "<group>"; };
+		6D44C13EA2B4B48EA12EC7B0341379E9 /* FEventEmitter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEventEmitter.h; path = FirebaseDatabase/Sources/Utilities/FEventEmitter.h; sourceTree = "<group>"; };
+		6DF82399E68C14FA0A74CF24C1CC60D9 /* FImmutableTree.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FImmutableTree.m; path = FirebaseDatabase/Sources/Core/Utilities/FImmutableTree.m; sourceTree = "<group>"; };
+		6EA840EE0177E9D7845494A380747EAA /* FIRDatabaseReference.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseReference.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRDatabaseReference.h; sourceTree = "<group>"; };
+		6F5B86190FC87BC3057473D3B041F399 /* FTupleSetIdPath.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleSetIdPath.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleSetIdPath.m; sourceTree = "<group>"; };
+		711D6A69A9EB828F72455FEBC0C7C18A /* FCacheNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FCacheNode.m; path = FirebaseDatabase/Sources/Core/View/FCacheNode.m; sourceTree = "<group>"; };
+		74318614CB6898F22DE2DCC17F99F6DA /* FNodeFilter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FNodeFilter.h; path = FirebaseDatabase/Sources/Core/View/Filter/FNodeFilter.h; sourceTree = "<group>"; };
+		74F4402EB09664C1B9DC131D4B1D24D7 /* FParsedUrl.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FParsedUrl.h; path = FirebaseDatabase/Sources/Utilities/FParsedUrl.h; sourceTree = "<group>"; };
+		7576D2A3B6CC4895B1F295AC8C52661C /* FPriorityIndex.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPriorityIndex.m; path = FirebaseDatabase/Sources/FPriorityIndex.m; sourceTree = "<group>"; };
+		757C71AEFF55FEFB9BE65E3D1E8BE47E /* FLLRBEmptyNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FLLRBEmptyNode.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FLLRBEmptyNode.m; sourceTree = "<group>"; };
+		76CE640FDF51663645AAE2298E36727C /* FIRMutableData_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRMutableData_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRMutableData_Private.h; sourceTree = "<group>"; };
+		788BE5C63B9A56FB390D387FD597A55D /* FIRDatabaseReference_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseReference_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRDatabaseReference_Private.h; sourceTree = "<group>"; };
+		79BDA0D177937896B28769F270D19D29 /* FSnapshotHolder.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FSnapshotHolder.h; path = FirebaseDatabase/Sources/Core/FSnapshotHolder.h; sourceTree = "<group>"; };
+		7A5DD03909BD36BD8B7CE5F23C816358 /* FTupleObjectNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleObjectNode.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleObjectNode.m; sourceTree = "<group>"; };
+		7C348267DC46C06E5126C4F0CA31BB73 /* FConnection.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FConnection.m; path = FirebaseDatabase/Sources/Realtime/FConnection.m; sourceTree = "<group>"; };
+		7D0891B1B2C85A83C879ED2BD31BABB0 /* FTypedefs_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTypedefs_Private.h; path = FirebaseDatabase/Sources/Api/Private/FTypedefs_Private.h; sourceTree = "<group>"; };
+		7DCA567193D491F9DAD2C9F009ADE217 /* FIndexedFilter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIndexedFilter.m; path = FirebaseDatabase/Sources/Core/View/Filter/FIndexedFilter.m; sourceTree = "<group>"; };
+		7F70249A63BA07A30698EAE7B2C48D44 /* FCompoundHash.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCompoundHash.h; path = FirebaseDatabase/Sources/Core/FCompoundHash.h; sourceTree = "<group>"; };
+		801B9E07003FEDDE1E2CEE8E552B8E30 /* FTupleCallbackStatus.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleCallbackStatus.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleCallbackStatus.m; sourceTree = "<group>"; };
+		81E7E6E3C09F19CBEBB8A5B45E1EF19A /* FTupleObjectNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleObjectNode.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleObjectNode.h; sourceTree = "<group>"; };
+		832165561B48ACB3B27B51B7C1A709D8 /* FCachePolicy.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCachePolicy.h; path = FirebaseDatabase/Sources/Persistence/FCachePolicy.h; sourceTree = "<group>"; };
+		8438AFFE95DAD4348AC77A05EB5FE0A4 /* DataSnapshot+ReadDecodable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "DataSnapshot+ReadDecodable.swift"; path = "FirebaseDatabase/Swift/Sources/Codable/DataSnapshot+ReadDecodable.swift"; sourceTree = "<group>"; };
+		844651629B0A1DC61222B16D77F21B18 /* FStringUtilities.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FStringUtilities.h; path = FirebaseDatabase/Sources/Utilities/FStringUtilities.h; sourceTree = "<group>"; };
+		8511729B1BC1FB1D88FB08C060219476 /* FArraySortedDictionary.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FArraySortedDictionary.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FArraySortedDictionary.m; sourceTree = "<group>"; };
+		8537392E3573C5B186748F9D8BD5B2EC /* FViewProcessorResult.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FViewProcessorResult.m; path = FirebaseDatabase/Sources/FViewProcessorResult.m; sourceTree = "<group>"; };
+		85C116729D41879E9573D7FBB45D9E56 /* FLeafNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLeafNode.h; path = FirebaseDatabase/Sources/Snapshot/FLeafNode.h; sourceTree = "<group>"; };
+		8A76633D38677E3E0382D901CF5B193E /* FTupleTransaction.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleTransaction.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleTransaction.h; sourceTree = "<group>"; };
+		8ABD996315395107FABA3112CAE94AFB /* APLevelDB.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = APLevelDB.h; path = "FirebaseDatabase/Sources/third_party/Wrap-leveldb/APLevelDB.h"; sourceTree = "<group>"; };
+		8B7C90F771DB1E143E7DCA436DA7863B /* FTreeNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTreeNode.m; path = FirebaseDatabase/Sources/Core/Utilities/FTreeNode.m; sourceTree = "<group>"; };
+		8D7AA2A270E6F810045104A73EC7D7D0 /* FLLRBEmptyNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLLRBEmptyNode.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FLLRBEmptyNode.h; sourceTree = "<group>"; };
+		8E321F0B608403CCEB22B79E2293A67A /* FTypedefs.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTypedefs.h; path = FirebaseDatabase/Sources/Utilities/FTypedefs.h; sourceTree = "<group>"; };
+		8E8A6FBCB6198116336B659819A00BA4 /* FTupleNodePath.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleNodePath.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleNodePath.h; sourceTree = "<group>"; };
+		8FF33A795B90EB813E0FAA674D3F64E0 /* FIRDatabaseQuery.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabaseQuery.m; path = FirebaseDatabase/Sources/Api/FIRDatabaseQuery.m; sourceTree = "<group>"; };
+		90129E5BBD1BB61A5C7F0858F316A40A /* FirebaseDatabase.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FirebaseDatabase.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FirebaseDatabase.h; sourceTree = "<group>"; };
+		90BE20CA1D8F3B2884B7446762286EDB /* FOperationSource.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FOperationSource.h; path = FirebaseDatabase/Sources/Core/Operation/FOperationSource.h; sourceTree = "<group>"; };
+		93C77D0DC2EBDEE0687FE7C4CE719ECA /* FRepoManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRepoManager.h; path = FirebaseDatabase/Sources/Core/FRepoManager.h; sourceTree = "<group>"; };
+		94E69FAB1F86209CE0661B7A4F862B98 /* FTrackedQueryManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTrackedQueryManager.h; path = FirebaseDatabase/Sources/Persistence/FTrackedQueryManager.h; sourceTree = "<group>"; };
+		95B64BC578053245505A5CBD2D3F2ED0 /* FirebaseDatabase.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = FirebaseDatabase.modulemap; sourceTree = "<group>"; };
+		9722BA7D27E7E2ECA98114BF9A44766B /* FTupleOnDisconnect.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleOnDisconnect.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleOnDisconnect.m; sourceTree = "<group>"; };
+		978F1C19A0C6B2C1A64584BFDA7FA40A /* FIRAuthInterop.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAuthInterop.h; path = FirebaseAuth/Interop/Public/FirebaseAuthInterop/FIRAuthInterop.h; sourceTree = "<group>"; };
+		989C84EEDB15F88E161ED94ADA5DB779 /* FIRServerValue.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRServerValue.m; path = FirebaseDatabase/Sources/Api/FIRServerValue.m; sourceTree = "<group>"; };
+		98CBB171F333BACE03EF03C1F6EDD3FD /* FIndex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIndex.h; path = FirebaseDatabase/Sources/FIndex.h; sourceTree = "<group>"; };
+		999B47E8CACCF597453B42EC19E1E1B8 /* FStorageEngine.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FStorageEngine.h; path = FirebaseDatabase/Sources/Persistence/FStorageEngine.h; sourceTree = "<group>"; };
+		99FC82D8D0740820FBDABDCD061C47A0 /* FViewCache.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FViewCache.m; path = FirebaseDatabase/Sources/Core/View/FViewCache.m; sourceTree = "<group>"; };
+		9A6B3EC826C5EEC860DA637BB85A1CED /* FImmutableTree.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FImmutableTree.h; path = FirebaseDatabase/Sources/Core/Utilities/FImmutableTree.h; sourceTree = "<group>"; };
+		9B7E85C026745FF7976D220B961107F0 /* FWriteTreeRef.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FWriteTreeRef.h; path = FirebaseDatabase/Sources/Core/FWriteTreeRef.h; sourceTree = "<group>"; };
+		9DD82C098DE42D6A0C42198EBDECDE42 /* FNamedNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FNamedNode.h; path = FirebaseDatabase/Sources/FNamedNode.h; sourceTree = "<group>"; };
+		9E57ACEAC7532DD1EB4FD2D10F347401 /* FIRDatabaseQuery_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseQuery_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRDatabaseQuery_Private.h; sourceTree = "<group>"; };
+		9E8D29747006200FAE2D08003B66A315 /* FViewCache.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FViewCache.h; path = FirebaseDatabase/Sources/Core/View/FViewCache.h; sourceTree = "<group>"; };
+		9ED83E6C3DD985F27019A5F4BA857D07 /* FEventGenerator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEventGenerator.h; path = FirebaseDatabase/Sources/FEventGenerator.h; sourceTree = "<group>"; };
+		A0026D0705B2778C5C7F40612906BC10 /* FListenComplete.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FListenComplete.h; path = FirebaseDatabase/Sources/FListenComplete.h; sourceTree = "<group>"; };
+		A0AB0F8867BC167BCA1AC940077A0E44 /* FAtomicNumber.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FAtomicNumber.m; path = FirebaseDatabase/Sources/Utilities/FAtomicNumber.m; sourceTree = "<group>"; };
+		A1515B7F4FF6330CF5EC1EB34F9CA655 /* FOverwrite.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FOverwrite.h; path = FirebaseDatabase/Sources/Core/Operation/FOverwrite.h; sourceTree = "<group>"; };
+		A193974633646557BF523E77AED393E2 /* FirebaseDatabase-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "FirebaseDatabase-dummy.m"; sourceTree = "<group>"; };
+		A1E612B673D0C0FDBD187C5E5248DDDE /* FPath.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPath.m; path = FirebaseDatabase/Sources/Core/Utilities/FPath.m; sourceTree = "<group>"; };
+		A31F3E24E075AD43EF83DB6513B6C5EE /* FQueryParams.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FQueryParams.h; path = FirebaseDatabase/Sources/Core/FQueryParams.h; sourceTree = "<group>"; };
+		A361528CEC7C866EA04F97BBDDBC5715 /* DatabaseReference+WriteEncodable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "DatabaseReference+WriteEncodable.swift"; path = "FirebaseDatabase/Swift/Sources/Codable/DatabaseReference+WriteEncodable.swift"; sourceTree = "<group>"; };
+		A49BE073C4A780A0E05A7AE2538428C1 /* FEventRaiser.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FEventRaiser.m; path = FirebaseDatabase/Sources/Core/View/FEventRaiser.m; sourceTree = "<group>"; };
+		A551FF64288D3886C08D3EA105CD6DA0 /* FRepo.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FRepo.m; path = FirebaseDatabase/Sources/Core/FRepo.m; sourceTree = "<group>"; };
+		A6F08BF6AE33180D7DE6049ED01EB1D5 /* FChildChangeAccumulator.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FChildChangeAccumulator.m; path = FirebaseDatabase/Sources/Core/View/Filter/FChildChangeAccumulator.m; sourceTree = "<group>"; };
+		A76AB82AA379361C0281FCF2B595751C /* FKeepSyncedEventRegistration.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FKeepSyncedEventRegistration.h; path = FirebaseDatabase/Sources/Core/View/FKeepSyncedEventRegistration.h; sourceTree = "<group>"; };
+		A77ABA0DF3A8FB855A9E1B59E15FAF10 /* FirebaseCore */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = FirebaseCore; path = FirebaseCore.xcodeproj; sourceTree = "<group>"; };
+		A96533CB977CEDF019D0366AD3989922 /* FIRMutableData.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRMutableData.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRMutableData.h; sourceTree = "<group>"; };
+		AA7638F95F252330F277013E84084AF3 /* FWriteTreeRef.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FWriteTreeRef.m; path = FirebaseDatabase/Sources/Core/FWriteTreeRef.m; sourceTree = "<group>"; };
+		AB48A2BF66E8FA282FBB6C36879DA22F /* FWebSocketConnection.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FWebSocketConnection.h; path = FirebaseDatabase/Sources/Realtime/FWebSocketConnection.h; sourceTree = "<group>"; };
+		AC739C64771B77BDC36AAB18B32F1F0F /* FCompleteChildSource.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCompleteChildSource.h; path = FirebaseDatabase/Sources/Core/View/Filter/FCompleteChildSource.h; sourceTree = "<group>"; };
+		AD61A7D6DE5C7A6EB9F71E5159710D10 /* FImmutableSortedSet.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FImmutableSortedSet.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FImmutableSortedSet.h; sourceTree = "<group>"; };
+		AF83E47DEFBE7A3C862529B64E1B23B1 /* FUtilities.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FUtilities.h; path = FirebaseDatabase/Sources/Utilities/FUtilities.h; sourceTree = "<group>"; };
+		AFB4982058727FCE7C499A1CCF968F77 /* FChange.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FChange.h; path = FirebaseDatabase/Sources/Core/View/FChange.h; sourceTree = "<group>"; };
+		AFFCFD892B6E8981C9E4FF7AFCA0A1EC /* FPersistentConnection.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPersistentConnection.m; path = FirebaseDatabase/Sources/Core/FPersistentConnection.m; sourceTree = "<group>"; };
+		B1C1D04C99269AACC2D0EB5F35EB06B3 /* FConstants.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FConstants.h; path = FirebaseDatabase/Sources/Constants/FConstants.h; sourceTree = "<group>"; };
+		B21C207F242CC5BDDC4644DB0F205EF6 /* GoogleUtilities */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = GoogleUtilities; path = GoogleUtilities.xcodeproj; sourceTree = "<group>"; };
+		B24A60734DEA4EB83034D627341485BB /* FPriorityIndex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPriorityIndex.h; path = FirebaseDatabase/Sources/FPriorityIndex.h; sourceTree = "<group>"; };
+		B26FC6E0558036EC623461A85D7277FB /* FTupleTransaction.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleTransaction.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleTransaction.m; sourceTree = "<group>"; };
+		B2A7FCACCE723AB8F7552ED21A192E81 /* FTransformedEnumerator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTransformedEnumerator.h; path = FirebaseDatabase/Sources/FTransformedEnumerator.h; sourceTree = "<group>"; };
+		B368C71766D9D14F1749B879D0500338 /* FCancelEvent.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FCancelEvent.h; path = FirebaseDatabase/Sources/Core/View/FCancelEvent.h; sourceTree = "<group>"; };
+		B3F5EA6E36692C336FD4064BD11E64A6 /* FEvent.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEvent.h; path = FirebaseDatabase/Sources/Core/View/FEvent.h; sourceTree = "<group>"; };
+		B46E601C6C1A025427DCB155B5DFD668 /* FIRDatabaseComponent.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseComponent.h; path = FirebaseDatabase/Sources/Api/FIRDatabaseComponent.h; sourceTree = "<group>"; };
+		B4913A0D4BAB1C005AB0A861DB5ED706 /* fbase64.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = fbase64.h; path = FirebaseDatabase/Sources/third_party/SocketRocket/fbase64.h; sourceTree = "<group>"; };
+		B578CDDEAB7733E131A6A4426E40A29A /* FLevelDBStorageEngine.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FLevelDBStorageEngine.m; path = FirebaseDatabase/Sources/Persistence/FLevelDBStorageEngine.m; sourceTree = "<group>"; };
+		B647EC9ABF72D1365864D1869A00FF31 /* FSyncPoint.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSyncPoint.m; path = FirebaseDatabase/Sources/Core/FSyncPoint.m; sourceTree = "<group>"; };
+		BA27AE28193F87B63C313C7E286AAF64 /* FirebaseDatabase-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "FirebaseDatabase-umbrella.h"; sourceTree = "<group>"; };
+		BA3B9600A86F660A08ED7C9496618738 /* FConnection.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FConnection.h; path = FirebaseDatabase/Sources/Realtime/FConnection.h; sourceTree = "<group>"; };
+		BADBF5FCF63FCE0E9E7D962F2C0F2344 /* FTrackedQuery.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTrackedQuery.m; path = FirebaseDatabase/Sources/Persistence/FTrackedQuery.m; sourceTree = "<group>"; };
+		BB64B13BCF90351CF272AEC25019D81A /* FTupleCallbackStatus.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleCallbackStatus.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleCallbackStatus.h; sourceTree = "<group>"; };
+		BC55F2B56AA03146EC54E1659792BEBE /* FRepo.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRepo.h; path = FirebaseDatabase/Sources/Core/FRepo.h; sourceTree = "<group>"; };
+		BC8BCB9B65D16F6F4B29179D6795F27B /* FEventRaiser.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEventRaiser.h; path = FirebaseDatabase/Sources/Core/View/FEventRaiser.h; sourceTree = "<group>"; };
+		BD20FF3C1194C83D50E605D76125F129 /* FIndexedNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIndexedNode.m; path = FirebaseDatabase/Sources/Snapshot/FIndexedNode.m; sourceTree = "<group>"; };
+		BDF352AED4DE8C6C8B782702DD84DA05 /* FAtomicNumber.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FAtomicNumber.h; path = FirebaseDatabase/Sources/Utilities/FAtomicNumber.h; sourceTree = "<group>"; };
+		BFE909480BDFB1AD79E52BE12FAAC562 /* FClock.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FClock.m; path = FirebaseDatabase/Sources/FClock.m; sourceTree = "<group>"; };
+		C020B437DF087F7BE7D8203D617F21BF /* FWebSocketConnection.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FWebSocketConnection.m; path = FirebaseDatabase/Sources/Realtime/FWebSocketConnection.m; sourceTree = "<group>"; };
+		C051216EC74AE70C35E1FDDA63F50530 /* FIRComponentContainer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRComponentContainer.h; path = FirebaseCore/Extension/FIRComponentContainer.h; sourceTree = "<group>"; };
+		C3B0BE39F286E87754773E1675A132FB /* FViewProcessorResult.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FViewProcessorResult.h; path = FirebaseDatabase/Sources/FViewProcessorResult.h; sourceTree = "<group>"; };
+		C44C18F012B8897BC8EF0A21E0D9DEB1 /* FPersistenceManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPersistenceManager.h; path = FirebaseDatabase/Sources/Persistence/FPersistenceManager.h; sourceTree = "<group>"; };
+		C5E2A28CED0A0D5043176843796F89CB /* FOverwrite.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FOverwrite.m; path = FirebaseDatabase/Sources/Core/Operation/FOverwrite.m; sourceTree = "<group>"; };
+		C6228A3F6831F761438EC5EAEB36EC18 /* FWriteRecord.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FWriteRecord.h; path = FirebaseDatabase/Sources/Core/FWriteRecord.h; sourceTree = "<group>"; };
+		C6336CB9633C6EBECF07AA178F0BE96B /* FLimitedFilter.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLimitedFilter.h; path = FirebaseDatabase/Sources/Core/View/Filter/FLimitedFilter.h; sourceTree = "<group>"; };
+		C72DA6DAA99875562FCA29ED0453DC6D /* FValueIndex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FValueIndex.h; path = FirebaseDatabase/Sources/FValueIndex.h; sourceTree = "<group>"; };
+		C9319C81F08DF7E7B401488F9069E5FF /* FIRDatabase_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabase_Private.h; path = FirebaseDatabase/Sources/Api/Private/FIRDatabase_Private.h; sourceTree = "<group>"; };
+		C9A5E8AFF6EA1FFB2616D8B5EE240331 /* FTree.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTree.h; path = FirebaseDatabase/Sources/Core/Utilities/FTree.h; sourceTree = "<group>"; };
+		CA62825E4B046D0A0244FE0B54E2E8EA /* FTupleSetIdPath.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleSetIdPath.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleSetIdPath.h; sourceTree = "<group>"; };
+		CAD69E5C83B4E28FFA54718746359780 /* FTupleStringNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleStringNode.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleStringNode.h; sourceTree = "<group>"; };
+		CB0AEF2FF554FF69C3180492EF18B983 /* FUtilities.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FUtilities.m; path = FirebaseDatabase/Sources/Utilities/FUtilities.m; sourceTree = "<group>"; };
+		CB43E2657E859DB0CC6F28A7AB5ADD75 /* FEmptyNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FEmptyNode.h; path = FirebaseDatabase/Sources/Snapshot/FEmptyNode.h; sourceTree = "<group>"; };
+		CB55D08A6014D5DE05397260F6E370F5 /* FTreeSortedDictionary.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTreeSortedDictionary.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FTreeSortedDictionary.h; sourceTree = "<group>"; };
+		CCDF3AA36AE2C3A9ED1E4E9B18F4BCDA /* FTuplePathValue.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTuplePathValue.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTuplePathValue.m; sourceTree = "<group>"; };
+		CD098764A9977A58C1F60408C6CAD581 /* FTupleStringNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleStringNode.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleStringNode.m; sourceTree = "<group>"; };
+		CEA0CA77F20EF58420E9CF1C9DA3941C /* FValidation.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FValidation.m; path = FirebaseDatabase/Sources/Utilities/FValidation.m; sourceTree = "<group>"; };
+		CF51CDCA50F1601E5CE41C9168DC8990 /* FIRLogger.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRLogger.h; path = FirebaseCore/Extension/FIRLogger.h; sourceTree = "<group>"; };
+		D0E7737E4BA3F61AEE71EB2E247B17A0 /* FIndexedNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIndexedNode.h; path = FirebaseDatabase/Sources/Snapshot/FIndexedNode.h; sourceTree = "<group>"; };
+		D329CDC8C3930551E23114729AFB2651 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D38CD2C4363116590909FF485EDD53B1 /* FImmutableSortedDictionary.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FImmutableSortedDictionary.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FImmutableSortedDictionary.m; sourceTree = "<group>"; };
+		D397596C733B37DCFE130454A1B0AD25 /* FIRHeartbeatLogger.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRHeartbeatLogger.h; path = FirebaseCore/Extension/FIRHeartbeatLogger.h; sourceTree = "<group>"; };
+		D48D0F98803F7AF30EA7CCC872A35BF4 /* FIRAppInternal.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRAppInternal.h; path = FirebaseCore/Extension/FIRAppInternal.h; sourceTree = "<group>"; };
+		D4AB96C9045D1E2F895C4C9563604D85 /* FIRDatabaseConfig.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseConfig.h; path = FirebaseDatabase/Sources/Api/FIRDatabaseConfig.h; sourceTree = "<group>"; };
+		D5822373C7357F4A1209CF961275A60C /* FIRMutableData.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRMutableData.m; path = FirebaseDatabase/Sources/Api/FIRMutableData.m; sourceTree = "<group>"; };
+		D597EBE53401EBC2C94D06626467D4AC /* FIRTransactionResult.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRTransactionResult.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRTransactionResult.h; sourceTree = "<group>"; };
+		D5FECCA8F096033EADED56425E09FC62 /* FTransformedEnumerator.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTransformedEnumerator.m; path = FirebaseDatabase/Sources/FTransformedEnumerator.m; sourceTree = "<group>"; };
+		D6F021BBA08325245D5723B1CADA4167 /* FRangeMerge.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRangeMerge.h; path = FirebaseDatabase/Sources/Core/FRangeMerge.h; sourceTree = "<group>"; };
+		D817ADD582E11DA59374932D44B875A9 /* FQuerySpec.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FQuerySpec.h; path = FirebaseDatabase/Sources/Core/FQuerySpec.h; sourceTree = "<group>"; };
+		D8CFAC9C0D63680A1EACB6990B9857F9 /* FIRDatabase.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabase.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRDatabase.h; sourceTree = "<group>"; };
+		D8F5A38A5A6CB87206ADC3DB0FCE72DD /* FLLRBNode.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FLLRBNode.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FLLRBNode.h; sourceTree = "<group>"; };
+		DA1ED66F7DAEA548B46B3B938FBF27E6 /* FMerge.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FMerge.h; path = FirebaseDatabase/Sources/Core/Operation/FMerge.h; sourceTree = "<group>"; };
+		DB1D4596B8A93CD8FDB2230A36CC15E2 /* FTreeSortedDictionaryEnumerator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTreeSortedDictionaryEnumerator.h; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FTreeSortedDictionaryEnumerator.h; sourceTree = "<group>"; };
+		DB41BEC8923D4D5E9AD4F99F963D7721 /* FirebaseDatabase.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = FirebaseDatabase.release.xcconfig; sourceTree = "<group>"; };
+		DB7686722699FC424609583B8666E78C /* FNextPushId.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FNextPushId.m; path = FirebaseDatabase/Sources/Utilities/FNextPushId.m; sourceTree = "<group>"; };
+		DC661752DB25700137CD9BD63245D722 /* FPersistentConnection.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPersistentConnection.h; path = FirebaseDatabase/Sources/Core/FPersistentConnection.h; sourceTree = "<group>"; };
+		DE65C9A2D1B386A82A120A5CC3D6C89C /* FRepo_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRepo_Private.h; path = FirebaseDatabase/Sources/Core/FRepo_Private.h; sourceTree = "<group>"; };
+		DEBF6E155AE44CAA432DCD650BDD4699 /* FLLRBValueNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FLLRBValueNode.m; path = FirebaseDatabase/Sources/third_party/FImmutableSortedDictionary/FImmutableSortedDictionary/FLLRBValueNode.m; sourceTree = "<group>"; };
+		DF6FBDE105560BD245B9CBC5E7B2F705 /* FView.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FView.m; path = FirebaseDatabase/Sources/Core/View/FView.m; sourceTree = "<group>"; };
+		DF94A3F3E0794BA181DC837EC6BCC0D1 /* FRangedFilter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FRangedFilter.m; path = FirebaseDatabase/Sources/FRangedFilter.m; sourceTree = "<group>"; };
+		E0129AD4B592EE7A508D2A1FFAAE1BAE /* FIRLibrary.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRLibrary.h; path = FirebaseCore/Extension/FIRLibrary.h; sourceTree = "<group>"; };
+		E3A8E7DA0AF968BE10854B2C4B8F8214 /* FRepoManager.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FRepoManager.m; path = FirebaseDatabase/Sources/Core/FRepoManager.m; sourceTree = "<group>"; };
+		E70C42456D59D5CA6620B7D8CEBD6E76 /* FTree.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTree.m; path = FirebaseDatabase/Sources/Core/Utilities/FTree.m; sourceTree = "<group>"; };
+		E8D34064349DFB3A0825B71CBA003CC9 /* FTupleTSN.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleTSN.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleTSN.h; sourceTree = "<group>"; };
+		E8DC18ABF92539645AF626667D52240B /* FPathIndex.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FPathIndex.m; path = FirebaseDatabase/Sources/FPathIndex.m; sourceTree = "<group>"; };
+		E9F142007A427D5BCB767277072BDBC0 /* FCompoundWrite.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FCompoundWrite.m; path = FirebaseDatabase/Sources/Snapshot/FCompoundWrite.m; sourceTree = "<group>"; };
+		EA325325D8DAB05969D9C79E9C16D8D9 /* FIRDatabaseConfig_Private.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseConfig_Private.h; path = FirebaseDatabase/Sources/FIRDatabaseConfig_Private.h; sourceTree = "<group>"; };
+		EABEF786CA96DB205C48DDB1D202FCC0 /* FKeepSyncedEventRegistration.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FKeepSyncedEventRegistration.m; path = FirebaseDatabase/Sources/Core/View/FKeepSyncedEventRegistration.m; sourceTree = "<group>"; };
+		EB2FD45575AC835D8CEF7BE0718BA309 /* FIRServerValue.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRServerValue.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRServerValue.h; sourceTree = "<group>"; };
+		EBBEF1D97994B6982B5049B3AD66FC8D /* FNextPushId.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FNextPushId.h; path = FirebaseDatabase/Sources/Utilities/FNextPushId.h; sourceTree = "<group>"; };
+		EBE2E384A608268091215876DF247C84 /* FIRDatabaseConfig.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabaseConfig.m; path = FirebaseDatabase/Sources/Api/FIRDatabaseConfig.m; sourceTree = "<group>"; };
+		EBEDA7921D0C09A2B59CD869B20610EA /* FTupleOnDisconnect.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleOnDisconnect.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleOnDisconnect.h; sourceTree = "<group>"; };
+		EDDDD72CD7A0AB9815D8BFBF29D2695E /* FStringUtilities.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FStringUtilities.m; path = FirebaseDatabase/Sources/Utilities/FStringUtilities.m; sourceTree = "<group>"; };
+		EE72C5AEB7644DA3C58A02F67685B8FD /* FTupleTSN.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FTupleTSN.m; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleTSN.m; sourceTree = "<group>"; };
+		F1E3B8B53A995E12F649EC44338E9B13 /* FIRRetryHelper.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRRetryHelper.h; path = FirebaseDatabase/Sources/Core/Utilities/FIRRetryHelper.h; sourceTree = "<group>"; };
+		F23DED63D41611F1EF8C59C3E6389217 /* SPMSwiftHeaderWorkaround.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SPMSwiftHeaderWorkaround.swift; path = FirebaseDatabase/Swift/Sources/SPMSwiftHeaderWorkaround.swift; sourceTree = "<group>"; };
+		F31B6155BD660BC4FDBEFD6470E5B0C3 /* FNamedNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FNamedNode.m; path = FirebaseDatabase/Sources/FNamedNode.m; sourceTree = "<group>"; };
+		F3ED98E0C73ACBC36C37D26AD6DBE634 /* FQuerySpec.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FQuerySpec.m; path = FirebaseDatabase/Sources/Core/FQuerySpec.m; sourceTree = "<group>"; };
+		F42A1A24067F3D9C5C0E9D4183CC7C44 /* FIRDatabaseQuery.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FIRDatabaseQuery.h; path = FirebaseDatabase/Sources/Public/FirebaseDatabase/FIRDatabaseQuery.h; sourceTree = "<group>"; };
+		F4D3608B0DCB0F0D284A4D03C424817D /* FIRDataSnapshot.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDataSnapshot.m; path = FirebaseDatabase/Sources/Api/FIRDataSnapshot.m; sourceTree = "<group>"; };
+		F5B580DD68512CF9178A6779F76251CA /* FPruneForest.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FPruneForest.h; path = FirebaseDatabase/Sources/Persistence/FPruneForest.h; sourceTree = "<group>"; };
+		F5C7256BBFF4DB2E93EEB3FA646D7C14 /* FEventEmitter.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FEventEmitter.m; path = FirebaseDatabase/Sources/Utilities/FEventEmitter.m; sourceTree = "<group>"; };
+		F60D626228F71594C42F1AECA8E518AC /* APLevelDB.mm */ = {isa = PBXFileReference; includeInIndex = 1; name = APLevelDB.mm; path = "FirebaseDatabase/Sources/third_party/Wrap-leveldb/APLevelDB.mm"; sourceTree = "<group>"; };
+		F7BDF009BFFC361D36AB3779AD5C3D68 /* FRepoInfo.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FRepoInfo.h; path = FirebaseDatabase/Sources/Core/FRepoInfo.h; sourceTree = "<group>"; };
+		F7CE032A61EE3393DBA86ABB46763BBC /* FValidation.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FValidation.h; path = FirebaseDatabase/Sources/Utilities/FValidation.h; sourceTree = "<group>"; };
+		F8A02D430D24EE137C7B26E75EF0D5F6 /* FIRDatabase.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabase.m; path = FirebaseDatabase/Sources/Api/FIRDatabase.m; sourceTree = "<group>"; };
+		FBF036582E3924F96128A1097E02ECED /* FEmptyNode.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FEmptyNode.m; path = FirebaseDatabase/Sources/Snapshot/FEmptyNode.m; sourceTree = "<group>"; };
+		FC49E3F6F34C666A0665AA95298B8AE8 /* FIRDatabaseReference.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FIRDatabaseReference.m; path = FirebaseDatabase/Sources/FIRDatabaseReference.m; sourceTree = "<group>"; };
+		FC6D30A242D9151F67311DD0F422B380 /* FTupleFirebase.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FTupleFirebase.h; path = FirebaseDatabase/Sources/Utilities/Tuples/FTupleFirebase.h; sourceTree = "<group>"; };
+		FFCB00C9250390859A3D65CECD5B9DF9 /* FSnapshotHolder.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = FSnapshotHolder.m; path = FirebaseDatabase/Sources/Core/FSnapshotHolder.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D9C16E4A4880D9D512BC0A3EAEF31608 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				75B7DEDC8A78B90029D01DB045235B6F /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0DF3389F9477FAC0B8C9C0B772BAF370 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				64E1C4E957CC8D8FAA6C1649CFAB30FD /* FirebaseDatabase */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		158DD39F2471A16D561CFD9B41DFEF1D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				89B5433BDD9A7854C157DF5DA797788F /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		162C6F6518C477B4FC7138F1CD555151 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				95B64BC578053245505A5CBD2D3F2ED0 /* FirebaseDatabase.modulemap */,
+				A193974633646557BF523E77AED393E2 /* FirebaseDatabase-dummy.m */,
+				207BCC2FC1EEFA8014AACE1ECB0B89BF /* FirebaseDatabase-Info.plist */,
+				BA27AE28193F87B63C313C7E286AAF64 /* FirebaseDatabase-umbrella.h */,
+				05E2ACF172ED99D59E734330A88733EB /* FirebaseDatabase.debug.xcconfig */,
+				DB41BEC8923D4D5E9AD4F99F963D7721 /* FirebaseDatabase.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/FirebaseDatabase";
+			sourceTree = "<group>";
+		};
+		639F1C72F5B2EA54A823DF47C4FBB108 = {
+			isa = PBXGroup;
+			children = (
+				D6BEEB180B00BB6CC2A777982C1B6A79 /* Dependencies */,
+				9397BD87A6CA5748B0E7CA58AFCFCA82 /* FirebaseDatabase */,
+				158DD39F2471A16D561CFD9B41DFEF1D /* Frameworks */,
+				0DF3389F9477FAC0B8C9C0B772BAF370 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		89B5433BDD9A7854C157DF5DA797788F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				D329CDC8C3930551E23114729AFB2651 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		9397BD87A6CA5748B0E7CA58AFCFCA82 /* FirebaseDatabase */ = {
+			isa = PBXGroup;
+			children = (
+				8ABD996315395107FABA3112CAE94AFB /* APLevelDB.h */,
+				F60D626228F71594C42F1AECA8E518AC /* APLevelDB.mm */,
+				A361528CEC7C866EA04F97BBDDBC5715 /* DatabaseReference+WriteEncodable.swift */,
+				8438AFFE95DAD4348AC77A05EB5FE0A4 /* DataSnapshot+ReadDecodable.swift */,
+				21AAE2374F4DE430B514925E02AC06F3 /* EncoderDecoder.swift */,
+				1AC1772E32490D0EFA8CD674871B8678 /* FAckUserWrite.h */,
+				33863BB417B4722EF9B3108FB87F197A /* FAckUserWrite.m */,
+				09B797403968316796B48F3A220C2887 /* FArraySortedDictionary.h */,
+				8511729B1BC1FB1D88FB08C060219476 /* FArraySortedDictionary.m */,
+				BDF352AED4DE8C6C8B782702DD84DA05 /* FAtomicNumber.h */,
+				A0AB0F8867BC167BCA1AC940077A0E44 /* FAtomicNumber.m */,
+				53DE39E8A28A04574AB6271D65683024 /* fbase64.c */,
+				B4913A0D4BAB1C005AB0A861DB5ED706 /* fbase64.h */,
+				52C4EC8B3ABF3DBB9D1AB97250EFB715 /* FCacheNode.h */,
+				711D6A69A9EB828F72455FEBC0C7C18A /* FCacheNode.m */,
+				832165561B48ACB3B27B51B7C1A709D8 /* FCachePolicy.h */,
+				1B0B0DC495BA10A4CFD1BC410CAC9803 /* FCachePolicy.m */,
+				B368C71766D9D14F1749B879D0500338 /* FCancelEvent.h */,
+				201C40C5E48AA305BDE555B99E22AE6D /* FCancelEvent.m */,
+				AFB4982058727FCE7C499A1CCF968F77 /* FChange.h */,
+				14E219B703CBACC5EA4450C175847A7A /* FChange.m */,
+				136E2787E6027818ACD80F0F8F57507D /* FChildChangeAccumulator.h */,
+				A6F08BF6AE33180D7DE6049ED01EB1D5 /* FChildChangeAccumulator.m */,
+				4E6C6EF115993B18235FF4DA72331075 /* FChildEventRegistration.h */,
+				429606FED636C00D9017FDC0AC57A12A /* FChildEventRegistration.m */,
+				68FC15762C5580935ED9DDDB36ABDCD0 /* FChildrenNode.h */,
+				2A2D72CF53ADEEFBA246532A28C5B5F1 /* FChildrenNode.m */,
+				66BD10773FC78F9B7C6A31BCFBD67632 /* FClock.h */,
+				BFE909480BDFB1AD79E52BE12FAAC562 /* FClock.m */,
+				AC739C64771B77BDC36AAB18B32F1F0F /* FCompleteChildSource.h */,
+				7F70249A63BA07A30698EAE7B2C48D44 /* FCompoundHash.h */,
+				31280D4DC373F2D7E7505512943833F8 /* FCompoundHash.m */,
+				5100C6C695B5E67B687E65B2171D096C /* FCompoundWrite.h */,
+				E9F142007A427D5BCB767277072BDBC0 /* FCompoundWrite.m */,
+				BA3B9600A86F660A08ED7C9496618738 /* FConnection.h */,
+				7C348267DC46C06E5126C4F0CA31BB73 /* FConnection.m */,
+				B1C1D04C99269AACC2D0EB5F35EB06B3 /* FConstants.h */,
+				314C2694C1E96EDBA7AE5D017A6A61DE /* FConstants.m */,
+				43E5BFDC458C4D764FD5B0D04C32EA3D /* FDataEvent.h */,
+				396E2ED9203BC82003933760B10866B8 /* FDataEvent.m */,
+				CB43E2657E859DB0CC6F28A7AB5ADD75 /* FEmptyNode.h */,
+				FBF036582E3924F96128A1097E02ECED /* FEmptyNode.m */,
+				B3F5EA6E36692C336FD4064BD11E64A6 /* FEvent.h */,
+				6D44C13EA2B4B48EA12EC7B0341379E9 /* FEventEmitter.h */,
+				F5C7256BBFF4DB2E93EEB3FA646D7C14 /* FEventEmitter.m */,
+				9ED83E6C3DD985F27019A5F4BA857D07 /* FEventGenerator.h */,
+				1EFD224636350983226B29240B82363B /* FEventGenerator.m */,
+				BC8BCB9B65D16F6F4B29179D6795F27B /* FEventRaiser.h */,
+				A49BE073C4A780A0E05A7AE2538428C1 /* FEventRaiser.m */,
+				6ACE41C1177B6D2F1D67B7BEAE6303DC /* FEventRegistration.h */,
+				307675B5D0C408584A2E06D37D0CDDD5 /* FImmutableSortedDictionary.h */,
+				D38CD2C4363116590909FF485EDD53B1 /* FImmutableSortedDictionary.m */,
+				AD61A7D6DE5C7A6EB9F71E5159710D10 /* FImmutableSortedSet.h */,
+				1D7077B9A4AA23086D840BA621D85BA3 /* FImmutableSortedSet.m */,
+				9A6B3EC826C5EEC860DA637BB85A1CED /* FImmutableTree.h */,
+				6DF82399E68C14FA0A74CF24C1CC60D9 /* FImmutableTree.m */,
+				98CBB171F333BACE03EF03C1F6EDD3FD /* FIndex.h */,
+				47C958EA6416563FC735CAF9DAA698CF /* FIndex.m */,
+				6C919A2FB9006FCDACB2FA706EEF3A19 /* FIndexedFilter.h */,
+				7DCA567193D491F9DAD2C9F009ADE217 /* FIndexedFilter.m */,
+				D0E7737E4BA3F61AEE71EB2E247B17A0 /* FIndexedNode.h */,
+				BD20FF3C1194C83D50E605D76125F129 /* FIndexedNode.m */,
+				D48D0F98803F7AF30EA7CCC872A35BF4 /* FIRAppInternal.h */,
+				978F1C19A0C6B2C1A64584BFDA7FA40A /* FIRAuthInterop.h */,
+				65B2499458D89E1C32C601A3A42DEFDB /* FIRComponent.h */,
+				C051216EC74AE70C35E1FDDA63F50530 /* FIRComponentContainer.h */,
+				015520719ECEB10B9436A3A8355C78D3 /* FIRComponentType.h */,
+				D8CFAC9C0D63680A1EACB6990B9857F9 /* FIRDatabase.h */,
+				F8A02D430D24EE137C7B26E75EF0D5F6 /* FIRDatabase.m */,
+				C9319C81F08DF7E7B401488F9069E5FF /* FIRDatabase_Private.h */,
+				B46E601C6C1A025427DCB155B5DFD668 /* FIRDatabaseComponent.h */,
+				4F207588D017AC4FF4CD71A38999E484 /* FIRDatabaseComponent.m */,
+				D4AB96C9045D1E2F895C4C9563604D85 /* FIRDatabaseConfig.h */,
+				EBE2E384A608268091215876DF247C84 /* FIRDatabaseConfig.m */,
+				EA325325D8DAB05969D9C79E9C16D8D9 /* FIRDatabaseConfig_Private.h */,
+				25921DFD1B26774C5E8B0360F6DD6DB2 /* FIRDatabaseConnectionContextProvider.h */,
+				4CD2EE39FDDE20E2C2E62EC77159C021 /* FIRDatabaseConnectionContextProvider.m */,
+				F42A1A24067F3D9C5C0E9D4183CC7C44 /* FIRDatabaseQuery.h */,
+				8FF33A795B90EB813E0FAA674D3F64E0 /* FIRDatabaseQuery.m */,
+				9E57ACEAC7532DD1EB4FD2D10F347401 /* FIRDatabaseQuery_Private.h */,
+				6EA840EE0177E9D7845494A380747EAA /* FIRDatabaseReference.h */,
+				FC49E3F6F34C666A0665AA95298B8AE8 /* FIRDatabaseReference.m */,
+				788BE5C63B9A56FB390D387FD597A55D /* FIRDatabaseReference_Private.h */,
+				5B9A6DABA7AB276D1A052CFA27E83FD2 /* FIRDataEventType.h */,
+				2103A83F1BB3D40AFA1252689CD417D9 /* FIRDataSnapshot.h */,
+				F4D3608B0DCB0F0D284A4D03C424817D /* FIRDataSnapshot.m */,
+				25C0058B157C3DC117EC060F6375D3BB /* FIRDataSnapshot_Private.h */,
+				0D9A0E4B53466A4DC6EF718640DCE1FF /* FirebaseCoreInternal.h */,
+				90129E5BBD1BB61A5C7F0858F316A40A /* FirebaseDatabase.h */,
+				D397596C733B37DCFE130454A1B0AD25 /* FIRHeartbeatLogger.h */,
+				E0129AD4B592EE7A508D2A1FFAAE1BAE /* FIRLibrary.h */,
+				CF51CDCA50F1601E5CE41C9168DC8990 /* FIRLogger.h */,
+				A96533CB977CEDF019D0366AD3989922 /* FIRMutableData.h */,
+				D5822373C7357F4A1209CF961275A60C /* FIRMutableData.m */,
+				76CE640FDF51663645AAE2298E36727C /* FIRMutableData_Private.h */,
+				F1E3B8B53A995E12F649EC44338E9B13 /* FIRRetryHelper.h */,
+				172CE317430EB5FC05DB043DADD5C179 /* FIRRetryHelper.m */,
+				EB2FD45575AC835D8CEF7BE0718BA309 /* FIRServerValue.h */,
+				989C84EEDB15F88E161ED94ADA5DB779 /* FIRServerValue.m */,
+				D597EBE53401EBC2C94D06626467D4AC /* FIRTransactionResult.h */,
+				1BF4B2D05C5B12B386DCFDEB0504CB16 /* FIRTransactionResult.m */,
+				3DCFDDEA7A2298832065C423346223CB /* FIRTransactionResult_Private.h */,
+				A76AB82AA379361C0281FCF2B595751C /* FKeepSyncedEventRegistration.h */,
+				EABEF786CA96DB205C48DDB1D202FCC0 /* FKeepSyncedEventRegistration.m */,
+				37A45B68368BEE206DCE4B4332C6AB0B /* FKeyIndex.h */,
+				1FAD28C75604F4B1827D2777A2BFFEF1 /* FKeyIndex.m */,
+				85C116729D41879E9573D7FBB45D9E56 /* FLeafNode.h */,
+				36614108BE11F99FC198AAA9EBA4FF19 /* FLeafNode.m */,
+				192F7FFE87BE1CF6053380B22CDC1D20 /* FLevelDBStorageEngine.h */,
+				B578CDDEAB7733E131A6A4426E40A29A /* FLevelDBStorageEngine.m */,
+				C6336CB9633C6EBECF07AA178F0BE96B /* FLimitedFilter.h */,
+				4DBA60C53C2FEC24ED7BFB1D7083150B /* FLimitedFilter.m */,
+				A0026D0705B2778C5C7F40612906BC10 /* FListenComplete.h */,
+				4AFFEF1CE59D712AD4844232F7E80157 /* FListenComplete.m */,
+				13F360AB3486EC26D23462B985727D4D /* FListenProvider.h */,
+				6B7279EEA4F3A9F0A13C79EBB0F86264 /* FListenProvider.m */,
+				8D7AA2A270E6F810045104A73EC7D7D0 /* FLLRBEmptyNode.h */,
+				757C71AEFF55FEFB9BE65E3D1E8BE47E /* FLLRBEmptyNode.m */,
+				D8F5A38A5A6CB87206ADC3DB0FCE72DD /* FLLRBNode.h */,
+				5801EBFBED20CBDEC901AE0421CD4763 /* FLLRBValueNode.h */,
+				DEBF6E155AE44CAA432DCD650BDD4699 /* FLLRBValueNode.m */,
+				36DDD86EC0C5C421172E7FD91CE1E570 /* FMaxNode.h */,
+				28673D66657B96695ED2B19B07E7AB89 /* FMaxNode.m */,
+				DA1ED66F7DAEA548B46B3B938FBF27E6 /* FMerge.h */,
+				38DF11E8E8D832FDE8E093E5AA1B2A31 /* FMerge.m */,
+				9DD82C098DE42D6A0C42198EBDECDE42 /* FNamedNode.h */,
+				F31B6155BD660BC4FDBEFD6470E5B0C3 /* FNamedNode.m */,
+				EBBEF1D97994B6982B5049B3AD66FC8D /* FNextPushId.h */,
+				DB7686722699FC424609583B8666E78C /* FNextPushId.m */,
+				3C145EC81C33EA21DEB4F9B72C557C0B /* FNode.h */,
+				74318614CB6898F22DE2DCC17F99F6DA /* FNodeFilter.h */,
+				2AD19BE2316314E6EC03D3C8AB78A055 /* FOperation.h */,
+				90BE20CA1D8F3B2884B7446762286EDB /* FOperationSource.h */,
+				2662D411440F1C041865073B67E72F31 /* FOperationSource.m */,
+				A1515B7F4FF6330CF5EC1EB34F9CA655 /* FOverwrite.h */,
+				C5E2A28CED0A0D5043176843796F89CB /* FOverwrite.m */,
+				74F4402EB09664C1B9DC131D4B1D24D7 /* FParsedUrl.h */,
+				4E684AA04051335E76245EB2A15E7515 /* FParsedUrl.m */,
+				1E21524D0489359727126FD3089565DE /* FPath.h */,
+				A1E612B673D0C0FDBD187C5E5248DDDE /* FPath.m */,
+				4C7628C6D94CDA56CA9B9FC33BBC75BE /* FPathIndex.h */,
+				E8DC18ABF92539645AF626667D52240B /* FPathIndex.m */,
+				2CBD0FD23F9F7FC6CAD6D80E189F5EAC /* FPendingPut.h */,
+				05C0C51B2EC4794921593C68209EA107 /* FPendingPut.m */,
+				C44C18F012B8897BC8EF0A21E0D9DEB1 /* FPersistenceManager.h */,
+				1E84DEA518158C2F7D057F4047367A24 /* FPersistenceManager.m */,
+				DC661752DB25700137CD9BD63245D722 /* FPersistentConnection.h */,
+				AFFCFD892B6E8981C9E4FF7AFCA0A1EC /* FPersistentConnection.m */,
+				B24A60734DEA4EB83034D627341485BB /* FPriorityIndex.h */,
+				7576D2A3B6CC4895B1F295AC8C52661C /* FPriorityIndex.m */,
+				F5B580DD68512CF9178A6779F76251CA /* FPruneForest.h */,
+				6C9D2C94BD906C9533A100B5611D6511 /* FPruneForest.m */,
+				A31F3E24E075AD43EF83DB6513B6C5EE /* FQueryParams.h */,
+				43A370742131470E1AA5DFAA0FFED519 /* FQueryParams.m */,
+				D817ADD582E11DA59374932D44B875A9 /* FQuerySpec.h */,
+				F3ED98E0C73ACBC36C37D26AD6DBE634 /* FQuerySpec.m */,
+				3FBB8062D9F8B5C58590583E960C6BD5 /* FRangedFilter.h */,
+				DF94A3F3E0794BA181DC837EC6BCC0D1 /* FRangedFilter.m */,
+				D6F021BBA08325245D5723B1CADA4167 /* FRangeMerge.h */,
+				6B7847373B2CB2B1C8779BBA8504FA80 /* FRangeMerge.m */,
+				BC55F2B56AA03146EC54E1659792BEBE /* FRepo.h */,
+				A551FF64288D3886C08D3EA105CD6DA0 /* FRepo.m */,
+				DE65C9A2D1B386A82A120A5CC3D6C89C /* FRepo_Private.h */,
+				F7BDF009BFFC361D36AB3779AD5C3D68 /* FRepoInfo.h */,
+				0F98F23AE3374D57486D93927D8E61C6 /* FRepoInfo.m */,
+				93C77D0DC2EBDEE0687FE7C4CE719ECA /* FRepoManager.h */,
+				E3A8E7DA0AF968BE10854B2C4B8F8214 /* FRepoManager.m */,
+				4E0D95D8B59E42CA27FA4E70EE8B15BB /* FServerValues.h */,
+				43C076B50E5E9FF336688CD70D02E77F /* FServerValues.m */,
+				79BDA0D177937896B28769F270D19D29 /* FSnapshotHolder.h */,
+				FFCB00C9250390859A3D65CECD5B9DF9 /* FSnapshotHolder.m */,
+				0C47D5F9247BC3E4D0A0905026053C51 /* FSnapshotUtilities.h */,
+				01C661566B1586084919E8B6858A5DED /* FSnapshotUtilities.m */,
+				45F4B31CD5183C212D9B5AFD1448D9D0 /* FSparseSnapshotTree.h */,
+				3EF0E1929163C41FEAB9C84A71255C7B /* FSparseSnapshotTree.m */,
+				66C34866537782098F8E3ED92D04FE68 /* FSRWebSocket.h */,
+				6940BA990151DE1B13679A4FD21FAABF /* FSRWebSocket.m */,
+				999B47E8CACCF597453B42EC19E1E1B8 /* FStorageEngine.h */,
+				844651629B0A1DC61222B16D77F21B18 /* FStringUtilities.h */,
+				EDDDD72CD7A0AB9815D8BFBF29D2695E /* FStringUtilities.m */,
+				123413FF4A3F09DC4E9311B36283A838 /* FSyncPoint.h */,
+				B647EC9ABF72D1365864D1869A00FF31 /* FSyncPoint.m */,
+				573260CC124C55686AC7F6E6FA04FFF2 /* FSyncTree.h */,
+				4891D1664482B9BEAFFC11D14164A77E /* FSyncTree.m */,
+				48FDECFA74EE82568B42A54124FC37DE /* FTrackedQuery.h */,
+				BADBF5FCF63FCE0E9E7D962F2C0F2344 /* FTrackedQuery.m */,
+				94E69FAB1F86209CE0661B7A4F862B98 /* FTrackedQueryManager.h */,
+				0392A4A0E7260795003C8CF7EEF918F8 /* FTrackedQueryManager.m */,
+				B2A7FCACCE723AB8F7552ED21A192E81 /* FTransformedEnumerator.h */,
+				D5FECCA8F096033EADED56425E09FC62 /* FTransformedEnumerator.m */,
+				C9A5E8AFF6EA1FFB2616D8B5EE240331 /* FTree.h */,
+				E70C42456D59D5CA6620B7D8CEBD6E76 /* FTree.m */,
+				01CFFBC56540A34B0424C337A029EC70 /* FTreeNode.h */,
+				8B7C90F771DB1E143E7DCA436DA7863B /* FTreeNode.m */,
+				CB55D08A6014D5DE05397260F6E370F5 /* FTreeSortedDictionary.h */,
+				3E6691DDE7EFB6F49F549D81C7C6EA83 /* FTreeSortedDictionary.m */,
+				DB1D4596B8A93CD8FDB2230A36CC15E2 /* FTreeSortedDictionaryEnumerator.h */,
+				145F5E485CF5ED958E645BC5279E7635 /* FTreeSortedDictionaryEnumerator.m */,
+				05B6D80D052751A6AC407FBA3F1419FA /* FTupleBoolBlock.h */,
+				6A869D2BD94E6B06F49536EE754DE5F4 /* FTupleBoolBlock.m */,
+				BB64B13BCF90351CF272AEC25019D81A /* FTupleCallbackStatus.h */,
+				801B9E07003FEDDE1E2CEE8E552B8E30 /* FTupleCallbackStatus.m */,
+				FC6D30A242D9151F67311DD0F422B380 /* FTupleFirebase.h */,
+				2D1EB4810C3169A8B6D4A68F8BF7AE3E /* FTupleFirebase.m */,
+				8E8A6FBCB6198116336B659819A00BA4 /* FTupleNodePath.h */,
+				3CC83F260185457ABB2B514236144DA1 /* FTupleNodePath.m */,
+				81E7E6E3C09F19CBEBB8A5B45E1EF19A /* FTupleObjectNode.h */,
+				7A5DD03909BD36BD8B7CE5F23C816358 /* FTupleObjectNode.m */,
+				392E8A58426E391095E16AC764E115F2 /* FTupleObjects.h */,
+				35C7A5371FCC3542081E7033C9C6FAA8 /* FTupleObjects.m */,
+				EBEDA7921D0C09A2B59CD869B20610EA /* FTupleOnDisconnect.h */,
+				9722BA7D27E7E2ECA98114BF9A44766B /* FTupleOnDisconnect.m */,
+				26790995999A688ED639CC74453670DE /* FTuplePathValue.h */,
+				CCDF3AA36AE2C3A9ED1E4E9B18F4BCDA /* FTuplePathValue.m */,
+				0F95517728348EEFBACBD67048652215 /* FTupleRemovedQueriesEvents.h */,
+				066F84FC0B256DAD4107F1B2A682EB8C /* FTupleRemovedQueriesEvents.m */,
+				CA62825E4B046D0A0244FE0B54E2E8EA /* FTupleSetIdPath.h */,
+				6F5B86190FC87BC3057473D3B041F399 /* FTupleSetIdPath.m */,
+				CAD69E5C83B4E28FFA54718746359780 /* FTupleStringNode.h */,
+				CD098764A9977A58C1F60408C6CAD581 /* FTupleStringNode.m */,
+				8A76633D38677E3E0382D901CF5B193E /* FTupleTransaction.h */,
+				B26FC6E0558036EC623461A85D7277FB /* FTupleTransaction.m */,
+				E8D34064349DFB3A0825B71CBA003CC9 /* FTupleTSN.h */,
+				EE72C5AEB7644DA3C58A02F67685B8FD /* FTupleTSN.m */,
+				090AE768D2008D211B8BB4D2F0E577B2 /* FTupleUserCallback.h */,
+				32E0239EC5C89A9D3A148E812C8C81B5 /* FTupleUserCallback.m */,
+				8E321F0B608403CCEB22B79E2293A67A /* FTypedefs.h */,
+				7D0891B1B2C85A83C879ED2BD31BABB0 /* FTypedefs_Private.h */,
+				AF83E47DEFBE7A3C862529B64E1B23B1 /* FUtilities.h */,
+				CB0AEF2FF554FF69C3180492EF18B983 /* FUtilities.m */,
+				F7CE032A61EE3393DBA86ABB46763BBC /* FValidation.h */,
+				CEA0CA77F20EF58420E9CF1C9DA3941C /* FValidation.m */,
+				4D525BD0F4EAAED27EC78C951ADC0400 /* FValueEventRegistration.h */,
+				0A35805B65615E3A6BDE3530296403E9 /* FValueEventRegistration.m */,
+				C72DA6DAA99875562FCA29ED0453DC6D /* FValueIndex.h */,
+				2C782F244F18644F1F2C3C166C92631F /* FValueIndex.m */,
+				26EEE7D3C98272F3C960DA79C7B83FE6 /* FView.h */,
+				DF6FBDE105560BD245B9CBC5E7B2F705 /* FView.m */,
+				9E8D29747006200FAE2D08003B66A315 /* FViewCache.h */,
+				99FC82D8D0740820FBDABDCD061C47A0 /* FViewCache.m */,
+				143CCE5A2F8E4341306D263BEFE1BD4A /* FViewProcessor.h */,
+				5DA6366145AC0EF79456240775C2BE93 /* FViewProcessor.m */,
+				C3B0BE39F286E87754773E1675A132FB /* FViewProcessorResult.h */,
+				8537392E3573C5B186748F9D8BD5B2EC /* FViewProcessorResult.m */,
+				AB48A2BF66E8FA282FBB6C36879DA22F /* FWebSocketConnection.h */,
+				C020B437DF087F7BE7D8203D617F21BF /* FWebSocketConnection.m */,
+				C6228A3F6831F761438EC5EAEB36EC18 /* FWriteRecord.h */,
+				54B8F0D308E240A9ABE45B3BC54F2BB5 /* FWriteRecord.m */,
+				3DF938E2A102BB70794F72B442B10D12 /* FWriteTree.h */,
+				0EEE438AC705D7C5BE8FACF7A8338F61 /* FWriteTree.m */,
+				9B7E85C026745FF7976D220B961107F0 /* FWriteTreeRef.h */,
+				AA7638F95F252330F277013E84084AF3 /* FWriteTreeRef.m */,
+				1A5F5E83B0A8F2249C3B4D8C474D9BAB /* NSData+SRB64Additions.h */,
+				17575EA52874BDAC5E9D42DF8B8EA8F6 /* NSData+SRB64Additions.m */,
+				44EE4BCDA5046AD034ED60A52BC61BF7 /* ServerTimestamp.swift */,
+				F23DED63D41611F1EF8C59C3E6389217 /* SPMSwiftHeaderWorkaround.swift */,
+				162C6F6518C477B4FC7138F1CD555151 /* Support Files */,
+			);
+			name = FirebaseDatabase;
+			path = FirebaseDatabase;
+			sourceTree = "<group>";
+		};
+		D6BEEB180B00BB6CC2A777982C1B6A79 /* Dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				1EDBA112D596CF703440261D2E3001DA /* FirebaseAppCheckInterop */,
+				A77ABA0DF3A8FB855A9E1B59E15FAF10 /* FirebaseCore */,
+				5F49100D8087B73FF1E5A6B85C57AF65 /* FirebaseSharedSwift */,
+				B21C207F242CC5BDDC4644DB0F205EF6 /* GoogleUtilities */,
+				5424D61ED27AF0202DC48776FC264B8B /* leveldb-library */,
+			);
+			name = Dependencies;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		5F0373EE53027BE8236F87364A37FB3E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				973BE3EA025D101B4C81E696512D55B3 /* APLevelDB.h in Headers */,
+				273AFD6FF42C264E3A1AB4A8221EB02D /* FAckUserWrite.h in Headers */,
+				8CCB97E11357A7A22C64CA4F576371E7 /* FArraySortedDictionary.h in Headers */,
+				60CEF8FFB4DDCF03B382B325FE4079C1 /* FAtomicNumber.h in Headers */,
+				ED4BDDCF4B38CFA94EC4F588EE6AAA65 /* fbase64.h in Headers */,
+				7D93870D03811168A897DF2564154240 /* FCacheNode.h in Headers */,
+				70415E12D9BB2E7580EEDCE1B0FD93B5 /* FCachePolicy.h in Headers */,
+				2A8285E988AC9A1AB3EFECBC81A89DC2 /* FCancelEvent.h in Headers */,
+				3512068EB712AE99FD7F83A4905A9034 /* FChange.h in Headers */,
+				E66A2C5242B458FA666A21B674ECA492 /* FChildChangeAccumulator.h in Headers */,
+				1DC1460EC223634376E12D05FEE7356E /* FChildEventRegistration.h in Headers */,
+				11ECF01A6AB2E767214BB32F42B62F95 /* FChildrenNode.h in Headers */,
+				41D421C46027C0E117F70CDCA2A227F8 /* FClock.h in Headers */,
+				FEBFB4058E62A67053E72A0316D3BF56 /* FCompleteChildSource.h in Headers */,
+				38F28FAF89C833E2BAE18FD7D13FE421 /* FCompoundHash.h in Headers */,
+				4B1CA6EC49BFA1A13E491C27B439775E /* FCompoundWrite.h in Headers */,
+				E493E94EA04208B59D592963E445E0BB /* FConnection.h in Headers */,
+				FD2891105E34598477FD9F9011BA896D /* FConstants.h in Headers */,
+				689E469BCDB07B4CDE1A517140EA098D /* FDataEvent.h in Headers */,
+				881D5231F71667E59005961C1E4BCE32 /* FEmptyNode.h in Headers */,
+				D37E67C106CED919B0B471868C87DD78 /* FEvent.h in Headers */,
+				310951EF8002B7FDA774ADD14273ACC4 /* FEventEmitter.h in Headers */,
+				0534DEC1D56928E4E7C4A0208A9C44B2 /* FEventGenerator.h in Headers */,
+				F7507B6E295872A118439242D30DB56A /* FEventRaiser.h in Headers */,
+				FDC8AB67DBE689395AD8068AF1202EAC /* FEventRegistration.h in Headers */,
+				5F4178B317F03AB21BF201F416590DB4 /* FImmutableSortedDictionary.h in Headers */,
+				BA0AB56207005F8AC589701804BB45CA /* FImmutableSortedSet.h in Headers */,
+				C25C98EEB4AA41905B13EF3182F1977A /* FImmutableTree.h in Headers */,
+				B0ABA1DE4A57F6AC3487556F80FF394A /* FIndex.h in Headers */,
+				D7FDD47D9299137A22734BF351F460E4 /* FIndexedFilter.h in Headers */,
+				38D23B0AD07A89BADCB938EAB1BE0139 /* FIndexedNode.h in Headers */,
+				E60F1F440938990C6184B75CFA184062 /* FIRAppInternal.h in Headers */,
+				5D09BE98F91223FF3822ADA1ACD43DA3 /* FIRAuthInterop.h in Headers */,
+				8B13ED97CBFA13FD55F8CD9093775CB5 /* FIRComponent.h in Headers */,
+				3ADE87AAE5188B20A8C2C2A089B9C870 /* FIRComponentContainer.h in Headers */,
+				0CDE5974334F21D4935AE3317FF6535B /* FIRComponentType.h in Headers */,
+				96242B26FBE026C4626971B54C98C996 /* FIRDatabase.h in Headers */,
+				969C98B1A8701E800B638DBF500081B2 /* FIRDatabase_Private.h in Headers */,
+				42E48B8D703F6B7DAAC3E79289A08406 /* FIRDatabaseComponent.h in Headers */,
+				2C1CDBBDC33DBC586EA7A089F6CE4228 /* FIRDatabaseConfig.h in Headers */,
+				EFDB441EAFCFB2D72351C8F11682F99D /* FIRDatabaseConfig_Private.h in Headers */,
+				7ECC68129B672E3D5E5622B614783D48 /* FIRDatabaseConnectionContextProvider.h in Headers */,
+				3AFD24B4A3A3E0308299220B04CB6D46 /* FIRDatabaseQuery.h in Headers */,
+				D81A31F24C675A014DB866A332F9F404 /* FIRDatabaseQuery_Private.h in Headers */,
+				8282EB4BC623D302A5CF9D23F9798CF3 /* FIRDatabaseReference.h in Headers */,
+				5109E24883A619DCF45B363F61FB08EF /* FIRDatabaseReference_Private.h in Headers */,
+				95A7B6B10E4BCD2CC2DFAA118E93B722 /* FIRDataEventType.h in Headers */,
+				7D4376FD6F93060A62996AB4DB3BED21 /* FIRDataSnapshot.h in Headers */,
+				A8B51B79013503BA9C755D46607DDB6B /* FIRDataSnapshot_Private.h in Headers */,
+				0E4BF6C517909AD29D5C3F0AAF9F690D /* FirebaseCoreInternal.h in Headers */,
+				DF182A0FD38211F678BA8CFC544BC23F /* FirebaseDatabase.h in Headers */,
+				A6D28E24AF6AB461062AAA91007E9DB5 /* FirebaseDatabase-umbrella.h in Headers */,
+				C834F0AAB57AD1712CBD5B064AA9BD79 /* FIRHeartbeatLogger.h in Headers */,
+				0A1ECA00B4CBE663B5455D0492C80F47 /* FIRLibrary.h in Headers */,
+				26DD2F4CFE18570FA0DF60525145CA36 /* FIRLogger.h in Headers */,
+				6205321B347FADD714EE6E99EA4C9262 /* FIRMutableData.h in Headers */,
+				D8637B51EBC7CD121B9B6FE758081061 /* FIRMutableData_Private.h in Headers */,
+				EA600B9BCB1FF12526FD3795E3952CA5 /* FIRRetryHelper.h in Headers */,
+				958233F342949771BAA255404A9C0FF7 /* FIRServerValue.h in Headers */,
+				F4C79B44BE5FDFB99658DD905EC214A4 /* FIRTransactionResult.h in Headers */,
+				8738432E0749F7B2FE743B71268A9F1A /* FIRTransactionResult_Private.h in Headers */,
+				982F8EE6B584780D5343BB3017FCDD4C /* FKeepSyncedEventRegistration.h in Headers */,
+				B672DA8F94BDCD7032BC60D9F2F7CECB /* FKeyIndex.h in Headers */,
+				BC50A058DAA10DA7E718513594D629FE /* FLeafNode.h in Headers */,
+				7C94F1DA0BC89A36F5B77484EFFD8D10 /* FLevelDBStorageEngine.h in Headers */,
+				59C0757E09FA0328954FC048B0EB45ED /* FLimitedFilter.h in Headers */,
+				904D49391D10905CD42609CE39E6B92B /* FListenComplete.h in Headers */,
+				75D27A00F4DE67CFD3616D61909AD396 /* FListenProvider.h in Headers */,
+				4032C2F43492B397A496B5F8A9C12D65 /* FLLRBEmptyNode.h in Headers */,
+				3B2F89D042A15BE72742B6594C138A97 /* FLLRBNode.h in Headers */,
+				19BB0ECBA280EC310EE44FAF64DB2357 /* FLLRBValueNode.h in Headers */,
+				8EB661B9F0450257EE02ADE8E5C0D06A /* FMaxNode.h in Headers */,
+				E57EEC88F8B6ED564622A9ADB1EB2539 /* FMerge.h in Headers */,
+				B7E453127AAD970F2FC1791C3B9DFBBD /* FNamedNode.h in Headers */,
+				07AD27C23716C14A2F1A79A0B90216E3 /* FNextPushId.h in Headers */,
+				64E5D6C976EAF9A1BA4C7853CC672BFD /* FNode.h in Headers */,
+				46532876C386B14F0F1567BA3F3E8D07 /* FNodeFilter.h in Headers */,
+				F2B77619091B1663312C7AA9EA7B6C07 /* FOperation.h in Headers */,
+				7D2F7834C424888DFE35C728C160A815 /* FOperationSource.h in Headers */,
+				FF6D8C4492CB946E385E4DBEC94927ED /* FOverwrite.h in Headers */,
+				61A8C0F69E8201067BE59D48CBC1F307 /* FParsedUrl.h in Headers */,
+				23B705224556BCED47780F9448C75A7E /* FPath.h in Headers */,
+				BA678F1A6A5466C59CF7E061B032DFA6 /* FPathIndex.h in Headers */,
+				4685332669555BD1324462B269FF83C9 /* FPendingPut.h in Headers */,
+				99B7F5154825A05D34E63816E0C779EE /* FPersistenceManager.h in Headers */,
+				245F73A56D1B8660C1AAD5C566D2BE23 /* FPersistentConnection.h in Headers */,
+				6F1D72D1202CAC828D48F6BF56A09B1F /* FPriorityIndex.h in Headers */,
+				AB4760E6BD3BEB61221A513DFD4A82CC /* FPruneForest.h in Headers */,
+				2583B6B18A007401639552613ED3A1F5 /* FQueryParams.h in Headers */,
+				EBD3B2429289BC2EA74804515E221552 /* FQuerySpec.h in Headers */,
+				8FABCC6C3558B7EF25320E936C9DD9B9 /* FRangedFilter.h in Headers */,
+				AD1F16390269885A8DB653D50FAF8014 /* FRangeMerge.h in Headers */,
+				6037C58844FF9857BD903F3200B414CD /* FRepo.h in Headers */,
+				6E4FC4AFE0DAFE9DECC3925328AC48A5 /* FRepo_Private.h in Headers */,
+				05C818D560655796D726E04BBBF246FB /* FRepoInfo.h in Headers */,
+				1E23997E7044E4BE9E770BA34A485A5C /* FRepoManager.h in Headers */,
+				FD0A4919C8139333376A07D745BB3EC3 /* FServerValues.h in Headers */,
+				458EA5EC44549C4A283B468D730C8312 /* FSnapshotHolder.h in Headers */,
+				35C53042F716371080DF66A5A006A44A /* FSnapshotUtilities.h in Headers */,
+				E3876CDADD4582623782E02E67997196 /* FSparseSnapshotTree.h in Headers */,
+				25A707C7A17B97991C0F4B01F0FACB15 /* FSRWebSocket.h in Headers */,
+				289784A0321C8ECD01210D85E387A8B3 /* FStorageEngine.h in Headers */,
+				5ED47808F33F26B3B9192F42D4C1CE6B /* FStringUtilities.h in Headers */,
+				7CF6E8251A094B764B0408CD4ECA08B1 /* FSyncPoint.h in Headers */,
+				52F530D5FEFCF3AF0EF8812B21A27FF8 /* FSyncTree.h in Headers */,
+				065FCD3A84E1C8B57C0D78D51CC6F764 /* FTrackedQuery.h in Headers */,
+				25787479B33623D07165F40F55F9590E /* FTrackedQueryManager.h in Headers */,
+				B4E81562440F97F376064C38E2A8AF14 /* FTransformedEnumerator.h in Headers */,
+				6D16F2A986A9E99AB22A296C929EF12D /* FTree.h in Headers */,
+				22B1166477FE1296656204CF9EB99E4D /* FTreeNode.h in Headers */,
+				6791BC5F8D7493F4F16A548D2A30329D /* FTreeSortedDictionary.h in Headers */,
+				FB34673348715FE6018CC72FF1A1F1BA /* FTreeSortedDictionaryEnumerator.h in Headers */,
+				8AE027F0C5FE491451CA8722821CA7CF /* FTupleBoolBlock.h in Headers */,
+				FD58C874C66B4460BE39C202A455659F /* FTupleCallbackStatus.h in Headers */,
+				B49DF6069E935459CA766E19FE162DD3 /* FTupleFirebase.h in Headers */,
+				4ABCFFB3658D15C1604D3C9440AEA7BF /* FTupleNodePath.h in Headers */,
+				BE4E5B8AC3D431129CC263182701345F /* FTupleObjectNode.h in Headers */,
+				C8EFA1F56065FA67808015F7C232D601 /* FTupleObjects.h in Headers */,
+				445BFDE50E7185CA19CFBDAD70B1093D /* FTupleOnDisconnect.h in Headers */,
+				B47B2690C17FB375324B17FD22E59912 /* FTuplePathValue.h in Headers */,
+				A95101369718D88B7DAFC492886666DF /* FTupleRemovedQueriesEvents.h in Headers */,
+				889B50A6661E23A34F9337BE06C84E86 /* FTupleSetIdPath.h in Headers */,
+				76132F5CEB768951EC8ED796EDE4CC79 /* FTupleStringNode.h in Headers */,
+				8B10223F3D101E943F1E2F7655CFCCDF /* FTupleTransaction.h in Headers */,
+				46854922D1CBEEA4843D16E51608C535 /* FTupleTSN.h in Headers */,
+				96A6A2C7CD650A5683D6F9B0DD71A0CA /* FTupleUserCallback.h in Headers */,
+				ABD1191A74BF4614E46693BDC2C05E98 /* FTypedefs.h in Headers */,
+				BFF3EC07E63804A8038ABA5A839B337D /* FTypedefs_Private.h in Headers */,
+				016E8F8243BBF45D5F9DDD830520A04B /* FUtilities.h in Headers */,
+				E1D0ED7C4443F836EDF962486CB898C5 /* FValidation.h in Headers */,
+				0EDF7F0899B82788CCC1606BFF919D4D /* FValueEventRegistration.h in Headers */,
+				71F795245210E6AE5C97AA9902DF7CE2 /* FValueIndex.h in Headers */,
+				C4DECC03F01108BF436762AE21714460 /* FView.h in Headers */,
+				9D64467685E36BCAC2DBBEF94EB17121 /* FViewCache.h in Headers */,
+				E1A73F1E45A10E0F86D069F3F006D489 /* FViewProcessor.h in Headers */,
+				E440A430F23962C57252238C13F2FD6E /* FViewProcessorResult.h in Headers */,
+				0B5DFD46E5103B7A1B2052A2FCB4B9CC /* FWebSocketConnection.h in Headers */,
+				4BFEFD33FD40BE3B57E2B012E3459F7B /* FWriteRecord.h in Headers */,
+				6C1FD472E66708A810BC64C33908BC70 /* FWriteTree.h in Headers */,
+				3C2AD25A2BA419D791015AAADB0627B5 /* FWriteTreeRef.h in Headers */,
+				2933CF2E451E5154E90E3F03D0C0561A /* NSData+SRB64Additions.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A64A2D1A7C5F17B570FEC943D7763697 /* FirebaseDatabase */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8616B377C3264F37ED676C64CB77B28 /* Build configuration list for PBXNativeTarget "FirebaseDatabase" */;
+			buildPhases = (
+				5F0373EE53027BE8236F87364A37FB3E /* Headers */,
+				3B9F6E4BBEBF94AD6289CFADFC6D8439 /* Sources */,
+				D9C16E4A4880D9D512BC0A3EAEF31608 /* Frameworks */,
+				76F3D2E0AC88ED54921EEC0C0DCF02F9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72884BE351FAA13C8177623B57FC1EE9 /* PBXTargetDependency */,
+				043CA164563EBE78BE1CD7AC3FF1671C /* PBXTargetDependency */,
+				665E4160FA351BDB148E133CB4E19347 /* PBXTargetDependency */,
+				3117A7BB22888A15C9553424C818DC3E /* PBXTargetDependency */,
+				F7B1B368774830A29D4DD93317E9F967 /* PBXTargetDependency */,
+			);
+			name = FirebaseDatabase;
+			productName = FirebaseDatabase;
+			productReference = 64E1C4E957CC8D8FAA6C1649CFAB30FD /* FirebaseDatabase */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C3EBF3729E4EE5D07767B2BB6C814A86 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = F1F4E24006AAF28038896703E33FA4F9 /* Build configuration list for PBXProject "FirebaseDatabase" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 639F1C72F5B2EA54A823DF47C4FBB108;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 0DF3389F9477FAC0B8C9C0B772BAF370 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProjectRef = 5424D61ED27AF0202DC48776FC264B8B /* leveldb-library */;
+				},
+				{
+					ProjectRef = A77ABA0DF3A8FB855A9E1B59E15FAF10 /* FirebaseCore */;
+				},
+				{
+					ProjectRef = 1EDBA112D596CF703440261D2E3001DA /* FirebaseAppCheckInterop */;
+				},
+				{
+					ProjectRef = 5F49100D8087B73FF1E5A6B85C57AF65 /* FirebaseSharedSwift */;
+				},
+				{
+					ProjectRef = B21C207F242CC5BDDC4644DB0F205EF6 /* GoogleUtilities */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				A64A2D1A7C5F17B570FEC943D7763697 /* FirebaseDatabase */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		76F3D2E0AC88ED54921EEC0C0DCF02F9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3B9F6E4BBEBF94AD6289CFADFC6D8439 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63987C5FB13EF606B2C7BCF25965F946 /* APLevelDB.mm in Sources */,
+				49DF78E95BA83F0A3CA81033DDBC5B2A /* DatabaseReference+WriteEncodable.swift in Sources */,
+				13266451835E908846574CA97F852EEF /* DataSnapshot+ReadDecodable.swift in Sources */,
+				F3529EBA557AECB07308C157B6C44F77 /* EncoderDecoder.swift in Sources */,
+				934DD195698D0EEAFDC48679F494F266 /* FAckUserWrite.m in Sources */,
+				06BB929B8CE0768DFD75E1062DCB4A63 /* FArraySortedDictionary.m in Sources */,
+				09E6ACE73E7C49DDAD926B34AC3E705F /* FAtomicNumber.m in Sources */,
+				E9CA4D0399E430831A9352182B30147B /* fbase64.c in Sources */,
+				313A17673D6FC5262421C6AAE9796DA0 /* FCacheNode.m in Sources */,
+				AC7DC7AC40A441760B7DDB5125482BFD /* FCachePolicy.m in Sources */,
+				378A6D3E755EE232A23D5324890AA1F0 /* FCancelEvent.m in Sources */,
+				AAB65189635211ADEBA89DBBA53A543F /* FChange.m in Sources */,
+				262B28056BC2C2FDF1FDE920A5945669 /* FChildChangeAccumulator.m in Sources */,
+				A46B9D0B165483FACCBFCBE1370D042C /* FChildEventRegistration.m in Sources */,
+				12E6850146A91AAC2F577E303C92F2BE /* FChildrenNode.m in Sources */,
+				69215A538DC2D0C63D902386396DD01B /* FClock.m in Sources */,
+				BA74BCC247A332D62E9F4F526DD3AF74 /* FCompoundHash.m in Sources */,
+				0BE233C086CC52AD5AF3C60FAE6469FA /* FCompoundWrite.m in Sources */,
+				3FF631A520F4043CD8D0D73FFDF6E6D2 /* FConnection.m in Sources */,
+				B0F0D12783EB16B3BFA974F22E7B45A0 /* FConstants.m in Sources */,
+				8B71203F31B015EBC0B1C0AA4E3BE6B4 /* FDataEvent.m in Sources */,
+				51253338634F2DC235FBF50C5287CFA1 /* FEmptyNode.m in Sources */,
+				3B2EA6576D643BBC558FEFE759AF6EF7 /* FEventEmitter.m in Sources */,
+				FC1055A6FE1C40201E17894C719C7711 /* FEventGenerator.m in Sources */,
+				782B1110A0064AD138DDA2EC29CF8639 /* FEventRaiser.m in Sources */,
+				29293C0B7EF1131FF50E44223925F335 /* FImmutableSortedDictionary.m in Sources */,
+				9468A2F64EEACCF80FE22F2031F880A7 /* FImmutableSortedSet.m in Sources */,
+				B9EA342415D571AA38FA90693834A942 /* FImmutableTree.m in Sources */,
+				B00007797AFE365A821BF05BFC3E7A80 /* FIndex.m in Sources */,
+				FB373A1ECDAD938DA24E762E3D8E3119 /* FIndexedFilter.m in Sources */,
+				8C531C738F8BEE944F71D35CA465FD82 /* FIndexedNode.m in Sources */,
+				4A25D82FC22BF06347E00E2005BB2311 /* FIRDatabase.m in Sources */,
+				098E89292781B44A6B82ADB98599A241 /* FIRDatabaseComponent.m in Sources */,
+				F98D69921A67B5E561C60DD75763243C /* FIRDatabaseConfig.m in Sources */,
+				86C46F662046F94DA3916CFEA19A7703 /* FIRDatabaseConnectionContextProvider.m in Sources */,
+				816FB7A366C6DADEF4FC4F68C59376B4 /* FIRDatabaseQuery.m in Sources */,
+				85F20486E5E5D7C1B4DE041F028714F8 /* FIRDatabaseReference.m in Sources */,
+				B2AF66AABC93865F4A83F6E83D4C54AD /* FIRDataSnapshot.m in Sources */,
+				50DA683CB1BC40370F78DBF9B73E62AF /* FirebaseDatabase-dummy.m in Sources */,
+				BEEBDFFD59A6527C7620548CB8C2E412 /* FIRMutableData.m in Sources */,
+				257FCDA4FE0414BB6830386402957E24 /* FIRRetryHelper.m in Sources */,
+				7EC3B8233D44FA09268CD40A231D40AE /* FIRServerValue.m in Sources */,
+				17C370D18EF22C6FFB2378A0A7A8317C /* FIRTransactionResult.m in Sources */,
+				43C2C89F0848B1E223388BEB37C3A537 /* FKeepSyncedEventRegistration.m in Sources */,
+				08A984051E548B4C265DE728E84A9985 /* FKeyIndex.m in Sources */,
+				AF508FA1BCE26E93D4661D4621E07684 /* FLeafNode.m in Sources */,
+				1AFC021357D93168DD8094A0FCBF9591 /* FLevelDBStorageEngine.m in Sources */,
+				3BA9B226DD33832041C4D11C2501731B /* FLimitedFilter.m in Sources */,
+				70AC2CC9B843302B863EAE95D917876F /* FListenComplete.m in Sources */,
+				81D9A79EC241CAD9CB97AAC16CCE09A4 /* FListenProvider.m in Sources */,
+				2E4B29C956505AFF59160F336183AA24 /* FLLRBEmptyNode.m in Sources */,
+				FC83200481310EF1894C8140ED5B64B7 /* FLLRBValueNode.m in Sources */,
+				D2E3C6683D00D3C1E756A93816ED8CE2 /* FMaxNode.m in Sources */,
+				CABA8170007D16AF214D6BCC7A6FA359 /* FMerge.m in Sources */,
+				ED508731CEC951D9D963EE8108E429F6 /* FNamedNode.m in Sources */,
+				D183C49AC7C65ED0CD8A6F149C11FC1A /* FNextPushId.m in Sources */,
+				E0F237A94BD254B2F93F0D8810522BE5 /* FOperationSource.m in Sources */,
+				5457D5A83F2B9FB3E1BFC3DEA8839932 /* FOverwrite.m in Sources */,
+				7F0167752C14C59A9B538F950C13F520 /* FParsedUrl.m in Sources */,
+				2A40B0B88747890EAC17C9D49ABB9EF4 /* FPath.m in Sources */,
+				DC412AE5865CD4B352174EAAD87AEA95 /* FPathIndex.m in Sources */,
+				247ACCD30136916EAA22A20A8FF6B17A /* FPendingPut.m in Sources */,
+				01E24908CEF05054739C02BABF515D22 /* FPersistenceManager.m in Sources */,
+				971D134228F486DBE826C388AE7C8E29 /* FPersistentConnection.m in Sources */,
+				5D650A0B6346EE2F2DD000067874D1AC /* FPriorityIndex.m in Sources */,
+				821E297E749B605D9D0266F3EC78C621 /* FPruneForest.m in Sources */,
+				D79EFDC8367B82B92AB07B04C041E25E /* FQueryParams.m in Sources */,
+				ED3C20EEF5E6C23326DD99B305C2859E /* FQuerySpec.m in Sources */,
+				C33F15C2B9DD755538AF5D0165404436 /* FRangedFilter.m in Sources */,
+				5827759AE051D10781A35892CB31B6D4 /* FRangeMerge.m in Sources */,
+				B415EC4E10247ECDE71D70385BBC0C8E /* FRepo.m in Sources */,
+				BE9CEBAC8B070E1AC04CF16C15FF7B12 /* FRepoInfo.m in Sources */,
+				6CF756AECFFC286D89183BF7D358E8A3 /* FRepoManager.m in Sources */,
+				9D7E7EB6EA06FAD127204AD1880879B6 /* FServerValues.m in Sources */,
+				DDBF00A2FFA4EC6562795DD15A3AEE95 /* FSnapshotHolder.m in Sources */,
+				ADED0569804CA8A69D20E30E432D4087 /* FSnapshotUtilities.m in Sources */,
+				91C657BFB1456FF6B43A6288B025258D /* FSparseSnapshotTree.m in Sources */,
+				3A1DCD2BA3F337ED97EB802F81CBB6D8 /* FSRWebSocket.m in Sources */,
+				5CF3E27F5F71D3B1DE876928AB74E006 /* FStringUtilities.m in Sources */,
+				2FB546402A83EC714A1935E8326953EF /* FSyncPoint.m in Sources */,
+				3497354C91D9091FC9F511B1032CE27B /* FSyncTree.m in Sources */,
+				BD79032EFC26A19D0C88ECF6D79C7A26 /* FTrackedQuery.m in Sources */,
+				712AB7D0C3523EBDD505477CDED1D531 /* FTrackedQueryManager.m in Sources */,
+				6D2814301698744F1715FDFFEA990951 /* FTransformedEnumerator.m in Sources */,
+				E2F8A8BC93CEA8831B221115AC2D1CA0 /* FTree.m in Sources */,
+				C78BEF7EE5FEEC6B2B6CADCCFADB6BFC /* FTreeNode.m in Sources */,
+				EE079C0E4CD20CF2C8C4CD84F60583CA /* FTreeSortedDictionary.m in Sources */,
+				21B3791D928A92B5B19F192FF713AE13 /* FTreeSortedDictionaryEnumerator.m in Sources */,
+				0929C365EB839A401BBEEE7C38F50813 /* FTupleBoolBlock.m in Sources */,
+				94C337EF574524A2FCE23865BA92D9EC /* FTupleCallbackStatus.m in Sources */,
+				CEB328F90AE932E91820262C8A90A8DC /* FTupleFirebase.m in Sources */,
+				17E47E79CA3EEB3B79897DFDA00411BF /* FTupleNodePath.m in Sources */,
+				52379D3DE26CC3719C1231EB094DCC72 /* FTupleObjectNode.m in Sources */,
+				94B09EEB53E2780860162E7EDF64230C /* FTupleObjects.m in Sources */,
+				0038D093407B0EDF1762436F1C782925 /* FTupleOnDisconnect.m in Sources */,
+				1AD563D19F7763020E36DA5589EBF3E5 /* FTuplePathValue.m in Sources */,
+				7342E5FE2AE0CF5A6E5C4B59126BD342 /* FTupleRemovedQueriesEvents.m in Sources */,
+				0B6C3F306C27741F59F1223F7A80C8D4 /* FTupleSetIdPath.m in Sources */,
+				FB8AEF1E29400FF866E9E037F2B29061 /* FTupleStringNode.m in Sources */,
+				464EB393DE0C9A349DCED81482545AA2 /* FTupleTransaction.m in Sources */,
+				5C1A4BA00F9B1193649E4D0B2B2ECFA0 /* FTupleTSN.m in Sources */,
+				5495F61815063A7A2062A1C279817ED4 /* FTupleUserCallback.m in Sources */,
+				074BEBDAADDE68C99E48B192DDC5C782 /* FUtilities.m in Sources */,
+				5019BF4D61041C4369ACF6771B15F0C6 /* FValidation.m in Sources */,
+				5157B2AAFAF77F8979D8DA6DE725996D /* FValueEventRegistration.m in Sources */,
+				02BDDEC2A82DE9CF75492DF559F8B102 /* FValueIndex.m in Sources */,
+				940DB505E161F68DEF080609D414AE83 /* FView.m in Sources */,
+				2107894B486E8208E48BA77F0E5D7E80 /* FViewCache.m in Sources */,
+				6E4D497B2AA1CDA7F541570E66F00937 /* FViewProcessor.m in Sources */,
+				44624A35DEC85C11ACC0F6AD1A29B34B /* FViewProcessorResult.m in Sources */,
+				2FD73BFD0AF6FAA2D19292578043595C /* FWebSocketConnection.m in Sources */,
+				DDD8566E5EF67F2816F0A834DD595B9E /* FWriteRecord.m in Sources */,
+				EF0DB4E043056F671D4603CE8F455EE9 /* FWriteTree.m in Sources */,
+				8687EF3A3AF1D70D8CCD856BD7F991CC /* FWriteTreeRef.m in Sources */,
+				451250592066179E542D800B29748297 /* NSData+SRB64Additions.m in Sources */,
+				07A0FEB7F9E6A12AE196517CEC2368AC /* ServerTimestamp.swift in Sources */,
+				9FD110A55A0065A7D054B9D4979C1099 /* SPMSwiftHeaderWorkaround.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		043CA164563EBE78BE1CD7AC3FF1671C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseCore;
+			targetProxy = 856E55419DB9CE2F3C7C5077A8C73FBD /* PBXContainerItemProxy */;
+		};
+		3117A7BB22888A15C9553424C818DC3E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = GoogleUtilities;
+			targetProxy = 9E4FAF830F66FD7752F2573ED9BB7E01 /* PBXContainerItemProxy */;
+		};
+		665E4160FA351BDB148E133CB4E19347 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseSharedSwift;
+			targetProxy = 76551C0B25FCCFED7D871313786C4248 /* PBXContainerItemProxy */;
+		};
+		72884BE351FAA13C8177623B57FC1EE9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FirebaseAppCheckInterop;
+			targetProxy = F309C934467B18F3F59D5139AEC430E1 /* PBXContainerItemProxy */;
+		};
+		F7B1B368774830A29D4DD93317E9F967 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "leveldb-library";
+			targetProxy = 33CD835356A0159EF9092B4241DEBF8B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		6C93EE2653F1A6A4B13F68E7AF3CADC1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DB41BEC8923D4D5E9AD4F99F963D7721 /* FirebaseDatabase.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseDatabase/FirebaseDatabase-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseDatabase/FirebaseDatabase.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseDatabase;
+				PRODUCT_NAME = FirebaseDatabase;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		6DAF756A000EB1B04CE26649D93AF376 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		75D56B394A8FF1546E41290A305B5B44 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		C604ECA33B43F58B000E81A30E28E88D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 05E2ACF172ED99D59E734330A88733EB /* FirebaseDatabase.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Target Support Files/FirebaseDatabase/FirebaseDatabase-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/FirebaseDatabase/FirebaseDatabase.modulemap";
+				PRODUCT_MODULE_NAME = FirebaseDatabase;
+				PRODUCT_NAME = FirebaseDatabase;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F1F4E24006AAF28038896703E33FA4F9 /* Build configuration list for PBXProject "FirebaseDatabase" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6DAF756A000EB1B04CE26649D93AF376 /* Debug */,
+				75D56B394A8FF1546E41290A305B5B44 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F8616B377C3264F37ED676C64CB77B28 /* Build configuration list for PBXNativeTarget "FirebaseDatabase" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C604ECA33B43F58B000E81A30E28E88D /* Debug */,
+				6C93EE2653F1A6A4B13F68E7AF3CADC1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C3EBF3729E4EE5D07767B2BB6C814A86 /* Project object */;
+}

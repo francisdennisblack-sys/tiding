@@ -7,6 +7,7 @@ import PhotosUI
 import AVFoundation
 import UniformTypeIdentifiers
 import LinkPresentation
+import Vision
 import UIKit
 import LocalAuthentication
 import UserNotifications
@@ -886,6 +887,59 @@ private struct NearbyPlaceRecord: Decodable {
     let category: String
 }
 
+private struct OSMNominatimAddress: Decodable {
+    let house_number: String?
+    let road: String?
+    let neighbourhood: String?
+    let suburb: String?
+    let district: String?
+    let borough: String?
+    let city: String?
+    let town: String?
+    let village: String?
+    let hamlet: String?
+    let county: String?
+    let state: String?
+    let country: String?
+}
+
+private struct OSMNominatimSearchResult: Decodable {
+    let place_id: Int?
+    let osm_type: String?
+    let osm_id: Int?
+    let lat: String
+    let lon: String
+    let display_name: String
+    let name: String?
+    let category: String?
+    let `class`: String?
+    let type: String?
+    let address: OSMNominatimAddress?
+}
+
+private struct OSMNominatimReverseResult: Decodable {
+    let display_name: String?
+    let address: OSMNominatimAddress?
+}
+
+private struct OSMOverpassResponse: Decodable {
+    let elements: [Element]
+
+    struct Element: Decodable {
+        let id: Int64
+        let type: String
+        let lat: Double?
+        let lon: Double?
+        let center: Center?
+        let tags: [String: String]?
+
+        struct Center: Decodable {
+            let lat: Double
+            let lon: Double
+        }
+    }
+}
+
 public enum NearbyPlaceLoader {
     static let defaultCenter = CLLocationCoordinate2D(latitude: 40.7608, longitude: -111.8910)
     private static var cachedBundledPlaces: [NearbyPlace]?
@@ -1335,6 +1389,12 @@ struct ContentView: View {
         var peakEngagementScore: Double
     }
 
+    private struct PendingUnsendTarget {
+        let threadID: Int
+        let localMessageID: Int
+        let remoteMessageID: String?
+    }
+
     private struct SavedAccountCredential: Codable, Identifiable {
         let email: String
         var username: String
@@ -1464,6 +1524,7 @@ struct ContentView: View {
     private let backupPhoneNumberDefaultsKey = "spot_backup_phone_number"
     private let accountUsernameDefaultsKey = "spot_account_username"
     private let accountUsernameAliasesDefaultsKey = "spot_account_username_aliases"
+    private let accountVerifiedUnderlineDefaultsKey = "spot_account_verified_underline_enabled"
     private let profileNameDefaultsKey = "spot_profile_name"
     private let accountEmailDefaultsKey = "spot_account_email"
     private let accountPasswordDefaultsKey = "spot_account_password"
@@ -1497,6 +1558,7 @@ struct ContentView: View {
     private static let anonymousDisplayName = "Anonymous"
     private static let anonymousHandle = "anonymous"
     private static let anonymousTagMarker = "spot:anonymous"
+    private static let ownedAnonymousPostIDsDefaultsKey = "spot_owned_anonymous_post_ids"
     private static let boostedTagMarker = "spot:boosted"
     private static let ageTagPrefix = "spot:age:"
     private static let adminPinnedPostsByRealmDefaultsKey = "spot_admin_pinned_posts_by_realm"
@@ -1536,6 +1598,7 @@ struct ContentView: View {
     @State private var postLocation = "Tokyo, Japan"
     @State private var selectedPostType = "Photo"
     @State private var currentScreen: Screen = .home
+    @State private var postComposerReturnScreen: Screen = .contentTypePicker
     @State private var locationContext: LocationContext = .feed
 
     @State private var draftTitle = ""
@@ -1564,6 +1627,7 @@ struct ContentView: View {
     @State private var draftPhotoImage: UIImage? = nil
     @State private var draftPhotoCropScale: CGFloat = 1.0
     @State private var draftPhotoCropOffset: CGSize = .zero
+    @State private var isShowingPostCameraCapture = false
     @State private var draftVideoItem: PhotosPickerItem? = nil
     @State private var draftVideoURL: URL? = nil
     @State private var isPreparingVideoSelection = false
@@ -1585,6 +1649,7 @@ struct ContentView: View {
     @State private var usernameAvailabilityIsAvailable = false
     @State private var usernameAvailabilityMessage = "Not checked"
     @State private var accountUsername = UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
+    @State private var isVerifiedUsernameUnderlined = UserDefaults.standard.bool(forKey: "spot_account_verified_underline_enabled")
     @State private var signInUsername = UserDefaults.standard.string(forKey: "spot_account_username") ?? ""
     @State private var showPasswordResetSpamNotice = false
     @State private var accountEmail = UserDefaults.standard.string(forKey: "spot_account_email") ?? ""
@@ -1605,6 +1670,7 @@ struct ContentView: View {
     @State private var postDetailAgeValue = UserDefaults.standard.string(forKey: Self.postDetailAgeValueDefaultsKey) ?? ""
     @State private var postDetailPositionValue = UserDefaults.standard.string(forKey: Self.postDetailPositionValueDefaultsKey) ?? ""
     @State private var positionSearchQuery = ""
+    @State private var shuffledPositionSuggestions: [String] = []
     @State private var isPositionExpanded = false
     @State private var draftIsAnonymous = UserDefaults.standard.bool(forKey: "spot_anonymous_mode_enabled")
     @State private var locationPostCooldownHistory = Self.loadLocationPostCooldownHistory()
@@ -1725,6 +1791,87 @@ struct ContentView: View {
     @State private var profilePhotoCropScale: CGFloat = 1.0
     @State private var profilePhotoCropOffset: CGSize = .zero
     @State private var activeSettingsEditor: SettingsEditor? = nil
+    @State private var isOwnProfileCompactMode = false
+    @State private var isShowingIDScanner = false
+    @State private var extractedFirstName = ""
+    @State private var extractedLastName = ""
+    @State private var generatedVerifiedUsername = ""
+    @State private var isProcessingID = false
+    @State private var idScanError = ""
+    @State private var idVerificationStep: IDVerificationStep = .intro
+    @State private var hasAutoOpenedIDScanner = false
+    @State private var didCaptureIDImageFromScanner = false
+    @State private var idVerificationNameConfidence: Double = 0
+    @State private var idVerificationDocumentFamilyHint = "unknown"
+    @State private var idVerificationCountryHint = ""
+    @State private var idVerificationCountryPriority = "standard"
+    @State private var idVerificationParseRoute = "heuristic"
+    @State private var idVerificationFraudSignals: [String] = []
+    @State private var lastStableIDTextSignature = ""
+    @State private var lastStableIDFirstName = ""
+    @State private var lastStableIDLastName = ""
+    @State private var lastStableIDCountryHint = ""
+    @State private var lastStableIDDocumentFamily = ""
+
+    private let minimumIDNameConfidence: Double = 0.60
+    private let highPriorityIDCountries: Set<String> = [
+        "AT", "AU", "BE", "CA", "CH", "DE", "DK", "ES", "FI", "FR", "GB", "IE", "IT", "JP", "KR", "LU", "NL", "NO", "NZ", "PT", "SE", "SG", "US"
+    ]
+    private let mediumPriorityIDCountries: Set<String> = [
+        "BG", "BR", "CY", "CZ", "EE", "GR", "HR", "HU", "ID", "IL", "IN", "LT", "LV", "MT", "MX", "MY", "PH", "PL", "RO", "SI", "SK", "TH", "TR", "ZA"
+    ]
+    private let idVerificationTelemetryDefaultsKey = "spot_id_verification_country_tier_telemetry_v1"
+    private let idVerificationAutoPromotedDefaultsKey = "spot_id_verification_auto_promoted_countries_v1"
+    private let idVerificationAutoPromotionMinScans = 30
+    private let idVerificationAutoPromotionMinAcceptanceRate: Double = 0.84
+    private let idVerificationAutoPromotionMinConfidenceP50: Double = 0.80
+    private let idVerificationAutoPromotionMaxFraudRejectRate: Double = 0.08
+    private let idVerificationAutoPromotionMaxLowConfidenceRejectRate: Double = 0.14
+    private let idVerificationSoftAcceptLowerBound: Double = 0.58
+    private let idVerificationSoftAcceptUpperBound: Double = 0.60
+    private let idVerificationSoftAcceptSimilarityThreshold: Double = 0.90
+
+    enum IDVerificationStep {
+        case intro
+        case scanning
+        case result
+    }
+
+    private struct IDVerificationTelemetryBucket: Codable {
+        var countryISO2: String
+        var tier: String
+        var scans: Int
+        var accepted: Int
+        var rejectedNoName: Int
+        var rejectedLowConfidence: Int
+        var rejectedFraud: Int
+        var ocrFailures: Int
+        var rescuedByStabilization: Int
+        // Bins: <0.40, 0.40-0.59, 0.60-0.71, 0.72-0.84, >=0.85
+        var confidenceBins: [Int]
+
+        init(countryISO2: String, tier: String) {
+            self.countryISO2 = countryISO2
+            self.tier = tier
+            self.scans = 0
+            self.accepted = 0
+            self.rejectedNoName = 0
+            self.rejectedLowConfidence = 0
+            self.rejectedFraud = 0
+            self.ocrFailures = 0
+            self.rescuedByStabilization = 0
+            self.confidenceBins = [0, 0, 0, 0, 0]
+        }
+    }
+
+    private enum IDVerificationOutcome {
+        case accepted
+        case rejectedNoName
+        case rejectedLowConfidence
+        case rejectedFraud
+        case ocrFailure
+    }
+
     @State private var blockedUsers: [String] = (UserDefaults.standard.array(forKey: "spot_blocked_users") as? [String]) ?? []
     @State private var blockedUserSearchText = ""
     @State private var remainingBoosts: Int = UserDefaults.standard.bool(forKey: "spot_account_signed_in") ? UserDefaults.standard.integer(forKey: "spot_remaining_boosts") : 0
@@ -1807,8 +1954,13 @@ struct ContentView: View {
     @State private var inFlightAvatarPrefetchURLs: Set<String> = []
     @State private var selectedChatThread: DirectMessageThread? = nil
     @State private var pendingSharePost: MockPost? = nil
+    @State private var pendingRepostPost: MockPost? = nil
+    @State private var isShareFlowActive = false
+    @State private var chatDetailReturnScreen: Screen = .messages
     @State private var chatComposerText = ""
     @State private var chatMessages: [Int: [ChatMessage]] = [:]
+    @State private var pendingUnsendTarget: PendingUnsendTarget? = nil
+    @State private var isShowingUnsendOptions = false
     @State private var fakeUserProfiles: [FakeUserProfile] = []
 
     @State private var messages: [DirectMessageThread] = []
@@ -1828,7 +1980,10 @@ struct ContentView: View {
     @State private var isSubmittingPost = false
     @State private var hasRequestedLocationPermission = false
     @State private var nearbyPlaces: [NearbyPlace] = []
+    @State private var nearbyAreaLabel = ""
     @State private var isLoadingNearbyPlaces = false
+    @State private var nearbyPlacesLoadTask: Task<Void, Never>? = nil
+    @State private var nearbyPlacesLoadRequestID: Int = 0
     @State private var isBulkDeletingPosts = false
     @State private var platformBulkDeleteError = ""
     @State private var messagesTab: MessagesTab = .incoming
@@ -1895,6 +2050,9 @@ struct ContentView: View {
 
     @State private var userProfileReturnScreen: Screen? = nil
     @State private var userProfileReturnSettingsEditor: SettingsEditor? = nil
+    @State private var ownProfileReturnScreen: Screen? = nil
+    @State private var settingsReturnScreen: Screen? = nil
+    @State private var settingsReturnOwnProfileCompactMode = false
     @State private var isCreatingPostFromMap = false
     @State private var mapFocusedPostID: Int? = nil
     @State private var mapDraftCoordinate: CLLocationCoordinate2D? = nil
@@ -2149,6 +2307,7 @@ struct ContentView: View {
         case boostNextPosts
         case bulkDeletePosts
         case positionPicker
+        case verifications
 
         var id: String { rawValue }
     }
@@ -2259,7 +2418,7 @@ struct ContentView: View {
 
     let locationSuggestions: [String] = []
 
-    let postTypes = ["Text", "Photo", "Video", "Poll", "Audio", "Link", "Guide", "For Sale"]
+    let postTypes = ["Text", "Photo", "Camera", "Poll", "Audio", "Link", "Guide", "For Sale"]
 
     private static func seedPosts() -> [MockPost] {
         // Real posts will populate from the app's own data source.
@@ -2268,12 +2427,12 @@ struct ContentView: View {
     }
 
     init() {
-        let defaultLocation = "Metric"
+        let defaultLocation = "Nearby"
         let persistedFeed = UserDefaults.standard.string(forKey: "spot_feed_location") ?? defaultLocation
         let persistedVideo = UserDefaults.standard.string(forKey: "spot_video_location") ?? defaultLocation
         let sanitizedPersistedFeed = (Self.isMapAreaRealm(persistedFeed) || Self.isDeprecatedLocationOption(persistedFeed)) ? defaultLocation : persistedFeed
         let sanitizedPersistedVideo = (Self.isMapAreaRealm(persistedVideo) || Self.isDeprecatedLocationOption(persistedVideo)) ? defaultLocation : persistedVideo
-        let persistedPost = UserDefaults.standard.string(forKey: "spot_post_location") ?? "Metric"
+        let persistedPost = UserDefaults.standard.string(forKey: "spot_post_location") ?? defaultLocation
         let persistedSavedLocations = Self.deduplicatedLocationNames(
             UserDefaults.standard.array(forKey: "spot_saved_locations") as? [String] ?? [],
             limit: 10
@@ -2383,7 +2542,7 @@ struct ContentView: View {
                         let feedBodyMinHeight = max(320, container.size.height - 300)
                         let topCapHeight = container.safeAreaInsets.top
                         let feedTopInset = max(0, container.safeAreaInsets.top - 42)
-                        let homeTopFade = Color.black
+                        let homeTopFade = Color.white
 
                         ZStack(alignment: .bottom) {
                             Color.white
@@ -2410,7 +2569,7 @@ struct ContentView: View {
                                         ScrollView {
                                             VStack(alignment: .leading, spacing: 0) {
                                                 feedSection
-                                                    .padding(.top, feedTopInset)
+                                                    .padding(.top, isOwnProfileCompactMode ? 4 : feedTopInset)
                                             }
                                             .frame(maxWidth: .infinity, alignment: .topLeading)
                                             .frame(minHeight: feedBodyMinHeight, alignment: .top)
@@ -2543,14 +2702,14 @@ struct ContentView: View {
         }
         .onChange(of: fromLocation) { _, newValue in
             guard Self.isMapAreaRealm(newValue) || Self.isDeprecatedLocationOption(newValue) else { return }
-            fromLocation = "Metric"
+            fromLocation = "Nearby"
             mapAreaCenterCoordinate = nil
             mapAreaSourcePostID = nil
             showFollowingOnly = false
         }
         .onChange(of: videoLocation) { _, newValue in
             guard Self.isMapAreaRealm(newValue) || Self.isDeprecatedLocationOption(newValue) else { return }
-            videoLocation = "Metric"
+            videoLocation = "Nearby"
             mapAreaCenterCoordinate = nil
             mapAreaSourcePostID = nil
             showFollowingVideoOnly = false
@@ -2648,20 +2807,20 @@ struct ContentView: View {
 
         if currentScreen == .home {
             guard !hasVisibleListingPostInFeed else { return }
-            isFeedSearchFieldFocused = false
-            selectedUserProfile = nil
-            userProfileReturnScreen = nil
-            userProfileReturnSettingsEditor = nil
-            currentScreen = profileButtonDestinationScreen
+            if profileButtonDestinationScreen == .profile {
+                openOwnProfileScreen(from: .home)
+            } else {
+                openSettingsScreen(from: .home)
+            }
             return
         }
 
         if currentScreen == .contentTypePicker {
-            isFeedSearchFieldFocused = false
-            selectedUserProfile = nil
-            userProfileReturnScreen = nil
-            userProfileReturnSettingsEditor = nil
-            currentScreen = profileButtonDestinationScreen
+            if profileButtonDestinationScreen == .profile {
+                openOwnProfileScreen(from: .contentTypePicker)
+            } else {
+                openSettingsScreen(from: .contentTypePicker)
+            }
             return
         }
 
@@ -2676,73 +2835,39 @@ struct ContentView: View {
 
     private var feedModeToggle: some View {
         let isVideoFeed = currentScreen == .locationFeed
-        let activeFollowFilter = isVideoFeed ? showFollowingVideoOnly : showFollowingOnly
         let mediaRowControlHeight: CGFloat = 52
         let mediaRowHeight: CGFloat = 58
 
         return GeometryReader { geometry in
-            let totalWidth = max(geometry.size.width, 1)
-
             HStack(spacing: 0) {
                 // Left: DM button
-                Button {
-                    isFeedSearchFieldFocused = false
-                    resetUnreadDirectMessageIndicator()
-                    currentScreen = .messages
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "message.fill")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
-
-                        if unreadDirectMessageCount > 0 {
-                            Text(unreadDirectMessageCount > 99 ? "99+" : "\(unreadDirectMessageCount)")
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.20))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.black, lineWidth: 1)
-                    )
-                    .scaleEffect(unreadBadgeScale)
-                }
-                .buttonStyle(.plain)
-
-                Spacer(minLength: 0)
-
-                // Center area: Nearest POI button + Location Picker Chevron
-                HStack(spacing: 8) {
+                HStack(spacing: 0) {
                     Button {
-                        recenterFeedToNearestPOI()
+                        isFeedSearchFieldFocused = false
+                        resetUnreadDirectMessageIndicator()
+                        currentScreen = .messages
                     } label: {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundStyle(.white)
-                            .padding(5.5)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.65, green: 0.25, blue: 0.98),
-                                        Color(red: 0.92, green: 0.35, blue: 0.82)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                            )
-                            .shadow(color: Color.purple.opacity(0.4), radius: 6, x: 0, y: 2)
+                        HStack(spacing: 5) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundStyle(.black)
+
+                            if unreadDirectMessageCount > 0 {
+                                Text(unreadDirectMessageCount > 99 ? "99+" : "\(unreadDirectMessageCount)")
+                                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.black)
+                            }
+                        }
+                        .padding(.horizontal, 2)
+                        .padding(.vertical, 2)
+                        .scaleEffect(unreadBadgeScale)
                     }
                     .buttonStyle(.plain)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Center: Location Picker Chevron
+                HStack(spacing: 0) {
                     Button {
                         isFeedSearchFieldFocused = false
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -2764,42 +2889,58 @@ struct ContentView: View {
                         feedContentSearchText = ""
                     } label: {
                         HStack(spacing: 0) {
-                            flatChevronDownIcon(size: 68, thickness: 6.5, color: Color(white: 0.93))
+                            flatChevronDownIcon(size: 68, thickness: 6.5, color: Color.black)
                         }
                         .frame(height: mediaRowControlHeight)
                         .contentShape(Rectangle())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.black)
                     }
                     .buttonStyle(.plain)
                 }
-
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .center)
 
                 // Right: Profile button
-                Button {
-                    selectedUserProfile = nil
-                    userProfileReturnScreen = nil
-                    userProfileReturnSettingsEditor = nil
-                    isFeedSearchFieldFocused = false
-                    currentScreen = profileButtonDestinationScreen
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                HStack(spacing: 0) {
+                    if profileButtonDestinationScreen == .profile && isOwnProfileCompactMode {
+                        Button {
+                            closeOwnProfileScreen()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(.black)
+                                .frame(width: 34, height: 38)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            openSettingsScreen()
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundStyle(.black)
+                                .frame(width: 38, height: 38)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            if profileButtonDestinationScreen == .profile {
+                                openOwnProfileScreen()
+                            } else {
+                                openSettingsScreen()
+                            }
+                        } label: {
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundStyle(.black)
+                                .frame(width: 38, height: 38)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.20))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.black, lineWidth: 1)
-                    )
                 }
-                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, 4)
         }
         .frame(height: mediaRowHeight)
         .padding(.horizontal, 2)
@@ -3019,16 +3160,69 @@ struct ContentView: View {
     }
 
     private var floatingHomeActions: some View {
-        let mapIsSelected = currentScreen == .mapExplorer
         let needsExtraTopGap = currentScreen == .contentTypePicker || currentScreen == .profile || currentScreen == .mapExplorer
 
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
+
+            if shouldShowFloatingPostLauncher {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    floatingPostLauncherButton
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 18)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .padding(.top, needsExtraTopGap ? 5 : 0)
         .padding(.bottom, 0)
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var shouldShowFloatingPostLauncher: Bool {
+        switch currentScreen {
+        case .home, .profile:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private var floatingPostLauncherButton: some View {
+        Button {
+            openPostTypePickerFromFloatingButton()
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 38, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 86, height: 86)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func openPostTypePickerFromFloatingButton() {
+        postComposerReturnScreen = currentScreen
+        isCreatingPostFromMap = false
+        mapDraftCoordinate = nil
+        isFeedSearchFieldFocused = false
+        selectedPostType = "Text"
+        resetDraftFor("Text")
+        currentScreen = .composer
+    }
+
+    private func activeFeedLocationForPostComposer() -> String {
+        let sourceValue: String
+        switch postComposerReturnScreen {
+        case .locationFeed:
+            sourceValue = videoLocation
+        default:
+            sourceValue = fromLocation
+        }
+
+        let cleaned = sourceValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "Nearby" : cleaned
     }
 
     private func homeActionTabButton(
@@ -3079,10 +3273,10 @@ struct ContentView: View {
         shouldAutoFocusNearestPostOnMapOpen = true
 
         if Self.isMapAreaRealm(fromLocation) {
-            fromLocation = "Metric"
+            fromLocation = "Nearby"
         }
         if Self.isMapAreaRealm(videoLocation) {
-            videoLocation = "Metric"
+            videoLocation = "Nearby"
         }
         showFollowingOnly = false
         showFollowingVideoOnly = false
@@ -3103,7 +3297,7 @@ struct ContentView: View {
 
     private func activateVideoMapAreaMode() {
         showFollowingVideoOnly = true
-        videoLocation = "Metric"
+        videoLocation = "Nearby"
         resetMapAreaFeedState()
         mapAreaCenterCoordinate = Self.resolvedMapAreaCenterCoordinate(
             nil,
@@ -3118,7 +3312,29 @@ struct ContentView: View {
     }
 
     private var feedSection: some View {
-        let activeLocation = fromLocation.isEmpty ? "Tokyo, Japan" : fromLocation
+        Group {
+            if isOwnProfileCompactMode {
+                let resolvedCurrentUserID = currentUserID.isEmpty ? (try? FirebaseSpotService.shared.currentUserID()) ?? "" : currentUserID
+                let yourPosts = newestFirstProfilePosts(posts.filter {
+                    let include = Self.shouldIncludePostInViewedProfile(
+                        $0,
+                        viewedUsername: profileUsername,
+                        viewedUserID: resolvedCurrentUserID,
+                        signedInUsername: profileUsername,
+                        currentUserID: resolvedCurrentUserID,
+                        isAnonymousModeActive: isAnonymousModeEnabled
+                    )
+                    return include && !isPostReported($0)
+                })
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(yourPosts, id: \.id) { post in
+                        ownProfilePostCard(for: post)
+                    }
+                }
+            } else {
+
+        let activeLocation = fromLocation.isEmpty ? "Nearby" : fromLocation
         let isSearchFeedActive = isMainSearchFeedActive
         let isFriendsFeed = isFriendsRealm(activeLocation)
         let isFollowingFeed = isFollowingRealm(activeLocation)
@@ -3183,7 +3399,7 @@ struct ContentView: View {
         let effectiveLoadedCount = max(feedLoadedCount, minimumLoadedCountForRestore)
         let loadedPosts = Array(sortedFeedPosts.prefix(effectiveLoadedCount))
 
-        return VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(loadedPosts.enumerated()), id: \.element.id) { index, post in
                 PostCardView(
                     post: Binding(
@@ -3202,7 +3418,13 @@ struct ContentView: View {
                     currentUserProfilePhotoImage: displayProfilePhotoImage,
                     isReported: isPostReported(post),
                     onSend: {
+                        beginRepostFlow(for: post)
+                    },
+                    onShare: {
                         sharePostToFriends(post)
+                    },
+                    onLike: { likedPost in
+                        toggleLikedState(for: likedPost)
                     },
                     onSave: { savedPost in
                         toggleSavedState(for: savedPost)
@@ -3299,6 +3521,8 @@ struct ContentView: View {
                 includeVideoResults: true,
                 force: true
             )
+        }
+            }
         }
     }
 
@@ -3667,8 +3891,11 @@ struct ContentView: View {
             currentUsername: profileUsername
         )
         if isOwnTappedProfile {
-            selectedUserProfile = nil
-            currentScreen = profileButtonDestinationScreen
+            if profileButtonDestinationScreen == .profile {
+                openOwnProfileScreen()
+            } else {
+                openSettingsScreen()
+            }
             return
         }
 
@@ -3755,6 +3982,69 @@ struct ContentView: View {
         if destination == .settings {
             activeSettingsEditor = destinationSettingsEditor
         }
+    }
+
+    private func openOwnProfileScreen(from origin: Screen? = nil) {
+        let source = origin ?? currentScreen
+        let resolvedSource: Screen
+        if source == .profile {
+            resolvedSource = ownProfileReturnScreen ?? .home
+        } else if source == .home || source == .locationFeed {
+            resolvedSource = source
+        } else {
+            resolvedSource = .home
+        }
+
+        ownProfileReturnScreen = resolvedSource
+        isOwnProfileCompactMode = true
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+        isFeedSearchFieldFocused = false
+        currentScreen = .home
+    }
+
+    private func closeOwnProfileScreen() {
+        let destination = ownProfileReturnScreen ?? .home
+        ownProfileReturnScreen = nil
+        isOwnProfileCompactMode = false
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+        isFeedSearchFieldFocused = false
+        currentScreen = destination
+    }
+
+    private func openSettingsScreen(from origin: Screen? = nil) {
+        let source = origin ?? currentScreen
+        let resolvedSource = source == .settings ? (settingsReturnScreen ?? .home) : source
+        settingsReturnScreen = resolvedSource
+        settingsReturnOwnProfileCompactMode = isOwnProfileCompactMode
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+        isFeedSearchFieldFocused = false
+        currentScreen = .settings
+    }
+
+    private func closeSettingsScreen() {
+        let destination = settingsReturnScreen ?? .home
+        let restoreCompactMode = settingsReturnOwnProfileCompactMode
+        settingsReturnScreen = nil
+        settingsReturnOwnProfileCompactMode = false
+        selectedUserProfile = nil
+        userProfileReturnScreen = nil
+        userProfileReturnSettingsEditor = nil
+        activeSettingsEditor = nil
+        isFeedSearchFieldFocused = false
+
+        if destination == .home {
+            isOwnProfileCompactMode = restoreCompactMode
+        } else {
+            isOwnProfileCompactMode = false
+        }
+
+        currentScreen = destination
     }
 
     private func refreshSelectedUserProfileFromRecord(expectedUserID: String? = nil) async {
@@ -4123,6 +4413,7 @@ struct ContentView: View {
 
     private var settingsViewOverlayAndAlertContent: some View {
         settingsViewBaseContent
+            .background(Color.clear)
             .overlay {
                 if let editor = activeSettingsEditor {
                     settingsDetailSheet(for: editor)
@@ -4217,7 +4508,21 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    backButton(destination: resolvedSignedInState ? .profile : .home)
+                    Button {
+                        closeSettingsScreen()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                                .font(.subheadline.weight(.semibold))
+                            Text("Back")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.trailing, 12)
+                        .contentShape(Rectangle())
+                        .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
                     Spacer()
                 }
                 .padding(.horizontal, 18)
@@ -4231,7 +4536,6 @@ struct ContentView: View {
                         settingsPrimaryRowsCard
                         settingsPostDetailOptionsCard
                         settingsAdvancedRowsCard
-                        settingsAnonymousCard
                         settingsTechnicalSupportCard
                     }
                     .padding(.horizontal, 18)
@@ -4297,7 +4601,13 @@ struct ContentView: View {
                                         prefersDeleteAction: false,
                                         isReported: true,
                                         onSend: {
+                                            beginRepostFlow(for: post)
+                                        },
+                                        onShare: {
                                             sharePostToFriends(post)
+                                        },
+                                        onLike: { likedPost in
+                                            toggleLikedState(for: likedPost)
                                         },
                                         onSave: { savedPost in
                                             toggleSavedState(for: savedPost)
@@ -4396,6 +4706,14 @@ struct ContentView: View {
         if UserDefaults.standard.bool(forKey: accountSignedInDefaultsKey) {
             return true
         }
+        let persistedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? ""
+        )
+        let persistedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !persistedUsername.isEmpty && !persistedPassword.isEmpty {
+            return true
+        }
         if let authUser = Auth.auth().currentUser {
             return !authUser.isAnonymous
         }
@@ -4442,6 +4760,7 @@ struct ContentView: View {
                     Text(displayUsername(profileUsername))
                         .font(.title2.weight(.bold))
                         .foregroundStyle(usernameGoldTextColor)
+                        .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .onLongPressGesture(minimumDuration: 2.0) {
@@ -4492,29 +4811,23 @@ struct ContentView: View {
                 action: { openPasswordSettingsEditor() }
             )
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var settingsAdvancedRowsCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider().opacity(0.3)
-            settingsRow(title: "Block Users", value: "\(blockedUsers.count)", action: { activeSettingsEditor = .blockUsers })
-            Divider().opacity(0.3)
-            settingsRow(title: "Saved posts", value: "Open", action: { currentScreen = .savedPosts })
-            Divider().opacity(0.3)
-            settingsRow(title: "Location notifications", value: "\(min(savedLocations.count, 10)) saved", action: { activeSettingsEditor = .locationAlerts })
-            Divider().opacity(0.3)
             settingsRow(
-                title: "Post Notifications",
-                value: settingsPostNotificationsSummary,
-                action: { activeSettingsEditor = .postNotifications }
-            )
-            Divider().opacity(0.3)
-            settingsRow(title: "Boost Next Posts", value: "Open", action: { activeSettingsEditor = .boostNextPosts })
+                title: "Verification",
+                value: isVerifiedUsernameUnderlined ? "Underlined" : "Getunderlined",
+                isValueUnderlined: isVerifiedUsernameUnderlined,
+                action: {
+                idScanError = ""
+                idVerificationStep = .intro
+                hasAutoOpenedIDScanner = false
+                activeSettingsEditor = .verifications
+            })
+            settingsRow(title: "Block Users", value: "\(blockedUsers.count)", action: { activeSettingsEditor = .blockUsers })
+            settingsRow(title: "Saved posts", value: "Open", action: { currentScreen = .savedPosts })
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var settingsLockedSection: some View {
@@ -4907,7 +5220,7 @@ struct ContentView: View {
     private var filteredPositionPresets: [String] {
         let query = positionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if query.isEmpty {
-            return Array(Self.positionPresetCatalog.prefix(100))
+            return shuffledPositionSuggestions.isEmpty ? Array(Self.positionPresetCatalog.shuffled().prefix(100)) : shuffledPositionSuggestions
         }
         let searchTokens = query.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
         var matches: [String] = []
@@ -4940,6 +5253,35 @@ struct ContentView: View {
         return matches
     }
 
+    private func refreshShuffledPositionSuggestions() {
+        var seen = Set<String>()
+        var suggestions: [String] = []
+
+        for entry in Self.positionPresetCatalog.shuffled() {
+            let lower = entry.lowercased()
+            if seen.insert(lower).inserted {
+                suggestions.append(entry)
+                if suggestions.count >= 100 {
+                    break
+                }
+            }
+        }
+
+        if suggestions.count < 100 {
+            for poi in Self.poiPositionCatalog.shuffled() {
+                let lower = poi.name.lowercased()
+                if seen.insert(lower).inserted {
+                    suggestions.append(poi.name)
+                    if suggestions.count >= 100 {
+                        break
+                    }
+                }
+            }
+        }
+
+        shuffledPositionSuggestions = suggestions
+    }
+
     private var settingsPostDetailOptionsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
@@ -4964,8 +5306,12 @@ struct ContentView: View {
                 Button {
                     isFeedSearchFieldFocused = false
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    let willExpand = !isPositionExpanded
+                    if willExpand {
+                        refreshShuffledPositionSuggestions()
+                    }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        isPositionExpanded.toggle()
+                        isPositionExpanded = willExpand
                     }
                 } label: {
                     HStack {
@@ -5053,32 +5399,12 @@ struct ContentView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var settingsAnonymousCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                Text("Anonymous")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-
-                Spacer(minLength: 0)
-
-                Toggle("", isOn: $isAnonymousModeEnabled)
-                    .labelsHidden()
-                    .toggleStyle(SwitchToggleStyle(tint: .black))
-                    .scaleEffect(1.12)
-                    .padding(.trailing, 4)
-            }
-
-            Text("When Anonymous is on, every new post hides your username. People also cannot open your profile from those posts.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Divider().opacity(0.25)
-
             Toggle(isOn: $isAnonymousSecureFaceIDEnabled) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Secure Face ID")
@@ -5115,7 +5441,7 @@ struct ContentView: View {
                 openAnonymousDMsScreen()
             } label: {
                 HStack {
-                    Text("Anonymous DMs")
+                    Text("Anonymous Direct Messages")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     Spacer()
@@ -5135,10 +5461,9 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var anonymousMessagesView: some View {
@@ -5154,12 +5479,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Incoming")
                                     .font(anonymousMessagesTab == .incoming ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(anonymousMessagesTab == .incoming ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(anonymousMessagesTab == .incoming ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(anonymousMessagesTab == .incoming ? Color.white : Color.clear)
+                                    .fill(anonymousMessagesTab == .incoming ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5176,12 +5501,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Sent")
                                     .font(anonymousMessagesTab == .sent ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(anonymousMessagesTab == .sent ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(anonymousMessagesTab == .sent ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(anonymousMessagesTab == .sent ? Color.white : Color.clear)
+                                    .fill(anonymousMessagesTab == .sent ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5198,12 +5523,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Search users")
                                     .font(anonymousMessagesTab == .searchUsers ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(anonymousMessagesTab == .searchUsers ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(anonymousMessagesTab == .searchUsers ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(anonymousMessagesTab == .searchUsers ? Color.white : Color.clear)
+                                    .fill(anonymousMessagesTab == .searchUsers ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5214,7 +5539,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 18)
                 }
-                .background(Color.black.ignoresSafeArea(edges: .top))
+                .background(Color.white.ignoresSafeArea(edges: .top))
 
                 Spacer().frame(height: 14)
 
@@ -5266,34 +5591,7 @@ struct ContentView: View {
                                         Button {
                                             openDM(with: user, startsAnonymous: true)
                                         } label: {
-                                            HStack(alignment: .center, spacing: 10) {
-                                                Circle()
-                                                    .fill(Color.black)
-                                                    .frame(width: 34, height: 34)
-                                                    .overlay(
-                                                        Image(systemName: "theatermasks.fill")
-                                                            .font(.system(size: 14, weight: .semibold))
-                                                            .foregroundStyle(Color.white.opacity(0.95))
-                                                    )
-
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(user.name.isEmpty ? user.username : user.name)
-                                                        .font(.subheadline.weight(.semibold))
-                                                        .foregroundStyle(.primary)
-                                                    Text(displayUsername(user.username))
-                                                        .font(.caption)
-                                                        .foregroundStyle(usernameGoldTextColor)
-                                                }
-
-                                                Spacer()
-                                                Image(systemName: "arrow.up.right")
-                                                    .font(.caption.weight(.bold))
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            .padding(.vertical, 8)
-                                            .padding(.horizontal, 10)
-                                            .background(Color(.secondarySystemBackground))
-                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                            userSearchResultSummaryView(for: user)
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -5466,12 +5764,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Incoming")
                                     .font(messagesTab == .incoming ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(messagesTab == .incoming ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(messagesTab == .incoming ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(messagesTab == .incoming ? Color.white : Color.clear)
+                                    .fill(messagesTab == .incoming ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5488,12 +5786,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Sent")
                                     .font(messagesTab == .sent ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(messagesTab == .sent ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(messagesTab == .sent ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(messagesTab == .sent ? Color.white : Color.clear)
+                                    .fill(messagesTab == .sent ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5510,12 +5808,12 @@ struct ContentView: View {
                             VStack(spacing: 7) {
                                 Text("Search users")
                                     .font(messagesTab == .searchUsers ? .subheadline.weight(.bold) : .subheadline.weight(.semibold))
-                                    .foregroundStyle(messagesTab == .searchUsers ? Color.white : Color.white.opacity(0.55))
+                                    .foregroundStyle(messagesTab == .searchUsers ? Color.black : Color.black.opacity(0.55))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
 
                                 Capsule()
-                                    .fill(messagesTab == .searchUsers ? Color.white : Color.clear)
+                                    .fill(messagesTab == .searchUsers ? Color.black : Color.clear)
                                     .frame(height: 3)
                             }
                             .frame(maxWidth: .infinity)
@@ -5526,7 +5824,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 18)
                 }
-                .background(Color.black.ignoresSafeArea(edges: .top))
+                .background(Color.white.ignoresSafeArea(edges: .top))
 
                 Spacer().frame(height: 14)
 
@@ -5576,33 +5874,9 @@ struct ContentView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(results, id: \ .username) { user in
                                         Button {
-                                            openDM(with: user)
+                                            openDM(with: user, includePendingShare: isShareFlowActive && pendingSharePost != nil)
                                         } label: {
-                                            HStack(alignment: .center, spacing: 10) {
-                                                Circle()
-                                                    .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                                    .frame(width: 34, height: 34)
-                                                    .overlay(Text(user.profilePhotoText).font(.caption.weight(.bold)).foregroundStyle(.black))
-                                                    .overlay(avatarGoldRing(lineWidth: 1.2))
-
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(user.name.isEmpty ? user.username : user.name)
-                                                        .font(.subheadline.weight(.semibold))
-                                                        .foregroundStyle(.primary)
-                                                    Text(displayUsername(user.username))
-                                                        .font(.caption)
-                                                        .foregroundStyle(usernameGoldTextColor)
-                                                }
-
-                                                Spacer()
-                                                Image(systemName: "arrow.up.right")
-                                                    .font(.caption.weight(.bold))
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            .padding(.vertical, 8)
-                                            .padding(.horizontal, 10)
-                                            .background(Color(.secondarySystemBackground))
-                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                            userSearchResultSummaryView(for: user)
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -5788,8 +6062,11 @@ struct ContentView: View {
         return Button {
             markChatThreadAsRead(thread)
             selectedChatThread = thread
-            if let post = pendingSharePost {
-                addSharedPostToThread(thread, post: post, isMine: true)
+            chatDetailReturnScreen = .messages
+            if isShareFlowActive, let post = pendingSharePost {
+                Task {
+                    await addSharedPostToThread(thread, post: post, isMine: true)
+                }
             } else {
                 chatComposerText = ""
             }
@@ -5859,7 +6136,7 @@ struct ContentView: View {
             return AnyView(
                 VStack(spacing: 0) {
                     HStack {
-                        backButton(destination: .messages)
+                        backButton(destination: chatDetailReturnScreen)
                         Spacer()
                     }
                     .padding(.vertical, 16)
@@ -5880,7 +6157,7 @@ struct ContentView: View {
         }
 
         let messagesForThread = chatMessages[thread.id] ?? []
-        let backDestination: Screen = .messages
+        let backDestination: Screen = chatDetailReturnScreen
         let rawThreadUsername = thread.username.isEmpty ? thread.participant : thread.username
         let resolvedUsername = rawThreadUsername.isEmpty ? "you" : (rawThreadUsername.hasPrefix("@") ? String(rawThreadUsername.dropFirst()) : rawThreadUsername)
         let fallbackProfile = FakeUserProfile(userID: thread.participantUserID, username: resolvedUsername, name: thread.participant, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: thread.initials)
@@ -5958,7 +6235,7 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(messagesForThread) { message in
-                        messageRow(for: message)
+                        messageRow(for: message, in: thread)
                     }
                 }
                 .padding(.horizontal, 18)
@@ -5993,6 +6270,18 @@ struct ContentView: View {
                 await fetchDirectMessagesForThread(thread)
             }
         }
+        .confirmationDialog("Message Options", isPresented: $isShowingUnsendOptions, titleVisibility: .visible) {
+            Button("Unsend", role: .destructive) {
+                Task {
+                    await unsendSelectedChatMessage()
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingUnsendTarget = nil
+            }
+        } message: {
+            Text("This message will be removed for both users.")
+        }
         )
     }
 
@@ -6023,11 +6312,15 @@ struct ContentView: View {
             let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
             let localMessages = fetched.enumerated().map { offset, message in
                 let isMine = !currentUID.isEmpty && message.senderID == currentUID
+                let sharedPost = resolvedSharedPostForChat(sharedPostID: message.sharedPostID)
+                let hasSharedPostID = !(message.sharedPostID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
                 return ChatMessage(
                     id: offset + 1,
-                    text: message.text,
+                    text: sharedPost == nil ? (hasSharedPostID ? "Shared post" : message.text) : "",
                     isMine: isMine,
-                    time: "now"
+                    time: "now",
+                    remoteMessageID: message.id,
+                    sharedPost: sharedPost
                 )
             }
 
@@ -6043,11 +6336,15 @@ struct ContentView: View {
             let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
             let updatedLocalMessages = fetched.enumerated().map { offset, message in
                 let isMine = !currentUID.isEmpty && message.senderID == currentUID
+                let sharedPost = self.resolvedSharedPostForChat(sharedPostID: message.sharedPostID)
+                let hasSharedPostID = !(message.sharedPostID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
                 return ChatMessage(
                     id: offset + 1,
-                    text: message.text,
+                    text: sharedPost == nil ? (hasSharedPostID ? "Shared post" : message.text) : "",
                     isMine: isMine,
-                    time: "now"
+                    time: "now",
+                    remoteMessageID: message.id,
+                    sharedPost: sharedPost
                 )
             }
             Task { @MainActor in
@@ -6055,6 +6352,23 @@ struct ContentView: View {
                 self.refreshThreadPreview(for: thread.id)
             }
         }
+    }
+
+    private func resolvedSharedPostForChat(sharedPostID: String?) -> MockPost? {
+        let cleanedID = (sharedPostID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedID.isEmpty else { return nil }
+
+        if let byFirestoreID = posts.first(where: {
+            $0.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines) == cleanedID
+        }) {
+            return byFirestoreID
+        }
+
+        if let numericID = Int(cleanedID), let byLocalID = posts.first(where: { $0.id == numericID }) {
+            return byLocalID
+        }
+
+        return nil
     }
 
     private func listenToUserChatsFromFirestore() {
@@ -6068,6 +6382,9 @@ struct ContentView: View {
                 return
             }
 
+            let metadataLastSenderID = (chatData["lastSenderID"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
             let isAnon = (chatData["isAnonymous"] as? Bool) ?? chatID.hasPrefix("anon_")
             let otherUID = participantIDs.first { $0 != currentUID } ?? ""
             guard !otherUID.isEmpty else { return }
@@ -6077,6 +6394,12 @@ struct ContentView: View {
             }
 
             Task {
+                var resolvedLastSenderID = metadataLastSenderID
+                if resolvedLastSenderID.isEmpty {
+                    resolvedLastSenderID = (try? await FirebaseSpotService.shared.fetchLatestChatSenderID(chatID: chatID)) ?? ""
+                }
+                let inferredIncomingFromMetadata = !resolvedLastSenderID.isEmpty && resolvedLastSenderID != currentUID
+
                 let fetchedAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: otherUID)
                 var resolvedUsername = fetchedAccount?.username ?? ""
 
@@ -6123,12 +6446,18 @@ struct ContentView: View {
                         messages[existingIndex].chatID = chatID
                         messages[existingIndex].preview = lastMessage.isEmpty ? messages[existingIndex].preview : lastMessage
                         messages[existingIndex].participantUserID = otherUID
+                        if !resolvedLastSenderID.isEmpty {
+                            messages[existingIndex].isIncoming = inferredIncomingFromMetadata
+                        }
                         if !isAnon && !resolvedUsername.isEmpty {
                             messages[existingIndex].username = resolvedUsername
                             messages[existingIndex].participant = displayName
                             if selectedChatThread?.id == messages[existingIndex].id {
                                 selectedChatThread?.username = resolvedUsername
                                 selectedChatThread?.participant = displayName
+                                if !resolvedLastSenderID.isEmpty {
+                                    selectedChatThread?.isIncoming = inferredIncomingFromMetadata
+                                }
                             }
                         }
                     } else {
@@ -6139,7 +6468,7 @@ struct ContentView: View {
                             preview: lastMessage.isEmpty ? "New message" : lastMessage,
                             time: "now",
                             unread: 1,
-                            isIncoming: true,
+                            isIncoming: inferredIncomingFromMetadata,
                             isAnonymousConversation: isAnon,
                             participantUserID: otherUID,
                             chatID: chatID
@@ -6195,6 +6524,8 @@ struct ContentView: View {
 
             print("💬 [DM DEBUG] Final Chat Document ID: '\(chatID)' (effective recipient: '\(effectiveRecipientID)')")
 
+            var remoteMessageID: String? = nil
+
             if recipientID.isEmpty {
                 print("💬 [DM DEBUG] ⚠️ WARNING: Recipient UID is EMPTY! Message will remain local-only until recipient UID is resolved.")
             } else if recipientID == senderID {
@@ -6205,7 +6536,7 @@ struct ContentView: View {
                 print("💬 [DM DEBUG] ✅ Firestore chat document ready: '\(cloudChatID)'")
 
                 print("💬 [DM DEBUG] Sending message to Firestore collection chats/\(cloudChatID)/messages...")
-                try await FirebaseSpotService.shared.sendChatMessage(chatID: cloudChatID, senderID: senderID, text: trimmedText)
+                remoteMessageID = try await FirebaseSpotService.shared.sendChatMessage(chatID: cloudChatID, senderID: senderID, text: trimmedText)
                 print("💬 [DM DEBUG] ✅ Successfully saved message to Firestore!")
             }
 
@@ -6213,12 +6544,24 @@ struct ContentView: View {
                 if let index = messages.firstIndex(where: { $0.id == thread.id }) {
                     messages[index].chatID = chatID
                     messages[index].participantUserID = recipientID
+                    messages[index].isIncoming = false
                 }
 
                 var updatedMessages = chatMessages[thread.id] ?? []
-                updatedMessages.append(ChatMessage(id: (updatedMessages.last?.id ?? 0) + 1, text: trimmedText, isMine: true, time: "now"))
+                updatedMessages.append(
+                    ChatMessage(
+                        id: (updatedMessages.last?.id ?? 0) + 1,
+                        text: trimmedText,
+                        isMine: true,
+                        time: "now",
+                        remoteMessageID: remoteMessageID
+                    )
+                )
                 chatMessages[thread.id] = updatedMessages
                 refreshThreadPreview(for: thread.id)
+                if selectedChatThread?.id == thread.id {
+                    selectedChatThread?.isIncoming = false
+                }
                 chatComposerText = ""
             }
 
@@ -6232,20 +6575,66 @@ struct ContentView: View {
         }
     }
 
-    private func messageRow(for message: ChatMessage) -> some View {
+    private func unsendSelectedChatMessage() async {
+        guard let target = pendingUnsendTarget else { return }
+        pendingUnsendTarget = nil
+
+        guard let thread = messages.first(where: { $0.id == target.threadID }) else { return }
+
+        await MainActor.run {
+            var updatedMessages = chatMessages[target.threadID] ?? []
+            updatedMessages.removeAll { $0.id == target.localMessageID }
+            chatMessages[target.threadID] = updatedMessages
+            refreshThreadPreview(for: target.threadID)
+        }
+
+        let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let remoteMessageID = target.remoteMessageID,
+           !chatID.isEmpty {
+            do {
+                let deletedChat = try await FirebaseSpotService.shared.deleteChatMessage(
+                    chatID: chatID,
+                    messageID: remoteMessageID
+                )
+                if deletedChat {
+                    await MainActor.run {
+                        messages.removeAll { $0.id == target.threadID }
+                        chatMessages.removeValue(forKey: target.threadID)
+                        if selectedChatThread?.id == target.threadID {
+                            selectedChatThread = nil
+                            currentScreen = .messages
+                        }
+                        recalculateUnreadDirectMessageCount()
+                    }
+                } else {
+                    await fetchDirectMessagesForThread(thread)
+                }
+            } catch {
+                print("Spot unsend failed for chat \(chatID): \(error)")
+                await fetchDirectMessagesForThread(thread)
+            }
+        }
+
+        await MainActor.run {
+            let remaining = chatMessages[target.threadID] ?? []
+            if remaining.isEmpty {
+                messages.removeAll { $0.id == target.threadID }
+                chatMessages.removeValue(forKey: target.threadID)
+                if selectedChatThread?.id == target.threadID {
+                    selectedChatThread = nil
+                    currentScreen = .messages
+                }
+                recalculateUnreadDirectMessageCount()
+            }
+        }
+    }
+
+    private func messageRow(for message: ChatMessage, in thread: DirectMessageThread) -> some View {
         HStack {
             if message.isMine { Spacer() }
 
             if let post = message.sharedPost {
                 VStack(alignment: message.isMine ? .trailing : .leading, spacing: 6) {
-                    HStack {
-                        Spacer()
-                        Text(message.time)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: 320)
-
                     let binding = Binding<MockPost>(
                         get: {
                             posts.first(where: { $0.id == post.id }) ?? post
@@ -6271,8 +6660,15 @@ struct ContentView: View {
                         prefersDeleteAction: false,
                         showProfileLocationBadge: false,
                         isReported: isPostReported(post),
+                        allowsAdminPinLongPress: false,
                         onSend: {
+                            beginRepostFlow(for: post)
+                        },
+                        onShare: {
                             sharePostToFriends(post)
+                        },
+                        onLike: { likedPost in
+                            toggleLikedState(for: likedPost)
                         },
                         onSave: { savedPost in
                             toggleSavedState(for: savedPost)
@@ -6309,6 +6705,18 @@ struct ContentView: View {
                     )
                 }
                 .frame(maxWidth: .infinity, alignment: message.isMine ? .trailing : .leading)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        guard message.isMine else { return }
+                        pendingUnsendTarget = PendingUnsendTarget(
+                            threadID: thread.id,
+                            localMessageID: message.id,
+                            remoteMessageID: message.remoteMessageID
+                        )
+                        isShowingUnsendOptions = true
+                    }
+                )
             } else {
                 VStack(alignment: message.isMine ? .trailing : .leading, spacing: 4) {
                     Text(message.text)
@@ -6322,11 +6730,19 @@ struct ContentView: View {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(Color.black, lineWidth: message.isMine ? 1 : 0)
                         )
-
-                    Text(message.time)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        guard message.isMine else { return }
+                        pendingUnsendTarget = PendingUnsendTarget(
+                            threadID: thread.id,
+                            localMessageID: message.id,
+                            remoteMessageID: message.remoteMessageID
+                        )
+                        isShowingUnsendOptions = true
+                    }
+                )
             }
 
             if !message.isMine { Spacer() }
@@ -6680,53 +7096,308 @@ struct ContentView: View {
         handleLocationSelection(matchedPOI.name, context: context, closeScreen: closeScreen, saveToRecent: true, saveToFavorites: false)
     }
 
-    private func updateNearbyPlacesForSelectedCoordinate(_ targetCoordinate: CLLocationCoordinate2D?) {
-        guard let coord = targetCoordinate else { return }
-        let location = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
-        isLoadingNearbyPlaces = true
+    private func makeOSMRequest(url: URL, method: String = "GET", body: Data? = nil) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 16
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("en", forHTTPHeaderField: "Accept-Language")
+        request.setValue("Spot/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
 
-        Task {
-            let localNearby = NearbyPlaceLoader.loadNearbyPlaces(from: location, limit: 30)
+        if let body {
+            request.httpBody = body
+            request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        }
 
-            var resolvedNearby: [NearbyPlace] = []
-            do {
-                let remotePOIs = try await FirebaseSpotService.shared.fetchNearbyPOIs(
-                    around: coord,
-                    limit: 40
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+        return data
+    }
+
+    private func parseOSMDisplayName(_ raw: String, address: OSMNominatimAddress? = nil) -> String {
+        let houseNumber = (address?.house_number ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let road = (address?.road ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !houseNumber.isEmpty && !road.isEmpty {
+            return "\(houseNumber) \(road)"
+        }
+        if !road.isEmpty {
+            return road
+        }
+
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return raw }
+        if let first = trimmed.split(separator: ",").first {
+            let concise = String(first).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !concise.isEmpty {
+                return concise
+            }
+        }
+        return trimmed
+    }
+
+    private func searchOpenStreetMapPOIs(query: String, center: CLLocationCoordinate2D?, limit: Int = 100) async throws -> [FirebasePOIRecord] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var components = URLComponents(string: "https://nominatim.openstreetmap.org/search")
+        var items: [URLQueryItem] = [
+            URLQueryItem(name: "format", value: "jsonv2"),
+            URLQueryItem(name: "addressdetails", value: "1"),
+            URLQueryItem(name: "limit", value: String(max(1, min(limit, 80)))),
+            URLQueryItem(name: "q", value: trimmed)
+        ]
+
+        if let center {
+            let lonDelta = 0.8
+            let latDelta = 0.6
+            let left = center.longitude - lonDelta
+            let right = center.longitude + lonDelta
+            let top = center.latitude + latDelta
+            let bottom = center.latitude - latDelta
+            items.append(URLQueryItem(name: "viewbox", value: "\(left),\(top),\(right),\(bottom)"))
+            items.append(URLQueryItem(name: "bounded", value: "1"))
+        }
+
+        components?.queryItems = items
+        guard let url = components?.url else { return [] }
+
+        let data = try await makeOSMRequest(url: url)
+        let results = try JSONDecoder().decode([OSMNominatimSearchResult].self, from: data)
+
+        var mapped: [FirebasePOIRecord] = []
+        var seen = Set<String>()
+
+        for item in results {
+            guard let lat = Double(item.lat), let lon = Double(item.lon) else { continue }
+
+            let label = parseOSMDisplayName(item.name ?? item.display_name, address: item.address)
+            guard !label.isEmpty else { continue }
+
+            let addr = item.address
+            let cityRaw = addr?.city ?? addr?.town
+            let cityFallbackRaw = addr?.village ?? addr?.hamlet
+            let city = (cityRaw ?? cityFallbackRaw)?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let subregionPrimaryRaw = addr?.suburb ?? addr?.neighbourhood
+            let subregionSecondaryRaw = addr?.district ?? addr?.borough
+            let subregionTertiaryRaw = addr?.county ?? addr?.state
+            let subregionRaw = subregionPrimaryRaw ?? subregionSecondaryRaw ?? subregionTertiaryRaw
+            let subregion = subregionRaw?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let neighborhoodRaw = addr?.neighbourhood ?? addr?.suburb
+            let neighborhood = (neighborhoodRaw ?? addr?.district)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let country = addr?.country?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let category = (item.category ?? item.class ?? item.type ?? "place").trimmingCharacters(in: .whitespacesAndNewlines)
+            let idSource = item.osm_id.map(String.init) ?? item.place_id.map(String.init) ?? "\(lat)|\(lon)|\(label)"
+            let idPrefix = item.osm_type ?? "osm"
+            let recordID = "osm_\(idPrefix)_\(idSource)"
+            let dedupeKey = "\(Self.normalizedLocationRealm(label))|\(round(lat * 10000) / 10000)|\(round(lon * 10000) / 10000)"
+            guard !seen.contains(dedupeKey) else { continue }
+            seen.insert(dedupeKey)
+
+            mapped.append(
+                FirebasePOIRecord(
+                    id: recordID,
+                    name: label,
+                    category: category.isEmpty ? "place" : category,
+                    latitude: lat,
+                    longitude: lon,
+                    neighborhood: neighborhood,
+                    subregion: subregion,
+                    city: city,
+                    country: country,
+                    geohash: nil,
+                    updatedAt: Date().timeIntervalSince1970
                 )
-                let remotePlaces = remotePOIs.map { poi in
-                    NearbyPlace(
-                        id: poi.id,
-                        name: poi.name,
-                        category: poi.category,
-                        latitude: poi.latitude,
-                        longitude: poi.longitude
-                    )
-                }
+            )
+        }
 
-                var mergedMap: [String: NearbyPlace] = [:]
-                for p in remotePlaces + localNearby {
-                    let key = "\(Self.normalizedLocationRealm(p.name))|\(p.latitude)|\(p.longitude)"
-                    if mergedMap[key] == nil {
-                        mergedMap[key] = p
-                    }
-                }
+        return mapped
+    }
 
-                let sortedCandidates = Array(mergedMap.values).sorted { lhs, rhs in
-                    let lhsDist = NearbyPlaceLoader.haversineMiles(from: coord, to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude))
-                    let rhsDist = NearbyPlaceLoader.haversineMiles(from: coord, to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude))
-                    return lhsDist < rhsDist
-                }
+    private func fetchOpenStreetMapAreaLabel(around center: CLLocationCoordinate2D) async throws -> String? {
+        var components = URLComponents(string: "https://nominatim.openstreetmap.org/reverse")
+        components?.queryItems = [
+            URLQueryItem(name: "format", value: "jsonv2"),
+            URLQueryItem(name: "lat", value: String(format: "%.6f", center.latitude)),
+            URLQueryItem(name: "lon", value: String(format: "%.6f", center.longitude)),
+            URLQueryItem(name: "zoom", value: "10"),
+            URLQueryItem(name: "addressdetails", value: "1")
+        ]
 
-                resolvedNearby = Array(sortedCandidates.prefix(25))
-            } catch {
-                resolvedNearby = localNearby
+        guard let url = components?.url else { return nil }
+        let data = try await makeOSMRequest(url: url)
+        let result = try JSONDecoder().decode(OSMNominatimReverseResult.self, from: data)
+
+        let address = result.address
+        let candidates = [
+            address?.suburb,
+            address?.borough,
+            address?.city,
+            address?.town,
+            address?.county,
+            address?.state
+        ]
+        .map { ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+
+        return candidates.first
+    }
+
+    private func fetchOpenStreetMapNearbyPlaces(around center: CLLocationCoordinate2D, limit: Int = 30) async throws -> [NearbyPlace] {
+        let safeLimit = max(1, min(limit, 60))
+        let lat = String(format: "%.6f", center.latitude)
+        let lon = String(format: "%.6f", center.longitude)
+        let radiusMeters = 10_000
+
+        let overpassQuery = """
+        [out:json][timeout:16];
+        (
+          node(around:\(radiusMeters),\(lat),\(lon))[name][amenity];
+          node(around:\(radiusMeters),\(lat),\(lon))[name][shop];
+          node(around:\(radiusMeters),\(lat),\(lon))[name][tourism];
+          node(around:\(radiusMeters),\(lat),\(lon))[name][leisure];
+          node(around:\(radiusMeters),\(lat),\(lon))[name][place];
+          way(around:\(radiusMeters),\(lat),\(lon))[name][amenity];
+          way(around:\(radiusMeters),\(lat),\(lon))[name][shop];
+          way(around:\(radiusMeters),\(lat),\(lon))[name][tourism];
+          way(around:\(radiusMeters),\(lat),\(lon))[name][leisure];
+          way(around:\(radiusMeters),\(lat),\(lon))[name][place];
+        );
+        out center 220;
+        """
+
+        guard let url = URL(string: "https://overpass-api.de/api/interpreter") else { return [] }
+        let encodedBody = "data=\(overpassQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        let data = try await makeOSMRequest(url: url, method: "POST", body: encodedBody.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(OSMOverpassResponse.self, from: data)
+
+        var candidates: [NearbyPlace] = []
+        var seen = Set<String>()
+
+        for element in decoded.elements {
+            let tags = element.tags ?? [:]
+            let name = (tags["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+
+            let coordinate: CLLocationCoordinate2D?
+            if let lat = element.lat, let lon = element.lon {
+                coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            } else if let center = element.center {
+                coordinate = CLLocationCoordinate2D(latitude: center.lat, longitude: center.lon)
+            } else {
+                coordinate = nil
+            }
+            guard let coordinate else { continue }
+
+            let category = tags["amenity"]
+                ?? tags["shop"]
+                ?? tags["tourism"]
+                ?? tags["leisure"]
+                ?? tags["place"]
+                ?? "place"
+
+            let key = "\(Self.normalizedLocationRealm(name))|\(round(coordinate.latitude * 10000) / 10000)|\(round(coordinate.longitude * 10000) / 10000)"
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+
+            candidates.append(
+                NearbyPlace(
+                    id: "osm_\(element.type)_\(element.id)",
+                    name: name,
+                    category: category,
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
+                )
+            )
+        }
+
+        return candidates
+            .sorted { lhs, rhs in
+                let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                    from: center,
+                    to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+                )
+                let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                    from: center,
+                    to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+                )
+                return lhsDistance < rhsDistance
+            }
+            .prefix(safeLimit)
+            .map { $0 }
+    }
+
+    private func nearbyCategoryQualityScore(_ category: String) -> Double {
+        if isBusinessCategory(category) {
+            return 1.35
+        }
+        if isPopularPOICategory(category) {
+            return 1.25
+        }
+        if isBroadAreaCategory(category) {
+            return 0.72
+        }
+        return 1.0
+    }
+
+    private func bestNearbyPlaces(around center: CLLocationCoordinate2D, limit: Int = 25) async -> ([NearbyPlace], String) {
+        let safeLimit = max(1, min(limit, 60))
+        let fallbackLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+
+        do {
+            async let osmPlacesTask = fetchOpenStreetMapNearbyPlaces(around: center, limit: max(safeLimit, 40))
+            async let areaLabelTask = fetchOpenStreetMapAreaLabel(around: center)
+            let osmPlaces = try await osmPlacesTask
+            let areaLabel = (try? await areaLabelTask) ?? ""
+            let fallbackPlaces = NearbyPlaceLoader.loadNearbyPlaces(from: fallbackLocation, limit: max(safeLimit, 40))
+
+            let merged = Self.deduplicatedNearbyPlaces(osmPlaces + fallbackPlaces)
+            let ranked = merged.sorted { lhs, rhs in
+                let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                    from: center,
+                    to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+                )
+                let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                    from: center,
+                    to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+                )
+
+                let lhsScore = nearbyCategoryQualityScore(lhs.category) / max(lhsDistance + 0.05, 0.05)
+                let rhsScore = nearbyCategoryQualityScore(rhs.category) / max(rhsDistance + 0.05, 0.05)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return lhsDistance < rhsDistance
             }
 
+            return (Array(ranked.prefix(safeLimit)), areaLabel)
+        } catch {
+            // Emergency offline fallback when OSM APIs fail.
+            let fallback = NearbyPlaceLoader.loadNearbyPlaces(from: fallbackLocation, limit: safeLimit)
+            return (fallback, "")
+        }
+    }
+
+    private func updateNearbyPlacesForSelectedCoordinate(_ targetCoordinate: CLLocationCoordinate2D?) {
+        guard let coord = targetCoordinate else { return }
+        nearbyPlacesLoadTask?.cancel()
+        nearbyPlacesLoadRequestID += 1
+        let requestID = nearbyPlacesLoadRequestID
+        isLoadingNearbyPlaces = true
+
+        nearbyPlacesLoadTask = Task {
+            let (resolvedNearby, resolvedAreaLabel) = await bestNearbyPlaces(around: coord, limit: 25)
+
+            if Task.isCancelled { return }
+
             await MainActor.run {
-                if !resolvedNearby.isEmpty {
-                    self.nearbyPlaces = resolvedNearby
-                }
+                guard requestID == self.nearbyPlacesLoadRequestID else { return }
+                self.nearbyPlaces = resolvedNearby
+                self.nearbyAreaLabel = resolvedAreaLabel
                 self.isLoadingNearbyPlaces = false
             }
         }
@@ -6739,11 +7410,11 @@ struct ContentView: View {
 
         switch context {
         case .feed:
-            return fromLocation.isEmpty ? "Metric" : fromLocation
+            return fromLocation.isEmpty ? "Nearby" : fromLocation
         case .video:
-            return videoLocation.isEmpty ? "Metric" : videoLocation
+            return videoLocation.isEmpty ? "Nearby" : videoLocation
         case .post:
-            return postLocation.isEmpty ? "Metric" : postLocation
+            return postLocation.isEmpty ? "Nearby" : postLocation
         }
     }
 
@@ -6758,119 +7429,40 @@ struct ContentView: View {
         }
 
         let location = locationService.lastKnownLocation ?? CLLocation(latitude: NearbyPlaceLoader.defaultCenter.latitude, longitude: NearbyPlaceLoader.defaultCenter.longitude)
-        let localNearby = NearbyPlaceLoader.loadNearbyPlaces(from: location, limit: 12)
-
-        // Always show locally bundled nearby places even without permission/network.
-        if !localNearby.isEmpty {
-            nearbyPlaces = localNearby
-
-            if let nearest = localNearby.first?.name {
-                switch context {
-                case .feed:
-                    let current = fromLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                        fromLocation = nearest
-                        persistLocationSelection(nearest, context: .feed)
-                    }
-                case .video:
-                    let current = videoLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                        videoLocation = nearest
-                        persistLocationSelection(nearest, context: .video)
-                    }
-                case .post:
-                    let current = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                        postLocation = nearest
-                        persistLocationSelection(nearest, context: .post)
-                    }
-                }
-            }
-        }
-
-        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
-            return
-        }
-
+        nearbyPlacesLoadTask?.cancel()
+        nearbyPlacesLoadRequestID += 1
+        let requestID = nearbyPlacesLoadRequestID
         isLoadingNearbyPlaces = true
 
-        Task {
-            var resolvedNearby: [NearbyPlace] = []
+        nearbyPlacesLoadTask = Task {
+            let (resolvedNearby, resolvedAreaLabel) = await bestNearbyPlaces(around: location.coordinate, limit: 25)
 
-            do {
-                let remotePOIs = try await FirebaseSpotService.shared.fetchNearbyPOIs(
-                    around: location.coordinate,
-                    limit: 30
-                )
-                let remotePlaces = remotePOIs.map { poi in
-                    NearbyPlace(
-                        id: poi.id,
-                        name: poi.name,
-                        category: poi.category,
-                        latitude: poi.latitude,
-                        longitude: poi.longitude
-                    )
-                }
-
-                // Interleave local cities/locations with remote/local POIs for a rich mix of closest locations + POIs.
-                var mergedMap: [String: NearbyPlace] = [:]
-                for p in remotePlaces + localNearby {
-                    let key = "\(Self.normalizedLocationRealm(p.name))|\(p.latitude)|\(p.longitude)"
-                    if mergedMap[key] == nil {
-                        mergedMap[key] = p
-                    }
-                }
-
-                let allCandidates = Array(mergedMap.values).sorted { lhs, rhs in
-                    let lhsDist = NearbyPlaceLoader.haversineMiles(from: location.coordinate, to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude))
-                    let rhsDist = NearbyPlaceLoader.haversineMiles(from: location.coordinate, to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude))
-                    return lhsDist < rhsDist
-                }
-
-                resolvedNearby = Array(allCandidates.prefix(25))
-
-                if remotePOIs.isEmpty {
-                    let firestorePOIs = localNearby.map { poi in
-                        FirebasePOIRecord(
-                            id: poi.id,
-                            name: poi.name,
-                            category: poi.category,
-                            latitude: poi.latitude,
-                            longitude: poi.longitude,
-                            city: "",
-                            country: "",
-                            geohash: nil,
-                            updatedAt: Date().timeIntervalSince1970
-                        )
-                    }
-                    try? await FirebaseSpotService.shared.savePOIs(firestorePOIs)
-                }
-            } catch {
-                resolvedNearby = localNearby
-            }
+            if Task.isCancelled { return }
 
             await MainActor.run {
+                guard requestID == self.nearbyPlacesLoadRequestID else { return }
                 nearbyPlaces = resolvedNearby
+                nearbyAreaLabel = resolvedAreaLabel
                 isLoadingNearbyPlaces = false
-                if let nearest = nearbyPlaces.first?.name {
+                if !nearbyPlaces.isEmpty {
                     switch context {
                     case .feed:
                         let current = fromLocation.trimmingCharacters(in: .whitespacesAndNewlines)
                         if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                            fromLocation = nearest
-                            persistLocationSelection(nearest, context: .feed)
+                            fromLocation = "Nearby"
+                            persistLocationSelection("Nearby", context: .feed)
                         }
                     case .video:
                         let current = videoLocation.trimmingCharacters(in: .whitespacesAndNewlines)
                         if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                            videoLocation = nearest
-                            persistLocationSelection(nearest, context: .video)
+                            videoLocation = "Nearby"
+                            persistLocationSelection("Nearby", context: .video)
                         }
                     case .post:
                         let current = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
                         if Self.shouldAutoApplyNearbyFallback(currentValue: current) {
-                            postLocation = nearest
-                            persistLocationSelection(nearest, context: .post)
+                            postLocation = "Nearby"
+                            persistLocationSelection("Nearby", context: .post)
                         }
                     }
                 }
@@ -6904,14 +7496,6 @@ struct ContentView: View {
                     .foregroundStyle(.black)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                }
             }
 
             Spacer(minLength: 2)
@@ -6967,6 +7551,150 @@ struct ContentView: View {
         }
     }
 
+    private func isBroadAreaCategory(_ category: String) -> Bool {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let broadAreaTerms = [
+            "city", "town", "village", "hamlet", "suburb", "borough", "district", "county", "state", "region"
+        ]
+        return broadAreaTerms.contains(normalized)
+    }
+
+    private func isBusinessCategory(_ category: String) -> Bool {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let businessTerms = [
+            "shop", "supermarket", "mall", "store", "restaurant", "cafe", "bar", "pharmacy", "bank", "hotel", "amenity"
+        ]
+        return businessTerms.contains { normalized.contains($0) }
+    }
+
+    private func isPopularPOICategory(_ category: String) -> Bool {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let popularTerms = [
+            "tourism", "leisure", "museum", "attraction", "park", "zoo", "historic", "viewpoint"
+        ]
+        return popularTerms.contains { normalized.contains($0) }
+    }
+
+    private func formatDistanceFeetOrMiles(_ miles: Double) -> String {
+        let safeMiles = max(0, miles)
+        if safeMiles < 0.1 {
+            let feet = max(10, Int((safeMiles * 5280).rounded()))
+            return "\(feet) ft"
+        }
+        if safeMiles < 10 {
+            return String(format: "%.1f mi", safeMiles)
+        }
+        return String(format: "%.0f mi", safeMiles)
+    }
+
+    private func coordinateForLocationName(_ value: String) -> CLLocationCoordinate2D? {
+        let normalizedValue = Self.normalizedLocationRealm(value)
+        if normalizedValue.isEmpty { return nil }
+
+        if let nearbyMatch = nearbyPlaces.first(where: { Self.normalizedLocationRealm($0.name) == normalizedValue }) {
+            return CLLocationCoordinate2D(latitude: nearbyMatch.latitude, longitude: nearbyMatch.longitude)
+        }
+
+        if let poiMatch = firestorePOISearchResults.first(where: { Self.normalizedLocationRealm($0.name) == normalizedValue }) {
+            return CLLocationCoordinate2D(latitude: poiMatch.latitude, longitude: poiMatch.longitude)
+        }
+
+        return Self.extractCoordinateFromLocationName(value)
+    }
+
+    private func distanceTextForLocationName(_ value: String) -> String {
+        let userCoordinate = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+        guard let targetCoordinate = coordinateForLocationName(value) else { return "" }
+        let miles = NearbyPlaceLoader.haversineMiles(from: userCoordinate, to: targetCoordinate)
+        return formatDistanceFeetOrMiles(miles)
+    }
+
+    private func nearbyLocationSuggestions() -> [LocationSearchSuggestion] {
+        let userCoordinate = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+
+        let sortedNearby = Self.deduplicatedNearbyPlaces(nearbyPlaces).sorted { lhs, rhs in
+            let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+            )
+            let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+            )
+            return lhsDistance < rhsDistance
+        }
+
+        var built: [LocationSearchSuggestion] = []
+        var used = Set<String>()
+
+        func appendPlace(_ place: NearbyPlace, subtitle: String = "") {
+            let normalized = Self.normalizedLocationRealm(place.name)
+            guard !normalized.isEmpty, used.insert(normalized).inserted else { return }
+            let miles = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+            )
+            built.append(
+                LocationSearchSuggestion(
+                    title: place.name,
+                    subtitle: subtitle,
+                    distanceText: formatDistanceFeetOrMiles(miles),
+                    value: place.name
+                )
+            )
+        }
+
+        let nearestPOIs = sortedNearby.filter { !isBroadAreaCategory($0.category) }
+        for place in nearestPOIs.prefix(3) {
+            appendPlace(place)
+        }
+
+        if let nearestBusiness = nearestPOIs.first(where: {
+            isBusinessCategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
+        }) {
+            appendPlace(nearestBusiness, subtitle: "Business")
+        }
+
+        if let popularPOI = nearestPOIs.first(where: {
+            isPopularPOICategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
+        }) {
+            appendPlace(popularPOI, subtitle: "Popular")
+        }
+
+        if let broadArea = sortedNearby.first(where: {
+            isBroadAreaCategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
+        }) {
+            appendPlace(broadArea, subtitle: "Area")
+        } else {
+            let normalizedArea = Self.normalizedLocationRealm(nearbyAreaLabel)
+            if !normalizedArea.isEmpty,
+               let fallbackArea = sortedNearby.first(where: { Self.normalizedLocationRealm($0.name) == normalizedArea }) {
+                appendPlace(fallbackArea, subtitle: "Area")
+            }
+        }
+
+        if built.count < 6 {
+            for place in nearestPOIs where built.count < 6 {
+                appendPlace(place)
+            }
+        }
+
+        if built.count < 6 {
+            for place in sortedNearby where built.count < 6 {
+                appendPlace(place)
+            }
+        }
+
+        if built.count < 6 {
+            let fallbackPool = NearbyPlaceLoader.loadAllPlaces(from: userCoordinate, limit: 120)
+            for place in fallbackPool where built.count < 6 {
+                appendPlace(place)
+            }
+        }
+
+        return Array(built.prefix(6))
+    }
+
     static func shouldAutoApplyNearbyFallback(currentValue: String) -> Bool {
         let cleaned = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty
@@ -6992,25 +7720,25 @@ struct ContentView: View {
             return cleanedPersisted
         }
 
-        // Preserve the current context semantics for metric-style defaults.
+        // Default to Nearby channel semantics when no explicit location is set.
         switch context {
         case .feed:
-            return "Metric"
+            return "Nearby"
         case .video:
-            return "Metric"
+            return "Nearby"
         case .post:
-            return "Metric"
+            return "Nearby"
         }
     }
 
     private func currentLocationValue(for context: LocationContext) -> String {
         switch context {
         case .feed:
-            return fromLocation.isEmpty ? "Metric" : fromLocation
+            return fromLocation.isEmpty ? "Nearby" : fromLocation
         case .video:
-            return videoLocation.isEmpty ? "Metric" : videoLocation
+            return videoLocation.isEmpty ? "Nearby" : videoLocation
         case .post:
-            return postLocation.isEmpty ? "Metric" : postLocation
+            return postLocation.isEmpty ? "Nearby" : postLocation
         }
     }
 
@@ -7065,7 +7793,7 @@ struct ContentView: View {
         var candidates: [String] = []
 
         let nearest = nearestNearbyLocation(for: context)
-        if !nearest.isEmpty && nearest != "Metric" {
+        if !nearest.isEmpty && nearest != "Nearby" {
             candidates.append(nearest)
         }
 
@@ -7080,7 +7808,7 @@ struct ContentView: View {
         })
 
         let active = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !active.isEmpty, active != "Metric", !Self.isMapAreaRealm(active) {
+        if !active.isEmpty, active != "Nearby", !Self.isMapAreaRealm(active) {
             candidates.append(active)
         }
 
@@ -7089,14 +7817,14 @@ struct ContentView: View {
 
         for candidate in candidates {
             let cleaned = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !cleaned.isEmpty, cleaned != "Metric", !Self.isMapAreaRealm(cleaned) else { continue }
+            guard !cleaned.isEmpty, cleaned != "Nearby", !Self.isMapAreaRealm(cleaned) else { continue }
             let key = Self.normalizedLocationRealm(cleaned)
             if seen.contains(key) { continue }
             seen.insert(key)
             unique.append(cleaned)
         }
 
-        return Array(unique.prefix(6))
+        return Array(unique.prefix(5))
     }
 
 
@@ -7394,7 +8122,13 @@ struct ContentView: View {
                         currentUserProfilePhotoImage: displayProfilePhotoImage,
                         isReported: isPostReported(pinnedPost),
                         onSend: {
+                            beginRepostFlow(for: pinnedPost)
+                        },
+                        onShare: {
                             sharePostToFriends(pinnedPost)
+                        },
+                        onLike: { likedPost in
+                            toggleLikedState(for: likedPost)
                         },
                         onSave: { savedPost in
                             toggleSavedState(for: savedPost)
@@ -7553,23 +8287,13 @@ struct ContentView: View {
     private var locationPickerView: some View {
         let context = locationContext
         let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
+        let nearbySuggestions = nearbyLocationSuggestions()
         let recentSearchOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
         let currentValue = currentLocationValue(for: context)
-        let selectedDisplayLocation = lastUsedLocationValue(for: context)
         let normalizedCurrentValue = Self.normalizedLocationRealm(currentValue)
-        let normalizedMetric = Self.normalizedLocationRealm("Metric")
-        let isMetricSelected = normalizedCurrentValue == normalizedMetric
-        let primaryLocationOption = "Metric"
-        let recommendedOptions = Self.deduplicatedLocationNames(
-            nearbyOptions.map(\.name) + recommendedLocations + locationSuggestions,
-            limit: 8
-        ).filter { option in
-            let normalized = Self.normalizedLocationRealm(option)
-            return normalized != normalizedMetric
-        }
-        let nearbyShowcase = Array(recommendedOptions.prefix(6))
+        let isNearestFeedSelected = normalizedCurrentValue == Self.normalizedLocationRealm("Metric")
         let recentShowcase = recentSearchOptions.filter { option in
-            !nearbyShowcase.contains(where: { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(option) })
+            !nearbyOptions.contains(where: { Self.normalizedLocationRealm($0.name) == Self.normalizedLocationRealm(option) })
         }
         let closeScreenAfterSelection = Self.closeScreenAfterLocationSelection(context: context, currentScreen: currentScreen)
 
@@ -7585,7 +8309,7 @@ struct ContentView: View {
 
                         LocationField(
                             title: "",
-                            placeholder: "Search places or cities",
+                            placeholder: "Search places, homes, or areas",
                             text: $locationSearchText,
                             suggestions: visibleLocationSuggestions,
                             onSuggestionSelected: { chosen in
@@ -7645,14 +8369,74 @@ struct ContentView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    // Active & Base Section (Side-by-Side Hero Row)
-                    HStack(alignment: .top, spacing: 12) {
-                        // Left Column: ACTIVE Section & NEARBY Section (Directly under Active)
-                        VStack(alignment: .leading, spacing: 18) {
-                            // ACTIVE Section
-                            VStack(alignment: .leading, spacing: 8) {
-                                locationSectionHeader("ACTIVE")
+                    // SHARED Section
+                    VStack(alignment: .leading, spacing: 9) {
+                        locationSectionHeader("SHARED")
 
+                        Button {
+                            if context == .video {
+                                showFollowingVideoOnly = false
+                            } else {
+                                showFollowingOnly = false
+                            }
+                            handleLocationSelection(
+                                "Metric",
+                                context: context,
+                                closeScreen: closeScreenAfterSelection,
+                                saveToRecent: false,
+                                saveToFavorites: false
+                            )
+                        } label: {
+                            locationOptionLabel(
+                                "Nearest",
+                                subtitle: "Every user can post anywhere",
+                                isSelected: isNearestFeedSelected,
+                                showsMetricIcon: false
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 18)
+
+                    // NEARBY Section
+                    VStack(alignment: .leading, spacing: 9) {
+                        locationSectionHeader("NEARBY")
+
+                        ForEach(nearbySuggestions, id: \.id) { suggestion in
+                            Button {
+                                if context == .video {
+                                    showFollowingVideoOnly = false
+                                } else {
+                                    showFollowingOnly = false
+                                }
+                                handleLocationSelection(
+                                    suggestion.value,
+                                    context: context,
+                                    closeScreen: closeScreenAfterSelection,
+                                    saveToRecent: true,
+                                    saveToFavorites: false
+                                )
+                            } label: {
+                                locationOptionLabel(
+                                    suggestion.title,
+                                    subtitle: suggestion.subtitle,
+                                    distanceText: suggestion.distanceText,
+                                    isSelected: isLocationSelected(suggestion.value, for: context)
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+
+                    // HISTORY Section
+                    if !recentShowcase.isEmpty {
+                        VStack(alignment: .leading, spacing: 9) {
+                            locationSectionHeader("HISTORY")
+
+                            ForEach(recentShowcase, id: \.self) { recent in
                                 Button {
                                     if context == .video {
                                         showFollowingVideoOnly = false
@@ -7660,176 +8444,25 @@ struct ContentView: View {
                                         showFollowingOnly = false
                                     }
                                     handleLocationSelection(
-                                        currentValue,
+                                        recent,
                                         context: context,
                                         closeScreen: closeScreenAfterSelection,
-                                        saveToRecent: false,
+                                        saveToRecent: true,
                                         saveToFavorites: false
                                     )
                                 } label: {
-                                    HStack(spacing: 8) {
-                                        Text(selectedDisplayLocation)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(.black)
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.85)
-
-                                        Spacer(minLength: 0)
-
-                                        flatChevronUpIcon(size: 22, thickness: 2.6, color: Color.black)
-                                            .frame(width: 22, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
-                                    .frame(minHeight: 58)
+                                    locationOptionLabel(
+                                        recent,
+                                        distanceText: distanceTextForLocationName(recent),
+                                        isSelected: isLocationSelected(recent, for: context)
+                                    )
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color(red: 0.945, green: 0.955, blue: 0.968), Color(red: 0.915, green: 0.93, blue: 0.95)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(Color.black.opacity(0.7), lineWidth: 1.4)
-                                    )
-                                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                                 }
                                 .buttonStyle(.plain)
                             }
-                            .frame(maxWidth: .infinity)
-
-                            // NEARBY Section (Directly under ACTIVE)
-                            VStack(alignment: .leading, spacing: 9) {
-                                HStack {
-                                    locationSectionHeader("NEARBY")
-                                    Spacer()
-                                    if isLoadingNearbyPlaces && nearbyShowcase.isEmpty {
-                                        ProgressView()
-                                            .scaleEffect(0.85)
-                                    }
-                                }
-
-                                if !nearbyShowcase.isEmpty {
-                                    ForEach(nearbyShowcase, id: \.self) { location in
-                                        Button {
-                                            if context == .video {
-                                                showFollowingVideoOnly = false
-                                            } else {
-                                                showFollowingOnly = false
-                                            }
-                                            handleLocationSelection(
-                                                location,
-                                                context: context,
-                                                closeScreen: closeScreenAfterSelection,
-                                                saveToRecent: true,
-                                                saveToFavorites: false
-                                            )
-                                        } label: {
-                                            locationOptionLabel(
-                                                location,
-                                                isSelected: isLocationSelected(location, for: context)
-                                            )
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
-                        .frame(maxWidth: .infinity)
-
-                        // Right Column: BASE Section & HISTORY Section
-                        VStack(alignment: .leading, spacing: 18) {
-                            // BASE Section
-                            VStack(alignment: .leading, spacing: 8) {
-                                locationSectionHeader("BASE")
-
-                                VStack(spacing: 8) {
-                                    Button {
-                                        if context == .video {
-                                            showFollowingVideoOnly = false
-                                        } else {
-                                            showFollowingOnly = false
-                                        }
-                                        handleLocationSelection(
-                                            primaryLocationOption,
-                                            context: context,
-                                            closeScreen: closeScreenAfterSelection,
-                                            saveToRecent: false,
-                                            saveToFavorites: false
-                                        )
-                                    } label: {
-                                        locationOptionLabel(primaryLocationOption, isSelected: isMetricSelected, showsMetricIcon: true)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    let isFollowingLocationSelected = Self.normalizedLocationRealm(currentValue) == Self.normalizedLocationRealm("Following")
-                                    if !followedUserIDs.isEmpty || isFollowingLocationSelected {
-                                        Button {
-                                            if context == .video {
-                                                showFollowingVideoOnly = false
-                                            } else {
-                                                showFollowingOnly = false
-                                            }
-                                            handleLocationSelection(
-                                                "Following",
-                                                context: context,
-                                                closeScreen: closeScreenAfterSelection,
-                                                saveToRecent: false,
-                                                saveToFavorites: false
-                                            )
-                                        } label: {
-                                            locationOptionLabel("Following", isSelected: isFollowingLocationSelected)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-
-                            // HISTORY Section (Directly under BASE)
-                            if !recentShowcase.isEmpty {
-                                VStack(alignment: .leading, spacing: 9) {
-                                    locationSectionHeader("HISTORY")
-
-                                    ForEach(recentShowcase, id: \.self) { recent in
-                                        Button {
-                                            if context == .video {
-                                                showFollowingVideoOnly = false
-                                            } else {
-                                                showFollowingOnly = false
-                                            }
-                                            handleLocationSelection(
-                                                recent,
-                                                context: context,
-                                                closeScreen: closeScreenAfterSelection,
-                                                saveToRecent: true,
-                                                saveToFavorites: false
-                                            )
-                                        } label: {
-                                            locationOptionLabel(
-                                                recent,
-                                                isSelected: isLocationSelected(recent, for: context)
-                                            )
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 18)
                     }
-                    .padding(.horizontal, 18)
 
                     Color.clear
                         .frame(height: 132)
@@ -7844,26 +8477,24 @@ struct ContentView: View {
         .onAppear {
             requestNearbyLocationsIfNeeded(context: context)
         }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+            requestNearbyLocationsIfNeeded(context: context)
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+            requestNearbyLocationsIfNeeded(context: context)
+        }
     }
 
     private var postLocationPickerView: some View {
         let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
+        let nearbySuggestions = nearbyLocationSuggestions()
         let recentOrSavedOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
-        let selectedDisplayLocation = lastUsedLocationValue(for: .post)
         let currentPostValue = currentLocationValue(for: .post)
         let normalizedPostLocation = Self.normalizedLocationRealm(currentPostValue)
-        let normalizedMetric = Self.normalizedLocationRealm("Metric")
-        let isMetricSelected = normalizedPostLocation == normalizedMetric
-        let metricOnCooldown = isLocationOnCooldownForPosting("Metric")
-        let recommendedOptions = Self.deduplicatedLocationNames(
-            nearbyOptions.map(\.name) + recommendedLocations + locationSuggestions,
-            limit: 8
-        ).filter { option in
-            Self.normalizedLocationRealm(option) != normalizedMetric
-        }
-        let nearbyShowcase = Array(recommendedOptions.prefix(6))
+        let isNearestFeedSelected = normalizedPostLocation == Self.normalizedLocationRealm("Metric")
+        let nearestFeedOnCooldown = isLocationOnCooldownForPosting("Metric")
         let recentShowcase = recentOrSavedOptions.filter { option in
-            !nearbyShowcase.contains(where: { Self.normalizedLocationRealm($0) == Self.normalizedLocationRealm(option) })
+            !nearbyOptions.contains(where: { Self.normalizedLocationRealm($0.name) == Self.normalizedLocationRealm(option) })
         }
 
         return ZStack(alignment: .bottom) {
@@ -7878,7 +8509,7 @@ struct ContentView: View {
 
                         LocationField(
                             title: "",
-                            placeholder: "Search places or cities",
+                            placeholder: "Search places, homes, or areas",
                             text: $locationSearchText,
                             suggestions: visibleLocationSuggestions,
                             onSuggestionSelected: { chosen in
@@ -7926,6 +8557,8 @@ struct ContentView: View {
                                     } label: {
                                         locationOptionLabel(
                                             suggestion.title,
+                                            subtitle: suggestion.subtitle,
+                                            distanceText: suggestion.distanceText,
                                             isSelected: isLocationSelected(suggestion.value, for: .post)
                                         )
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -7938,63 +8571,46 @@ struct ContentView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    // Active & Base Section (Side-by-Side Hero Row)
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            locationSectionHeader("ACTIVE")
+                    // SHARED Section
+                    VStack(alignment: .leading, spacing: 9) {
+                        locationSectionHeader("SHARED")
 
+                        Button {
+                            handleLocationSelection("Metric", context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
+                        } label: {
+                            locationOptionLabel(
+                                "Nearest",
+                                subtitle: "Every user can post anywhere",
+                                isSelected: isNearestFeedSelected,
+                                showsMetricIcon: false
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .opacity(nearestFeedOnCooldown ? 0.58 : 1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 18)
+
+                    // NEARBY Section
+                    VStack(alignment: .leading, spacing: 9) {
+                        locationSectionHeader("NEARBY")
+
+                        ForEach(nearbySuggestions, id: \.id) { suggestion in
+                            let isOnCooldown = isLocationOnCooldownForPosting(suggestion.value)
                             Button {
-                                handleLocationSelection(currentPostValue, context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
+                                handleLocationSelection(suggestion.value, context: .post, closeScreen: nil, saveToRecent: true, saveToFavorites: false)
                             } label: {
-                                HStack(spacing: 8) {
-                                    Text(selectedDisplayLocation)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.black)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.85)
-
-                                    Spacer(minLength: 0)
-
-                                    flatChevronUpIcon(size: 22, thickness: 2.6, color: Color.black)
-                                        .frame(width: 22, height: 16)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 12)
-                                .frame(minHeight: 58)
+                                locationOptionLabel(
+                                    suggestion.title,
+                                    subtitle: suggestion.subtitle,
+                                    distanceText: suggestion.distanceText,
+                                    isSelected: isLocationSelected(suggestion.value, for: .post)
+                                )
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color(red: 0.945, green: 0.955, blue: 0.968), Color(red: 0.915, green: 0.93, blue: 0.95)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(Color.black.opacity(0.7), lineWidth: 1.4)
-                                )
-                                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                .opacity(isOnCooldown ? 0.58 : 1)
                             }
                             .buttonStyle(.plain)
                         }
-                        .frame(maxWidth: .infinity)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            locationSectionHeader("BASE")
-
-                            Button {
-                                handleLocationSelection("Metric", context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
-                            } label: {
-                                locationOptionLabel("Metric", isSelected: isMetricSelected, showsMetricIcon: true)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .opacity(metricOnCooldown ? 0.58 : 1)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, 18)
 
@@ -8018,59 +8634,29 @@ struct ContentView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    // Side-by-Side Dynamic Grid for NEARBY and HISTORY
-                    HStack(alignment: .top, spacing: 12) {
-                        // NEARBY Column
+                    // HISTORY Section
+                    if !recentShowcase.isEmpty {
                         VStack(alignment: .leading, spacing: 9) {
-                            HStack {
-                                locationSectionHeader("NEARBY")
-                                Spacer()
-                                if isLoadingNearbyPlaces && nearbyShowcase.isEmpty {
-                                    ProgressView()
-                                        .scaleEffect(0.85)
-                                }
-                            }
+                            locationSectionHeader("HISTORY")
 
-                            if !nearbyShowcase.isEmpty {
-                                ForEach(nearbyShowcase, id: \.self) { location in
-                                    let isLocationOnCooldown = isLocationOnCooldownForPosting(location)
-                                    Button {
-                                        handleLocationSelection(location, context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
-                                    } label: {
-                                        locationOptionLabel(location, isSelected: isLocationSelected(location, for: .post))
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .opacity(isLocationOnCooldown ? 0.58 : 1)
-                                    }
-                                    .buttonStyle(.plain)
+                            ForEach(recentShowcase, id: \.self) { recent in
+                                let isRecentOnCooldown = isLocationOnCooldownForPosting(recent)
+                                Button {
+                                    handleLocationSelection(recent, context: .post, closeScreen: nil, saveToRecent: true, saveToFavorites: false)
+                                } label: {
+                                    locationOptionLabel(
+                                        recent,
+                                        distanceText: distanceTextForLocationName(recent),
+                                        isSelected: isLocationSelected(recent, for: .post)
+                                    )
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .opacity(isRecentOnCooldown ? 0.58 : 1)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                        // HISTORY Column
-                        if !recentShowcase.isEmpty {
-                            VStack(alignment: .leading, spacing: 9) {
-                                locationSectionHeader("HISTORY")
-
-                                ForEach(recentShowcase, id: \.self) { recent in
-                                    let isRecentOnCooldown = isLocationOnCooldownForPosting(recent)
-                                    Button {
-                                        handleLocationSelection(recent, context: .post, closeScreen: nil, saveToRecent: true, saveToFavorites: false)
-                                    } label: {
-                                        locationOptionLabel(
-                                            recent,
-                                            isSelected: isLocationSelected(recent, for: .post)
-                                        )
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .opacity(isRecentOnCooldown ? 0.58 : 1)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                        }
+                        .padding(.horizontal, 18)
                     }
-                    .padding(.horizontal, 18)
 
                     Color.clear
                         .frame(height: 152)
@@ -8079,9 +8665,13 @@ struct ContentView: View {
             }
 
             Button {
-                submitDraftPost()
+                if pendingRepostPost != nil {
+                    submitPendingRepostPost()
+                } else {
+                    submitDraftPost()
+                }
             } label: {
-                Text(isSubmittingPost ? "Posting..." : "Post")
+                Text(isSubmittingPost ? "Posting..." : (pendingRepostPost != nil ? "Repost" : "Post"))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -8101,6 +8691,155 @@ struct ContentView: View {
         }
         .onAppear {
             requestNearbyLocationsIfNeeded(context: .post)
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+            requestNearbyLocationsIfNeeded(context: .post)
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+            requestNearbyLocationsIfNeeded(context: .post)
+        }
+    }
+
+    private func beginRepostFlow(for post: MockPost) {
+        pendingRepostPost = post
+        pendingSharePost = nil
+        isShareFlowActive = false
+        let activeLocation = currentScreen == .locationFeed ? videoLocation : fromLocation
+        let resolved = activeLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Nearby" : activeLocation
+        applyLocationSelection(resolved, context: .post)
+        currentScreen = .postLocationPicker
+    }
+
+    private func submitPendingRepostPost() {
+        guard !isSubmittingPost else { return }
+        guard let sourcePost = pendingRepostPost else {
+            submitDraftPost()
+            return
+        }
+
+        let resolvedLocation = Self.resolvedPostingLocation(
+            postLocation: postLocation,
+            feedLocation: fromLocation,
+            nearbyPlaceName: nearbyPlaces.first?.name
+        )
+
+        if isLocationOnCooldownForPosting(resolvedLocation) {
+            return
+        }
+
+        Task {
+            defer {
+                Task { @MainActor in
+                    isSubmittingPost = false
+                }
+            }
+
+            await MainActor.run {
+                isSubmittingPost = true
+            }
+
+            guard let userID = await resolveUserIDForPosting() else {
+                await MainActor.run {
+                    accountAuthMessage = "Posting setup failed. Please try again."
+                }
+                return
+            }
+
+            let cleanHandle = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+            let authorHandle = cleanHandle.isEmpty ? "you" : (cleanHandle.hasPrefix("@") ? String(cleanHandle.dropFirst()) : cleanHandle)
+            let authorDisplay = authorHandle.isEmpty ? "you" : authorHandle
+            let authorPhotoURL = profilePhotoRemoteURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : profilePhotoRemoteURL
+
+            var reposted = MockPost(
+                id: Int(Date().timeIntervalSince1970 * 1000),
+                author: authorDisplay,
+                handle: authorHandle,
+                authorUserID: userID,
+                authorProfilePhotoURL: authorPhotoURL,
+                authorAge: sourcePost.authorAge,
+                authorPosition: sourcePost.authorPosition,
+                type: sourcePost.type,
+                location: resolvedLocation,
+                title: sourcePost.title,
+                body: sourcePost.body,
+                url: sourcePost.url,
+                accent: sourcePost.accent,
+                tag: "Repost",
+                likes: 0,
+                viewCount: 0,
+                timeViewedSeconds: 0,
+                savedCount: 0,
+                shareCount: 0,
+                peakEngagementScore: 0,
+                isLiked: false,
+                comments: [],
+                sentTo: [],
+                isSaved: false,
+                pollOptions: sourcePost.pollOptions,
+                pollVotes: sourcePost.pollVotes,
+                currentUserPollSelection: nil,
+                mediaImage: sourcePost.mediaImage,
+                mediaURLs: sourcePost.mediaURLs,
+                sourceURL: sourcePost.sourceURL,
+                tags: sourcePost.tags,
+                isBoosted: false,
+                postedInLocations: [resolvedLocation],
+                createdAt: Date(),
+                firestoreID: "",
+                isAnonymous: sourcePost.isAnonymous
+            )
+
+            let payload = firebasePayload(
+                for: reposted,
+                authorID: userID,
+                mediaURLs: reposted.mediaURLs,
+                authorPhotoURL: authorPhotoURL
+            )
+
+            let moderatedPostResult: FirebaseModeratedPostResult
+            do {
+                moderatedPostResult = try await FirebaseSpotService.shared.submitPostWithModeration(payload)
+            } catch {
+                await MainActor.run {
+                    accountAuthMessage = "Repost failed before save. Please try again."
+                }
+                return
+            }
+
+            guard moderatedPostResult.isApproved, moderatedPostResult.posted else {
+                await MainActor.run {
+                    accountAuthMessage = "Repost could not be saved."
+                }
+                return
+            }
+
+            let persistedPostIDRaw = (moderatedPostResult.postID ?? String(reposted.id)).trimmingCharacters(in: .whitespacesAndNewlines)
+            let persistedPostID = persistedPostIDRaw.isEmpty ? String(reposted.id) : persistedPostIDRaw
+
+            do {
+                try await FirebaseSpotService.shared.saveUserPostReference(
+                    userID: userID,
+                    postID: persistedPostID,
+                    locationName: resolvedLocation,
+                    contentType: reposted.type,
+                    feedInsertionIndex: 0
+                )
+            } catch {
+                print("Spot repost reference save warning: \(error)")
+            }
+
+            await MainActor.run {
+                reposted.firestoreID = persistedPostID
+                posts.removeAll(where: { $0.id == reposted.id })
+                posts.insert(reposted, at: 0)
+                recordPostForCooldown(at: resolvedLocation)
+                rememberRecentLocation(resolvedLocation)
+                applyLocationSelection(resolvedLocation, context: .feed)
+                applyLocationSelection(resolvedLocation, context: .post)
+                pendingRepostPost = nil
+                currentScreen = .home
+                lastSentMessage = "Reposted in \(resolvedLocation)"
+            }
         }
     }
 
@@ -8227,7 +8966,14 @@ struct ContentView: View {
                                         videoPlaybackEnabled: activeVideoID == post.id,
                                         isReported: isPostReported(post),
                                         onSend: {
+                                            beginRepostFlow(for: post)
+                                        },
+                                        onShare: {
                                             sharePostToFriends(post)
+                                        },
+                                        onLike: { likedPost in
+                                            let currentPost = posts.first(where: { $0.id == likedPost.id }) ?? likedPost
+                                            toggleLikedState(for: currentPost)
                                         },
                                         onSave: { savedPost in
                                             let currentPost = posts.first(where: { $0.id == savedPost.id }) ?? savedPost
@@ -8363,8 +9109,9 @@ struct ContentView: View {
     }
 
     private func localQueryMatchesForSearch(_ query: String, limit: Int = 80) -> [FirebasePOIRecord] {
-        let userCoord = locationService.lastKnownLocation?.coordinate
-        return NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: userCoord, limit: limit)
+        _ = query
+        _ = limit
+        return []
     }
 
     private var allLocationSuggestions: [String] {
@@ -8481,14 +9228,7 @@ struct ContentView: View {
                 to: CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
             )
 
-            let distanceText: String
-            if distance < 0.1 {
-                distanceText = "Nearby"
-            } else if distance < 100 {
-                distanceText = String(format: "%.1f mi", distance)
-            } else {
-                distanceText = String(format: "%.0f mi", distance)
-            }
+            let distanceText = formatDistanceFeetOrMiles(distance)
 
             let subtitle = locationSubtitle(for: poi)
 
@@ -8674,31 +9414,25 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     floatingHomeActions
                         .padding(.bottom, 0)
-
-                    HStack {
-                        Button {
-                            closeUserProfileScreen()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "chevron.left")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("Back")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .foregroundStyle(.black)
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 10)
-                    .padding(.bottom, max(12, container.safeAreaInsets.bottom))
                 }
             }
             .overlay(alignment: .top) {
                 userProfileHeaderView(profile: profile, profilePosts: profilePosts, topSafeArea: container.safeAreaInsets.top)
                     .ignoresSafeArea(edges: .top)
+            }
+            .overlay(alignment: .topLeading) {
+                Button {
+                    closeUserProfileScreen()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 18)
+                .padding(.top, container.safeAreaInsets.top + 10)
             }
             .zIndex(2)
         }
@@ -8790,6 +9524,7 @@ struct ContentView: View {
                     Text(displayUsername(resolvedUsername))
                         .font(.headline.weight(.bold))
                         .foregroundStyle(usernameGoldTextColor)
+                        .underline(isOwnViewedProfile && isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
 
@@ -8921,8 +9656,13 @@ struct ContentView: View {
                             showProfileLocationBadge: false,
                             isReported: isPostReported(post),
                             onSend: {
-                                selectedSendRecipient = nil
-                                currentScreen = .messages
+                                beginRepostFlow(for: post)
+                            },
+                            onShare: {
+                                sharePostToFriends(post)
+                            },
+                            onLike: { likedPost in
+                                toggleLikedState(for: likedPost)
                             },
                             onSave: { savedPost in
                                 toggleSavedState(for: savedPost)
@@ -9041,7 +9781,13 @@ struct ContentView: View {
             prefersDeleteAction: true,
             isReported: isPostReported(post),
             onSend: {
+                beginRepostFlow(for: post)
+            },
+            onShare: {
                 sharePostToFriends(post)
+            },
+            onLike: { likedPost in
+                toggleLikedState(for: likedPost)
             },
             onSave: { savedPost in
                 toggleSavedState(for: savedPost)
@@ -9133,7 +9879,13 @@ struct ContentView: View {
                                     currentUserProfilePhotoImage: displayProfilePhotoImage,
                                     isReported: isPostReported(post),
                                     onSend: {
+                                        beginRepostFlow(for: post)
+                                    },
+                                    onShare: {
                                         sharePostToFriends(post)
+                                    },
+                                    onLike: { likedPost in
+                                        toggleLikedState(for: likedPost)
                                     },
                                     onSave: { savedPost in
                                         toggleSavedState(for: savedPost)
@@ -9228,31 +9980,21 @@ struct ContentView: View {
                     }
                 }
 
-                VStack(spacing: 0) {
-                    floatingHomeActions
-                        .padding(.bottom, 0)
+                floatingHomeActions
+                    .padding(.bottom, 0)
 
-                    HStack {
-                        backButton(destination: .home, foregroundColor: .black)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 10)
-                    .padding(.bottom, max(12, container.safeAreaInsets.bottom))
-                }
             }
             .overlay(alignment: .top) {
                 let profileChromeColor = Color.white
                 let ownAgeText = postDetailAgeValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 let ownPositionText = postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                let shouldShowOwnAge = !isAnonymousModeEnabled && !ownAgeText.isEmpty
-                let shouldShowOwnPosition = !isAnonymousModeEnabled && !ownPositionText.isEmpty
+                let shouldShowOwnAge = !ownAgeText.isEmpty
+                let shouldShowOwnPosition = !ownPositionText.isEmpty
 
                 VStack(spacing: 0) {
                     VStack(alignment: .center, spacing: 4) {
                         Button {
-                            currentScreen = .settings
+                            openSettingsScreen()
                         } label: {
                             profileAvatarView(size: 56)
                         }
@@ -9260,11 +10002,12 @@ struct ContentView: View {
 
                         HStack(alignment: .center, spacing: 8) {
                             Button {
-                                currentScreen = .settings
+                                openSettingsScreen()
                             } label: {
-                                Text(isAnonymousModeEnabled ? "Anonymous" : displayUsername(profileUsername))
+                                Text(displayUsername(profileUsername))
                                     .font(.headline.weight(.bold))
-                                    .foregroundStyle(isAnonymousModeEnabled ? Color.primary : usernameGoldTextColor)
+                                    .foregroundStyle(usernameGoldTextColor)
+                                    .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.85)
                                     .multilineTextAlignment(.center)
@@ -9272,15 +10015,13 @@ struct ContentView: View {
                             .buttonStyle(.plain)
 
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    isAnonymousModeEnabled.toggle()
-                                }
+                                openSettingsScreen()
                             } label: {
-                                Image(systemName: isAnonymousModeEnabled ? "theatermasks.fill" : "theatermasks")
+                                Image(systemName: "gearshape")
                                     .font(.system(size: 15, weight: .bold))
-                                    .foregroundStyle(isAnonymousModeEnabled ? Color.purple : Color.secondary)
+                                    .foregroundStyle(Color.secondary)
                                     .padding(6)
-                                    .background(isAnonymousModeEnabled ? Color.purple.opacity(0.12) : Color(.systemGray6))
+                                    .background(Color(.systemGray6))
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
@@ -9319,70 +10060,13 @@ struct ContentView: View {
                 .clipShape(Rectangle())
                 .ignoresSafeArea(edges: .top)
             }
-            .overlay(alignment: .bottomTrailing) {
-                Button {
-                    isCreatingPostFromMap = false
-                    mapDraftCoordinate = nil
-                    isFeedSearchFieldFocused = false
-                    currentScreen = .contentTypePicker
-                } label: {
-                    ZStack {
-                        // Outer glowing gradient ring giving depth
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.35),
-                                        Color.black.opacity(0.12)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 68, height: 68)
-
-                        // Main bold black button body with 3D gradient highlight
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(white: 0.22),
-                                        Color.black
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 62, height: 62)
-
-                        // Inner subtle top bevel highlight line
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.55),
-                                        Color.white.opacity(0.05)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                lineWidth: 1.8
-                            )
-                            .frame(width: 60, height: 60)
-
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                            .shadow(color: Color.black.opacity(0.4), radius: 1, x: 0, y: 1)
-                    }
-                }
-                .buttonStyle(NoPressedStateButtonStyle())
-                .shadow(color: Color.black.opacity(0.30), radius: 12, x: 0, y: 6)
-                .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
-                .padding(.trailing, 18)
-                .padding(.bottom, max(18, container.safeAreaInsets.bottom + 6))
-            }
             .zIndex(2)
+        }
+        .onAppear {
+            if isAnonymousModeEnabled {
+                isAnonymousModeEnabled = false
+                UserDefaults.standard.set(false, forKey: anonymousModeDefaultsKey)
+            }
         }
     }
 
@@ -9460,14 +10144,18 @@ struct ContentView: View {
         return PostCardView(
             post: binding,
             isOwnPost: isOwnPost,
-            tracksViewEngagement: false,
             currentUserProfilePhotoImage: displayProfilePhotoImage,
-            showsAuthorLine: false,
             prefersDeleteAction: true,
-            showProfileLocationBadge: false,
+            showsDeleteButtonTrailing: true,
             isReported: isReportedPost,
             onSend: {
+                beginRepostFlow(for: post)
+            },
+            onShare: {
                 sharePostToFriends(post)
+            },
+            onLike: { likedPost in
+                toggleLikedState(for: likedPost)
             },
             onSave: { savedPost in
                 toggleSavedState(for: savedPost)
@@ -9547,7 +10235,13 @@ struct ContentView: View {
                     showProfileLocationBadge: hidesAuthorForOwnProfilePost,
                     isReported: isPostReported(post),
                     onSend: {
+                        beginRepostFlow(for: post)
+                    },
+                    onShare: {
                         sharePostToFriends(post)
+                    },
+                    onLike: { likedPost in
+                        toggleLikedState(for: likedPost)
                     },
                     onSave: { savedPost in
                         toggleSavedState(for: savedPost)
@@ -9589,7 +10283,7 @@ struct ContentView: View {
         }
     }
 
-    private func settingsRow(title: String, value: String, valueColor: Color = .secondary, action: @escaping () -> Void) -> some View {
+    private func settingsRow(title: String, value: String, valueColor: Color = .secondary, isValueUnderlined: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
             action()
         } label: {
@@ -9601,20 +10295,13 @@ struct ContentView: View {
                 Text(value)
                     .font(.subheadline)
                     .foregroundStyle(valueColor)
+                    .underline(isValueUnderlined, color: valueColor)
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.black.opacity(0.06), lineWidth: 1)
-                    )
-            )
         }
         .buttonStyle(NoPressedStateButtonStyle())
     }
@@ -10059,15 +10746,15 @@ struct ContentView: View {
             let compactEditorHeight: CGFloat = {
                 switch editor {
                 case .technicalSupport:
-                    return 160
+                    return 136
                 case .boostNextPosts:
-                    return min(geometry.size.height * 0.68, 620)
+                    return min(geometry.size.height * 0.62, 560)
                 default:
-                    return min(geometry.size.height * 0.92, 820)
+                    return min(geometry.size.height * 0.74, 620)
                 }
             }()
 
-            ZStack(alignment: .top) {
+            ZStack {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture {
@@ -10076,41 +10763,29 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: 18) {
-                        HStack {
-                            Spacer()
-                            Button {
-                                activeSettingsEditor = nil
-                            } label: {
-                                Circle()
-                                    .fill(Color.black)
-                                    .frame(width: 32, height: 32)
-                                    .overlay(Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white))
-                            }
-                        }
-
-                        Group {
-                            switch editor {
-                            case .accountPassword:
-                                accountPasswordEditorView()
-                            case .searchUsers:
-                                searchUsersEditorView()
-                            case .photo:
-                                profileTextEditorView()
-                            case .technicalSupport:
-                                technicalSupportEditorView()
-                            case .locationAlerts:
-                                locationAlertsEditorView()
-                            case .postNotifications:
-                                postNotificationsEditorView()
-                            case .blockUsers:
-                                blockUsersEditorView()
-                            case .boostNextPosts:
-                                boostNextPostsEditorView()
-                            case .bulkDeletePosts:
-                                bulkDeletePostsEditorView()
-                            case .positionPicker:
-                                settingsPostDetailOptionsCard
-                            }
+                        switch editor {
+                        case .accountPassword:
+                            AnyView(accountPasswordEditorView())
+                        case .searchUsers:
+                            AnyView(searchUsersEditorView())
+                        case .photo:
+                            AnyView(profileTextEditorView())
+                        case .technicalSupport:
+                            AnyView(technicalSupportEditorView())
+                        case .locationAlerts:
+                            AnyView(locationAlertsEditorView())
+                        case .postNotifications:
+                            AnyView(postNotificationsEditorView())
+                        case .blockUsers:
+                            AnyView(blockUsersEditorView())
+                        case .boostNextPosts:
+                            AnyView(boostNextPostsEditorView())
+                        case .bulkDeletePosts:
+                            AnyView(bulkDeletePostsEditorView())
+                        case .positionPicker:
+                            AnyView(settingsPostDetailOptionsCard)
+                        case .verifications:
+                            AnyView(verificationsEditorView())
                         }
                     }
                     .padding(20)
@@ -10118,10 +10793,1620 @@ struct ContentView: View {
                     .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .shadow(color: .black.opacity(0.18), radius: 21, x: 0, y: 12)
-                    .padding(.top, 12)
-                    .padding(.bottom, 30)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            }
+        }
+    }
+
+    private func verificationsEditorView() -> some View {
+        VStack(alignment: .center, spacing: 24) {
+            Text("ID Verification")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            if idVerificationStep == .result {
+                idVerificationResultContent
+            } else {
+                VStack(spacing: 10) {
+                    ProgressView()
+                        .scaleEffect(1.1)
+                    Text("Opening camera...")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+            }
+
+            if !idScanError.isEmpty {
+                Text(idScanError)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
+
+            if idVerificationStep == .result {
+                HStack(spacing: 16) {
+                    Button {
+                        idScanError = ""
+                        extractedFirstName = ""
+                        extractedLastName = ""
+                        generatedVerifiedUsername = ""
+                        idVerificationNameConfidence = 0
+                        idVerificationDocumentFamilyHint = "unknown"
+                        idVerificationCountryHint = ""
+                        idVerificationCountryPriority = "standard"
+                        idVerificationParseRoute = "heuristic"
+                        idVerificationFraudSignals = []
+                        idVerificationStep = .scanning
+                        didCaptureIDImageFromScanner = false
+                        isShowingIDScanner = true
+                    } label: {
+                        Text("Retake")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.18, green: 0.18, blue: 0.20))
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemGray5))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingID)
+
+                    Button {
+                        Task {
+                            await applyVerifiedUsername()
+                        }
+                    } label: {
+                        Text("Confirm")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 12)
+                            .background(Color(red: 0.18, green: 0.18, blue: 0.20))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingID || generatedVerifiedUsername.isEmpty)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            if idVerificationStep != .result && !isShowingIDScanner && !hasAutoOpenedIDScanner {
+                hasAutoOpenedIDScanner = true
+                idVerificationStep = .scanning
+                didCaptureIDImageFromScanner = false
+                isShowingIDScanner = true
+            }
+        }
+        .onDisappear {
+            hasAutoOpenedIDScanner = false
+        }
+        .sheet(isPresented: $isShowingIDScanner, onDismiss: {
+            if !didCaptureIDImageFromScanner {
+                idVerificationStep = .intro
+                activeSettingsEditor = nil
+            }
+            didCaptureIDImageFromScanner = false
+        }) {
+            IDScannerView { image in
+                isShowingIDScanner = false
+                if let image {
+                    didCaptureIDImageFromScanner = true
+                    processCapturedIDImage(image)
+                } else if idVerificationStep != .result {
+                    idVerificationStep = .intro
+                }
+            }
+        }
+    }
+
+    private var idVerificationResultContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if isProcessingID {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(1.1)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Scanning ID")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("Reading legal name from your card")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Color.green)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ID verification ready")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("We found a legal name and prepared your credited username. You can edit it before confirming.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    LinearGradient(
+                        colors: [Color.green.opacity(0.12), Color.blue.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.text.rectangle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.blue)
+                        Text("Name Found")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("\(extractedFirstName) \(extractedLastName)")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.primary)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "at")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.orange)
+                        Text("Credited Username")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(generatedVerifiedUsername)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(red: 0.18, green: 0.18, blue: 0.20))
+                        .underline()
+                        .multilineTextAlignment(.leading)
+
+                    Text("This underlined username is locked to your verified legal name after confirm.")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(
+                        "Confidence: \(Int((idVerificationNameConfidence * 100).rounded()))% · \(idVerificationDocumentFamilyHint.replacingOccurrences(of: "_", with: " ").capitalized)\(idVerificationCountryHint.isEmpty ? "" : " · \(idVerificationCountryHint)") · \(idVerificationCountryPriority.uppercased())"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(idVerificationNameConfidence >= minimumIDNameConfidence ? Color.green : Color.orange)
+
+                    if !idVerificationFraudSignals.isEmpty {
+                        Text("Risk flags: \(idVerificationFraudSignals.joined(separator: " · "))")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.red)
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                HStack(spacing: 10) {
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black)
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Verified name membership")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Temporarily free")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.primary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.10), Color.gray.opacity(0.10)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func processCapturedIDImage(_ image: UIImage) {
+        isProcessingID = true
+        idScanError = ""
+        idVerificationFraudSignals = []
+        idVerificationStep = .result
+
+        recognizeTextInIDImage(image) { [self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let text):
+                    let currentSignature = normalizedIDTextSignature(from: text)
+                    let routing = inferIDParserRouting(from: text)
+                    let name = extractNameFromIDText(text)
+                    extractedFirstName = name.firstName
+                    extractedLastName = name.lastName
+                    idVerificationDocumentFamilyHint = routing.documentFamily
+                    idVerificationCountryHint = routing.countryHint
+                    idVerificationCountryPriority = idCountryPriorityTier(for: routing.countryHint)
+                    idVerificationParseRoute = routing.parseRoute
+                    let fraudSignals = detectLikelyFakeIDSignals(
+                        text: text,
+                        firstName: name.firstName,
+                        lastName: name.lastName,
+                        routing: routing
+                    )
+                    idVerificationFraudSignals = fraudSignals
+
+                    let confidence = scoreIDNameExtractionConfidence(
+                        text: text,
+                        firstName: name.firstName,
+                        lastName: name.lastName,
+                        routing: routing,
+                        fraudSignals: fraudSignals
+                    )
+                    idVerificationNameConfidence = confidence
+
+                    let stableRepeatSimilarity = idTextSignatureSimilarity(currentSignature, lastStableIDTextSignature)
+
+                    let shouldAttemptStabilizedFallback = extractedFirstName.isEmpty
+                        || extractedLastName.isEmpty
+                        || confidence < minimumIDNameConfidence
+
+                    if shouldAttemptStabilizedFallback,
+                       let stabilized = stabilizedExtractionForCurrentScan(
+                        signature: currentSignature,
+                        routing: routing,
+                        fraudSignals: fraudSignals
+                       ) {
+                        extractedFirstName = stabilized.firstName
+                        extractedLastName = stabilized.lastName
+                        idVerificationCountryHint = stabilized.countryHint
+                        idVerificationCountryPriority = idCountryPriorityTier(for: stabilized.countryHint)
+                        idVerificationDocumentFamilyHint = stabilized.documentFamily
+                        idVerificationNameConfidence = max(confidence, minimumIDNameConfidence + 0.04)
+                        generatedVerifiedUsername = generateVerifiedUsername(firstName: stabilized.firstName, lastName: stabilized.lastName)
+                        idScanError = ""
+                        recordIDVerificationTelemetry(
+                            countryHint: stabilized.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .accepted,
+                            rescuedByStabilization: true
+                        )
+                        isProcessingID = false
+                        return
+                    }
+
+                    if extractedFirstName.isEmpty || extractedLastName.isEmpty {
+                        idScanError = "Could not read a full name. Please try again with better lighting."
+                        generatedVerifiedUsername = ""
+                        recordIDVerificationTelemetry(
+                            countryHint: routing.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .rejectedNoName,
+                            rescuedByStabilization: false
+                        )
+                    } else if !fraudSignals.isEmpty {
+                        idScanError = "ID appears non-official or manipulated (\(fraudSignals.joined(separator: ", "))). Please use a valid government-issued ID."
+                        generatedVerifiedUsername = ""
+                        recordIDVerificationTelemetry(
+                            countryHint: routing.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .rejectedFraud,
+                            rescuedByStabilization: false
+                        )
+                    } else if confidence >= idVerificationSoftAcceptLowerBound,
+                              confidence < idVerificationSoftAcceptUpperBound,
+                              stableRepeatSimilarity >= idVerificationSoftAcceptSimilarityThreshold {
+                        // Soft accept only for near-threshold repeats of the same stable ID with no fraud signals.
+                        idVerificationNameConfidence = minimumIDNameConfidence
+                        generatedVerifiedUsername = generateVerifiedUsername(firstName: extractedFirstName, lastName: extractedLastName)
+                        rememberStableIDExtraction(
+                            signature: currentSignature,
+                            firstName: extractedFirstName,
+                            lastName: extractedLastName,
+                            countryHint: routing.countryHint,
+                            documentFamily: routing.documentFamily
+                        )
+                        recordIDVerificationTelemetry(
+                            countryHint: routing.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .accepted,
+                            rescuedByStabilization: true
+                        )
+                    } else if confidence < minimumIDNameConfidence {
+                        idScanError = "Verification confidence is too low (\(Int((confidence * 100).rounded()))%). Please retake your ID photo with better framing and lighting."
+                        generatedVerifiedUsername = ""
+                        recordIDVerificationTelemetry(
+                            countryHint: routing.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .rejectedLowConfidence,
+                            rescuedByStabilization: false
+                        )
+                    } else {
+                        generatedVerifiedUsername = generateVerifiedUsername(firstName: extractedFirstName, lastName: extractedLastName)
+                        rememberStableIDExtraction(
+                            signature: currentSignature,
+                            firstName: extractedFirstName,
+                            lastName: extractedLastName,
+                            countryHint: routing.countryHint,
+                            documentFamily: routing.documentFamily
+                        )
+                        recordIDVerificationTelemetry(
+                            countryHint: routing.countryHint,
+                            tier: idVerificationCountryPriority,
+                            confidence: idVerificationNameConfidence,
+                            outcome: .accepted,
+                            rescuedByStabilization: false
+                        )
+                    }
+                case .failure(let error):
+                    idScanError = "ID scan failed: \(error.localizedDescription)"
+                    extractedFirstName = ""
+                    extractedLastName = ""
+                    generatedVerifiedUsername = ""
+                    idVerificationNameConfidence = 0
+                    idVerificationDocumentFamilyHint = "unknown"
+                    idVerificationCountryHint = ""
+                    idVerificationCountryPriority = "standard"
+                    idVerificationParseRoute = "heuristic"
+                    idVerificationFraudSignals = []
+                    recordIDVerificationTelemetry(
+                        countryHint: "",
+                        tier: "standard",
+                        confidence: 0,
+                        outcome: .ocrFailure,
+                        rescuedByStabilization: false
+                    )
+                }
+                isProcessingID = false
+            }
+        }
+    }
+
+    private func rememberStableIDExtraction(
+        signature: String,
+        firstName: String,
+        lastName: String,
+        countryHint: String,
+        documentFamily: String
+    ) {
+        guard !signature.isEmpty, !firstName.isEmpty, !lastName.isEmpty else { return }
+        lastStableIDTextSignature = signature
+        lastStableIDFirstName = firstName
+        lastStableIDLastName = lastName
+        lastStableIDCountryHint = countryHint
+        lastStableIDDocumentFamily = documentFamily
+    }
+
+    private func stabilizedExtractionForCurrentScan(
+        signature: String,
+        routing: (documentFamily: String, countryHint: String, parseRoute: String),
+        fraudSignals: [String]
+    ) -> (firstName: String, lastName: String, countryHint: String, documentFamily: String)? {
+        guard !signature.isEmpty,
+              !lastStableIDTextSignature.isEmpty,
+              !lastStableIDFirstName.isEmpty,
+              !lastStableIDLastName.isEmpty
+        else {
+            return nil
+        }
+
+        let hardFraudSignals: Set<String> = [
+            "novelty_or_specimen_text",
+            "mrz_checksum_mismatch",
+            "missing_mrz_lines"
+        ]
+        if !Set(fraudSignals).intersection(hardFraudSignals).isEmpty {
+            return nil
+        }
+
+        let similarity = idTextSignatureSimilarity(signature, lastStableIDTextSignature)
+        guard similarity >= 0.82 else {
+            return nil
+        }
+
+        let familyMatches = lastStableIDDocumentFamily.isEmpty || lastStableIDDocumentFamily == routing.documentFamily
+        if !familyMatches {
+            return nil
+        }
+
+        return (
+            firstName: lastStableIDFirstName,
+            lastName: lastStableIDLastName,
+            countryHint: lastStableIDCountryHint.isEmpty ? routing.countryHint : lastStableIDCountryHint,
+            documentFamily: lastStableIDDocumentFamily.isEmpty ? routing.documentFamily : lastStableIDDocumentFamily
+        )
+    }
+
+    private func normalizedIDTextSignature(from text: String) -> String {
+        let tokens = text
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 3 }
+
+        guard !tokens.isEmpty else { return "" }
+
+        let freq = tokens.reduce(into: [String: Int]()) { partial, token in
+            partial[token, default: 0] += 1
+        }
+
+        let importantTokens = freq
+            .sorted { lhs, rhs in
+                if lhs.value != rhs.value { return lhs.value > rhs.value }
+                return lhs.key < rhs.key
+            }
+            .prefix(24)
+            .map { $0.key }
+            .sorted()
+
+        return importantTokens.joined(separator: "|")
+    }
+
+    private func idTextSignatureSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let a = Set(lhs.split(separator: "|").map(String.init))
+        let b = Set(rhs.split(separator: "|").map(String.init))
+        guard !a.isEmpty, !b.isEmpty else { return 0 }
+
+        let intersectionCount = a.intersection(b).count
+        let unionCount = a.union(b).count
+        guard unionCount > 0 else { return 0 }
+        return Double(intersectionCount) / Double(unionCount)
+    }
+
+    private func detectLikelyFakeIDSignals(
+        text: String,
+        firstName: String,
+        lastName: String,
+        routing: (documentFamily: String, countryHint: String, parseRoute: String)
+    ) -> [String] {
+        let lower = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
+
+        var signals: [String] = []
+
+        let noveltyMarkers = [
+            "novelty",
+            "replica",
+            "specimen",
+            "sample",
+            "for motion picture use",
+            "for motion picture use only",
+            "demo",
+            "for novelty use",
+            "not a government document",
+            "not valid for identification",
+            "fictitious",
+            "fantasy"
+        ]
+        if noveltyMarkers.contains(where: { lower.contains($0) }) {
+            signals.append("novelty_or_specimen_text")
+        }
+
+        let placeholderNames = [
+            "john doe", "jane doe", "test test", "sample sample", "foo bar"
+        ]
+        let combined = "\(firstName) \(lastName)"
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+        if placeholderNames.contains(where: { combined.contains($0) }) {
+            signals.append("placeholder_name")
+        }
+
+        if firstName.lowercased() == lastName.lowercased() {
+            signals.append("first_last_identical")
+        }
+
+        let compactText = text.replacingOccurrences(of: " ", with: "")
+        let mrzLineCount = compactText.components(separatedBy: .newlines).filter { line in
+            let chevrons = line.filter { $0 == "<" }.count
+            return line.count >= 24 && chevrons >= 2
+        }.count
+        if routing.documentFamily == "passport_mrz" && routing.parseRoute == "mrz" && mrzLineCount < 2 {
+            signals.append("broken_mrz_pattern")
+        }
+
+        if routing.parseRoute == "mrz" {
+            let mrzLines = extractLikelyMRZLines(from: text)
+            if mrzLines.count >= 2 {
+                if let isValid = validateTD3MRZChecksums(mrzLines: mrzLines), !isValid {
+                    signals.append("mrz_checksum_mismatch")
+                }
+            } else {
+                signals.append("missing_mrz_lines")
+            }
+        }
+
+        if hasSuspiciousNumericPatterns(in: text) {
+            signals.append("suspicious_numeric_pattern")
+        }
+
+        let hasDOB = lower.contains("dob") || lower.contains("date of birth") || lower.contains("birth")
+        let hasExpiry = lower.contains("exp") || lower.contains("expires") || lower.contains("expiration")
+        if routing.documentFamily == "driver_license" && (!hasDOB || !hasExpiry) {
+            signals.append("missing_core_license_fields")
+        }
+
+        return Array(Set(signals)).sorted().prefix(4).map { $0 }
+    }
+
+    private func extractLikelyMRZLines(from text: String) -> [String] {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<")
+        return text
+            .uppercased()
+            .components(separatedBy: .newlines)
+            .map { $0.replacingOccurrences(of: " ", with: "") }
+            .filter { line in
+                guard line.count >= 30 else { return false }
+                return line.unicodeScalars.allSatisfy { allowed.contains($0) }
+            }
+    }
+
+    private func validateTD3MRZChecksums(mrzLines: [String]) -> Bool? {
+        guard mrzLines.count >= 2 else { return nil }
+
+        let line2 = Array(mrzLines[1])
+        guard line2.count == 44 else { return nil }
+
+        func field(_ start: Int, _ endExclusive: Int) -> String {
+            String(line2[start..<endExclusive])
+        }
+
+        func digit(at index: Int) -> Int? {
+            guard index < line2.count, let value = line2[index].wholeNumberValue else { return nil }
+            return value
+        }
+
+        guard
+            let passportCheck = digit(at: 9),
+            let dobCheck = digit(at: 19),
+            let expiryCheck = digit(at: 27),
+            let optionalCheck = digit(at: 42),
+            let compositeCheck = digit(at: 43)
+        else {
+            return false
+        }
+
+        let passportValid = mrzCheckDigit(for: field(0, 9)) == passportCheck
+        let dobValid = mrzCheckDigit(for: field(13, 19)) == dobCheck
+        let expiryValid = mrzCheckDigit(for: field(21, 27)) == expiryCheck
+        let optionalValid = mrzCheckDigit(for: field(28, 42)) == optionalCheck
+
+        let compositeField = field(0, 10) + field(13, 20) + field(21, 43)
+        let compositeValid = mrzCheckDigit(for: compositeField) == compositeCheck
+
+        return passportValid && dobValid && expiryValid && optionalValid && compositeValid
+    }
+
+    private func mrzCheckDigit(for field: String) -> Int {
+        let weights = [7, 3, 1]
+        var sum = 0
+
+        for (index, char) in field.enumerated() {
+            let value = mrzCharacterValue(char)
+            sum += value * weights[index % 3]
+        }
+
+        return sum % 10
+    }
+
+    private func mrzCharacterValue(_ character: Character) -> Int {
+        if character == "<" {
+            return 0
+        }
+        if let digit = character.wholeNumberValue {
+            return digit
+        }
+        if let scalar = character.unicodeScalars.first {
+            let ascii = Int(scalar.value)
+            if ascii >= 65 && ascii <= 90 {
+                return ascii - 55
+            }
+        }
+        return 0
+    }
+
+    private func hasSuspiciousNumericPatterns(in text: String) -> Bool {
+        let tokens = text
+            .components(separatedBy: CharacterSet.decimalDigits.inverted)
+            .filter { $0.count >= 6 }
+
+        for token in tokens {
+            let digits = token.compactMap { $0.wholeNumberValue }
+            guard digits.count >= 6 else { continue }
+
+            let allSame = Set(digits).count == 1
+            if allSame { return true }
+
+            let isAscending = zip(digits, digits.dropFirst()).allSatisfy { lhs, rhs in rhs - lhs == 1 }
+            if isAscending { return true }
+
+            let isDescending = zip(digits, digits.dropFirst()).allSatisfy { lhs, rhs in lhs - rhs == 1 }
+            if isDescending { return true }
+        }
+
+        return false
+    }
+
+    private func inferIDParserRouting(from text: String) -> (documentFamily: String, countryHint: String, parseRoute: String) {
+        let lines = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let lower = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
+
+        func inferCountryFromKeywords(_ lower: String) -> String {
+            let countryHints: [(iso2: String, keys: [String])] = [
+                ("AT", ["austria", "osterreich", "österreich"]),
+                ("BE", ["belgium", "belgique", "belgie", "belgië"]),
+                ("BG", ["bulgaria", "balgariya", "българия"]),
+                ("CY", ["cyprus", "kypros", "κύπρος"]),
+                ("CZ", ["czech republic", "ceska republika", "česká republika", "czechia"]),
+                ("DE", ["germany", "deutschland", "bundesrepublik"]),
+                ("DK", ["denmark", "danmark"]),
+                ("EE", ["estonia", "eesti"]),
+                ("ES", ["spain", "espana", "españa"]),
+                ("FI", ["finland", "suomi"]),
+                ("FR", ["france", "republique francaise", "république française"]),
+                ("GR", ["greece", "hellenic republic", "ελλάδα"]),
+                ("HR", ["croatia", "hrvatska"]),
+                ("HU", ["hungary", "magyarorszag", "magyarország"]),
+                ("IE", ["ireland", "eire", "éire"]),
+                ("IT", ["italy", "italia"]),
+                ("LT", ["lithuania", "lietuva"]),
+                ("LU", ["luxembourg", "letzebuerg", "lëtzebuerg"]),
+                ("LV", ["latvia", "latvija"]),
+                ("MT", ["malta"]),
+                ("NL", ["netherlands", "nederland"]),
+                ("PL", ["poland", "polska"]),
+                ("PT", ["portugal", "republica portuguesa", "república portuguesa"]),
+                ("RO", ["romania", "românia"]),
+                ("SE", ["sweden", "sverige"]),
+                ("SI", ["slovenia", "slovenija"]),
+                ("SK", ["slovakia", "slovensko"]),
+                ("GB", ["united kingdom", "great britain", "uk", "england", "scotland", "wales"]),
+                ("CH", ["switzerland", "schweiz", "suisse", "svizzera"]),
+                ("NO", ["norway", "norge"]),
+                ("US", ["united states", "usa", "state of"]),
+                ("CA", ["canada"]),
+                ("AU", ["australia"]),
+                ("NZ", ["new zealand"]),
+                ("JP", ["japan", "nippon", "nihon"]),
+                ("KR", ["korea", "republic of korea", "south korea"]),
+                ("SG", ["singapore"]),
+                ("IN", ["india", "bharat"]),
+                ("BR", ["brazil", "brasil"]),
+                ("MX", ["mexico", "méxico"])
+            ]
+
+            for entry in countryHints {
+                if entry.keys.contains(where: { lower.contains($0) }) {
+                    return entry.iso2
+                }
+            }
+            return ""
+        }
+
+        func firstCountryFromMRZ() -> String {
+            for raw in lines {
+                let line = raw.replacingOccurrences(of: " ", with: "")
+                if line.count < 5 { continue }
+
+                if line.hasPrefix("P<") || line.hasPrefix("I<") || line.hasPrefix("A<") {
+                    let start = line.index(line.startIndex, offsetBy: 2)
+                    let end = line.index(start, offsetBy: min(3, line.distance(from: start, to: line.endIndex)))
+                    let code = String(line[start..<end]).uppercased()
+                    if code.count == 3 && code.allSatisfy({ $0.isLetter }) {
+                        return code
+                    }
+                }
+            }
+            return ""
+        }
+
+        var countryHint = firstCountryFromMRZ()
+        if countryHint.isEmpty {
+            countryHint = inferCountryFromKeywords(lower)
+        }
+
+        let hasMRZ = lines.contains { line in
+            let compact = line.replacingOccurrences(of: " ", with: "")
+            let chevrons = compact.filter { $0 == "<" }.count
+            return compact.count >= 24 && chevrons >= 2
+        }
+
+        let hasDLHints = lower.contains("driver license")
+            || lower.contains("driver licence")
+            || lower.contains("dl")
+            || lower.contains("class")
+            || lower.contains("endorsements")
+
+        let hasPassportHints = lower.contains("passport") || hasMRZ
+        let hasNationalIDHints = lower.contains("identity card")
+            || lower.contains("national id")
+            || lower.contains("identite")
+            || lower.contains("dni")
+            || lower.contains("aadhaar")
+
+        if hasPassportHints {
+            return (documentFamily: "passport_mrz", countryHint: countryHint, parseRoute: hasMRZ ? "mrz" : "passport_label")
+        }
+        if hasDLHints {
+            return (documentFamily: "driver_license", countryHint: countryHint.isEmpty ? "US" : countryHint, parseRoute: "labeled_fields")
+        }
+        if hasNationalIDHints {
+            return (documentFamily: "national_id", countryHint: countryHint, parseRoute: "labeled_fields")
+        }
+
+        return (documentFamily: "generic_government_id", countryHint: countryHint, parseRoute: "heuristic")
+    }
+
+    private func idCountryPriorityTier(for countryHint: String) -> String {
+        let iso2 = countryHint.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !iso2.isEmpty else { return "standard" }
+
+        let autoPromoted = loadAutoPromotedIDCountries()
+        if autoPromoted.contains(iso2) {
+            return "high"
+        }
+
+        if highPriorityIDCountries.contains(iso2) {
+            return "high"
+        }
+        if mediumPriorityIDCountries.contains(iso2) {
+            return "medium"
+        }
+        return "low"
+    }
+
+    private func loadIDVerificationTelemetry() -> [String: IDVerificationTelemetryBucket] {
+        guard let data = UserDefaults.standard.data(forKey: idVerificationTelemetryDefaultsKey),
+              let decoded = try? JSONDecoder().decode([String: IDVerificationTelemetryBucket].self, from: data)
+        else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private func saveIDVerificationTelemetry(_ telemetry: [String: IDVerificationTelemetryBucket]) {
+        guard let data = try? JSONEncoder().encode(telemetry) else { return }
+        UserDefaults.standard.set(data, forKey: idVerificationTelemetryDefaultsKey)
+    }
+
+    private func loadAutoPromotedIDCountries() -> Set<String> {
+        let values = UserDefaults.standard.array(forKey: idVerificationAutoPromotedDefaultsKey) as? [String] ?? []
+        return Set(values.map { $0.uppercased() })
+    }
+
+    private func saveAutoPromotedIDCountries(_ countries: Set<String>) {
+        UserDefaults.standard.set(Array(countries).sorted(), forKey: idVerificationAutoPromotedDefaultsKey)
+    }
+
+    private func confidenceBinIndex(for confidence: Double) -> Int {
+        if confidence < 0.40 { return 0 }
+        if confidence < 0.60 { return 1 }
+        if confidence < 0.72 { return 2 }
+        if confidence < 0.85 { return 3 }
+        return 4
+    }
+
+    private func recordIDVerificationTelemetry(
+        countryHint: String,
+        tier: String,
+        confidence: Double,
+        outcome: IDVerificationOutcome,
+        rescuedByStabilization: Bool
+    ) {
+        let iso2 = countryHint.trimmingCharacters(in: .whitespacesAndNewlines).uppercased().isEmpty
+            ? "UNKNOWN"
+            : countryHint.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let key = "\(iso2)|\(tier)"
+
+        var telemetry = loadIDVerificationTelemetry()
+        var bucket = telemetry[key] ?? IDVerificationTelemetryBucket(countryISO2: iso2, tier: tier)
+
+        bucket.scans += 1
+        if rescuedByStabilization {
+            bucket.rescuedByStabilization += 1
+        }
+
+        switch outcome {
+        case .accepted:
+            bucket.accepted += 1
+        case .rejectedNoName:
+            bucket.rejectedNoName += 1
+        case .rejectedLowConfidence:
+            bucket.rejectedLowConfidence += 1
+        case .rejectedFraud:
+            bucket.rejectedFraud += 1
+        case .ocrFailure:
+            bucket.ocrFailures += 1
+        }
+
+        let bin = confidenceBinIndex(for: confidence)
+        if bucket.confidenceBins.indices.contains(bin) {
+            bucket.confidenceBins[bin] += 1
+        }
+
+        telemetry[key] = bucket
+        saveIDVerificationTelemetry(telemetry)
+
+        guard iso2 != "UNKNOWN" else { return }
+        guard bucket.scans >= idVerificationAutoPromotionMinScans else { return }
+
+        let scans = Double(max(bucket.scans, 1))
+        let acceptanceRate = Double(bucket.accepted) / scans
+        let fraudRejectRate = Double(bucket.rejectedFraud) / scans
+        let lowConfidenceRejectRate = Double(bucket.rejectedLowConfidence) / scans
+
+        let cumulative = bucket.confidenceBins
+        let midpoint = max(1, Int(ceil(Double(bucket.scans) * 0.5)))
+        var running = 0
+        var p50Confidence: Double = 0.0
+        for (idx, count) in cumulative.enumerated() {
+            running += count
+            if running >= midpoint {
+                switch idx {
+                case 0: p50Confidence = 0.20
+                case 1: p50Confidence = 0.50
+                case 2: p50Confidence = 0.66
+                case 3: p50Confidence = 0.78
+                default: p50Confidence = 0.90
+                }
+                break
+            }
+        }
+
+        guard acceptanceRate >= idVerificationAutoPromotionMinAcceptanceRate,
+              p50Confidence >= idVerificationAutoPromotionMinConfidenceP50,
+              fraudRejectRate <= idVerificationAutoPromotionMaxFraudRejectRate,
+              lowConfidenceRejectRate <= idVerificationAutoPromotionMaxLowConfidenceRejectRate
+        else {
+            return
+        }
+
+        var promoted = loadAutoPromotedIDCountries()
+        if !promoted.contains(iso2) {
+            promoted.insert(iso2)
+            saveAutoPromotedIDCountries(promoted)
+        }
+    }
+
+    private func scoreIDNameExtractionConfidence(
+        text: String,
+        firstName: String,
+        lastName: String,
+        routing: (documentFamily: String, countryHint: String, parseRoute: String),
+        fraudSignals: [String]
+    ) -> Double {
+        guard !firstName.isEmpty, !lastName.isEmpty else { return 0 }
+
+        let lower = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
+        let firstTokens = firstName.split(separator: " ").map(String.init)
+        let lastTokens = lastName.split(separator: " ").map(String.init)
+
+        var score = 0.40
+
+        if !firstTokens.isEmpty, !lastTokens.isEmpty {
+            score += 0.16
+        }
+
+        if lower.contains("surname") || lower.contains("last name") || lower.contains("family name") {
+            score += 0.12
+        }
+        if lower.contains("first name") || lower.contains("given name") || lower.contains("forename") {
+            score += 0.12
+        }
+
+        if lower.contains("1 ") && lower.contains(" 2 ") {
+            score += 0.08
+        }
+
+        if routing.parseRoute == "mrz" {
+            score += 0.15
+        }
+
+        if !routing.countryHint.isEmpty {
+            score += 0.03
+        }
+
+        let priorityTier = idCountryPriorityTier(for: routing.countryHint)
+        if priorityTier == "high" {
+            score += 0.03
+        } else if priorityTier == "medium" {
+            score += 0.01
+        } else if priorityTier == "low" {
+            score -= 0.02
+        }
+
+        if firstName.lowercased() == lastName.lowercased() {
+            score -= 0.25
+        }
+
+        if firstTokens.count > 2 {
+            score -= 0.04
+        }
+        if lastTokens.count > 4 {
+            score -= 0.05
+        }
+
+        if !fraudSignals.isEmpty {
+            score -= 0.68
+            score -= min(0.18, Double(fraudSignals.count - 1) * 0.06)
+        }
+
+        if fraudSignals.contains("novelty_or_specimen_text") {
+            score = min(score, 0.08)
+        }
+
+        if fraudSignals.contains("mrz_checksum_mismatch") {
+            score = min(score, 0.05)
+        }
+
+        if fraudSignals.contains("suspicious_numeric_pattern") {
+            score = min(score, 0.15)
+        }
+
+        let clamped = min(0.99, max(0.0, score))
+        return clamped
+    }
+
+    private func recognizeTextInIDImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let cgImage = image.cgImage else {
+            completion(.success(""))
+            return
+        }
+
+        let cgOrientation: CGImagePropertyOrientation = {
+            switch image.imageOrientation {
+            case .up: return .up
+            case .down: return .down
+            case .left: return .left
+            case .right: return .right
+            case .upMirrored: return .upMirrored
+            case .downMirrored: return .downMirrored
+            case .leftMirrored: return .leftMirrored
+            case .rightMirrored: return .rightMirrored
+            @unknown default: return .up
+            }
+        }()
+
+        let request = VNRecognizeTextRequest { request, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+            guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                completion(.success(""))
+                return
+            }
+
+            // Keep OCR lines in visual reading order so label/value pairing is reliable.
+            let ordered = observations.sorted { lhs, rhs in
+                let yDiff = abs(lhs.boundingBox.midY - rhs.boundingBox.midY)
+                if yDiff > 0.02 {
+                    return lhs.boundingBox.midY > rhs.boundingBox.midY
+                }
+                return lhs.boundingBox.minX < rhs.boundingBox.minX
+            }
+
+            let text = ordered.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+            completion(.success(text))
+        }
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        request.recognitionLanguages = [
+            "en-US", "fr-FR", "de-DE", "es-ES", "it-IT", "pt-PT", "nl-NL"
+        ]
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let handler = VNImageRequestHandler(cgImage: cgImage, orientation: cgOrientation, options: [:])
+                try handler.perform([request])
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    private func extractNameFromIDText(_ text: String) -> (firstName: String, lastName: String) {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        guard !lines.isEmpty else {
+            return (firstName: "", lastName: "")
+        }
+
+        let lastNameLabels = [
+            "surname", "last name", "family name", "lastname", "familyname", "family",
+            "apellido", "apellidos", "nom", "cognome", "cognomi", "nachname", "familienname",
+            "nom de famille", "sobrenome", "last", "ln", "sur name", "1", "1.", "01"
+        ]
+        let firstNameLabels = [
+            "first name", "given name", "given names", "forename", "forenames", "firstname", "given",
+            "givenname", "givennames", "middle name", "middle names", "nombre", "nombres", "prenoms",
+            "prenom", "prénom", "nome", "vorname", "vornamen", "first", "fn", "2", "2.", "02"
+        ]
+        let fullNameLabels = [
+            "name", "full name", "name/surname", "holder", "card holder", "titulaire", "nome completo"
+        ]
+
+        let locationNoiseTokens: Set<String> = [
+            "STATE", "CITY", "COUNTY", "COUNTRY", "PROVINCE", "DISTRICT", "DEPARTMENT", "MOTOR", "VEHICLE",
+            "LICENSE", "LICENCE", "DRIVER", "IDENTIFICATION", "NATIONALITY", "AUTHORITY", "REPUBLIC", "UNITED",
+            "STREET", "ROAD", "AVE", "AVENUE", "BLVD", "ZIP", "POSTAL", "DOB", "BIRTH", "SEX", "HEIGHT",
+            "EYES", "CLASS", "EXP", "EXPIRES", "ISSUE", "ADDRESS", "ORGAN", "DONOR", "RESTRICTIONS",
+            "PASSPORT", "NATIONAL", "CARTE", "IDENTITE", "IDENTITAT", "DOCUMENT", "PERMIS"
+        ]
+
+        let surnameJoiners: Set<String> = [
+            "da", "de", "del", "della", "di", "du", "dos", "das", "van", "von", "bin", "al", "la", "le"
+        ]
+
+        let documentHeaderHints = [
+            "driver license", "driver licence", "driving licence", "identification", "identity card",
+            "passport", "national id", "residence", "document", "republic", "state"
+        ]
+
+        func normalizedWords(_ value: String) -> [String] {
+            value
+                .replacingOccurrences(of: ",", with: " ")
+                .replacingOccurrences(of: ".", with: " ")
+                .replacingOccurrences(of: ";", with: " ")
+                .components(separatedBy: .whitespacesAndNewlines)
+                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "-'`").union(.punctuationCharacters)) }
+                .filter { !$0.isEmpty }
+        }
+
+            func foldedLower(_ value: String) -> String {
+                value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
+            }
+
+        func looksLikeNameWord(_ token: String) -> Bool {
+            let trimmed = token.trimmingCharacters(in: CharacterSet(charactersIn: "-'`"))
+            guard trimmed.count >= 2 && trimmed.count <= 32 else { return false }
+            return trimmed.unicodeScalars.allSatisfy { CharacterSet.letters.union(CharacterSet(charactersIn: "-'` ")).contains($0) }
+        }
+
+        func normalizedNameWords(from value: String) -> [String] {
+            normalizedWords(value)
+                .filter { looksLikeNameWord($0) }
+        }
+
+        func normalizeGivenName(_ words: [String]) -> String {
+            guard let first = words.first else { return "" }
+            return first.capitalized
+        }
+
+        func normalizeLastName(_ words: [String]) -> String {
+            guard !words.isEmpty else { return "" }
+            return words.enumerated().map { index, raw in
+                let token = raw.lowercased()
+                if index > 0, surnameJoiners.contains(token) {
+                    return token
+                }
+                return raw.capitalized
+            }.joined(separator: " ")
+        }
+
+        func containsLocationNoise(_ line: String) -> Bool {
+            let words = Set(normalizedWords(line).map { $0.uppercased() })
+            if !words.intersection(locationNoiseTokens).isEmpty {
+                return true
+            }
+            let lower = foldedLower(line)
+            return lowercaseLabelWords.contains(where: { lower.hasPrefix($0) || lower.contains(" \($0) ") })
+        }
+
+        func valueAfterLabel(in line: String, labels: [String]) -> String? {
+            let lower = foldedLower(line)
+            for label in labels {
+                guard let range = lower.range(of: label) else { continue }
+                let remainder = String(line[range.upperBound...])
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " :.-_/\\|"))
+                if !remainder.isEmpty {
+                    return remainder
+                }
+            }
+            return nil
+        }
+
+        func valueAfterLeadingNumericLabel(in line: String, numeric: String) -> String? {
+            let cleaned = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowered = foldedLower(cleaned)
+
+            let allowedPrefixes = [
+                numeric + " ",
+                numeric + ". ",
+                numeric + ": ",
+                numeric + "- ",
+                numeric + ") ",
+                numeric + "] "
+            ]
+
+            for prefix in allowedPrefixes {
+                if lowered.hasPrefix(prefix) {
+                    let trimmed = String(cleaned.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        return trimmed
+                    }
+                }
+            }
+
+            return nil
+        }
+
+        func bestCandidate(_ candidates: [(score: Int, index: Int, value: String)]) -> String {
+            candidates
+                .sorted { lhs, rhs in
+                    if lhs.score != rhs.score { return lhs.score > rhs.score }
+                    return lhs.index < rhs.index
+                }
+                .first?.value ?? ""
+        }
+
+        func titleCased(_ words: [String]) -> String {
+            words.map { $0.capitalized }.joined(separator: " ")
+        }
+
+        func splitCommaName(_ line: String) -> (last: String, first: String)? {
+            let parts = line.split(separator: ",", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+            guard parts.count == 2 else { return nil }
+            let lastWords = normalizedNameWords(from: parts[0])
+            let firstWords = normalizedNameWords(from: parts[1])
+            guard !lastWords.isEmpty, !firstWords.isEmpty else { return nil }
+            return (normalizeLastName(lastWords), normalizeGivenName(firstWords))
+        }
+
+        var firstCandidates: [(score: Int, index: Int, value: String)] = []
+        var lastCandidates: [(score: Int, index: Int, value: String)] = []
+        var pairCandidates: [(score: Int, index: Int, first: String, last: String)] = []
+
+        for (index, line) in lines.enumerated() {
+            let lower = foldedLower(line)
+            let hasDocumentHeaderHint = documentHeaderHints.contains { lower.contains($0) }
+            let headerPenalty = hasDocumentHeaderHint ? 25 : 0
+
+            if containsLocationNoise(line) && !lower.contains("name") && !lower.contains("surname") {
+                continue
+            }
+
+            if let commaPair = splitCommaName(line) {
+                let score = 165 + max(0, 12 - index) - headerPenalty
+                pairCandidates.append((score, index, commaPair.first, commaPair.last))
+            }
+
+            // Common global ID numeric field convention: 1 = family name, 2 = given name.
+            if let numberedRange = lower.range(of: "1 "), let secondRange = lower.range(of: " 2 "), numberedRange.lowerBound < secondRange.lowerBound {
+                let rawLast = String(line[numberedRange.upperBound..<secondRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let rawFirst = String(line[secondRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let lastWords = normalizedNameWords(from: rawLast)
+                let firstWords = normalizedNameWords(from: rawFirst)
+                if !lastWords.isEmpty, !firstWords.isEmpty {
+                    pairCandidates.append((235, index, normalizeGivenName(firstWords), normalizeLastName(lastWords)))
+                }
+            }
+
+            if let rawLastNumbered = valueAfterLeadingNumericLabel(in: line, numeric: "1") {
+                let words = normalizedNameWords(from: rawLastNumbered)
+                if !words.isEmpty {
+                    lastCandidates.append((228, index, normalizeLastName(words)))
+                }
+            }
+            if let rawFirstNumbered = valueAfterLeadingNumericLabel(in: line, numeric: "2") {
+                let words = normalizedNameWords(from: rawFirstNumbered)
+                if !words.isEmpty {
+                    firstCandidates.append((228, index, normalizeGivenName(words)))
+                }
+            }
+
+            if let inlineLast = valueAfterLabel(in: line, labels: lastNameLabels) {
+                let words = normalizedNameWords(from: inlineLast)
+                if !words.isEmpty {
+                    lastCandidates.append((220, index, normalizeLastName(words)))
+                }
+            }
+            if let inlineFirst = valueAfterLabel(in: line, labels: firstNameLabels) {
+                let words = normalizedNameWords(from: inlineFirst)
+                if !words.isEmpty {
+                    firstCandidates.append((220, index, normalizeGivenName(words)))
+                }
+            }
+
+            if lines.indices.contains(index + 1) {
+                let nextLine = lines[index + 1]
+                if lower.contains("surname") || lower.contains("last name") || lower.contains("family name") {
+                    let words = normalizedNameWords(from: nextLine)
+                    if !words.isEmpty, !containsLocationNoise(nextLine) {
+                        lastCandidates.append((205, index + 1, normalizeLastName(words)))
+                    }
+                }
+                if lower.contains("first name") || lower.contains("given name") || lower.contains("forename") || lower.contains("given") {
+                    let words = normalizedNameWords(from: nextLine)
+                    if !words.isEmpty, !containsLocationNoise(nextLine) {
+                        firstCandidates.append((205, index + 1, normalizeGivenName(words)))
+                    }
+                }
+
+                if let lastRaw = valueAfterLeadingNumericLabel(in: nextLine, numeric: "1") {
+                    let words = normalizedNameWords(from: lastRaw)
+                    if !words.isEmpty {
+                        lastCandidates.append((224, index + 1, normalizeLastName(words)))
+                    }
+                }
+                if let firstRaw = valueAfterLeadingNumericLabel(in: nextLine, numeric: "2") {
+                    let words = normalizedNameWords(from: firstRaw)
+                    if !words.isEmpty {
+                        firstCandidates.append((224, index + 1, normalizeGivenName(words)))
+                    }
+                }
+            }
+
+            // Fallback for IDs where only generic "Name" appears and family name is first.
+            let hasGenericNameLabel = fullNameLabels.contains { lower.contains($0) }
+                && !lower.contains("state")
+                && !lower.contains("country")
+                && !lower.contains("address")
+            if hasGenericNameLabel {
+                let inline = valueAfterLabel(in: line, labels: fullNameLabels) ?? ""
+                let candidateLine = inline.isEmpty && lines.indices.contains(index + 1) ? lines[index + 1] : inline
+                let words = normalizedNameWords(from: candidateLine)
+                if words.count >= 2 {
+                    let last = words[0]
+                    let first = words[1]
+                    pairCandidates.append((190 + max(0, 8 - index), index, first.capitalized, normalizeLastName([last])))
+                }
+            }
+
+            // Final fallback: top-of-card two-token uppercase names often appear as LAST FIRST.
+            let words = normalizedNameWords(from: line)
+            if words.count >= 2, words.count <= 4, index <= 7, !containsLocationNoise(line) {
+                let last = words[0]
+                let first = words[1]
+                let uppercaseRatio = words.filter { $0 == $0.uppercased() }.count
+                let score = 100 + max(0, 10 - index) + (uppercaseRatio >= 2 ? 14 : 0)
+                pairCandidates.append((score, index, first.capitalized, normalizeLastName([last])))
+            }
+        }
+
+        if let bestPair = pairCandidates.sorted(by: {
+            if $0.score != $1.score { return $0.score > $1.score }
+            return $0.index < $1.index
+        }).first {
+            return (firstName: bestPair.first, lastName: bestPair.last)
+        }
+
+        let firstName = bestCandidate(firstCandidates)
+        let lastName = bestCandidate(lastCandidates)
+        if !firstName.isEmpty, !lastName.isEmpty {
+            return (firstName: firstName, lastName: lastName)
+        }
+
+        return (firstName: "", lastName: "")
+    }
+
+    private let lowercaseLabelWords = [
+        "name", "surname", "given", "address", "city", "state", "zip", "country",
+        "sex", "height", "weight", "eyes", "hair", "class", "license", "id",
+        "expires", "expiration", "issue", "dob", "date", "birth", "donor",
+        "restrictions", "endorsements", "none", "end", "organ", "donor"
+    ]
+
+    private func generateVerifiedUsername(firstName: String, lastName: String) -> String {
+        let cleanedFirst = firstName.lowercased().filter { $0.isLetter }
+        let cleanedLast = lastName.lowercased().filter { $0.isLetter }
+
+        let compactBase = "\(cleanedFirst)\(cleanedLast)"
+        let normalized = FirebaseSpotService.normalizeUsername(compactBase)
+        if normalized.count >= 3 {
+            return normalized
+        }
+
+        let fallback = FirebaseSpotService.normalizeUsername("\(cleanedFirst.prefix(1))\(cleanedLast)")
+        if fallback.count >= 3 {
+            return fallback
+        }
+
+        return "verified_user"
+    }
+
+    private func applyVerifiedUsername() async {
+        guard idVerificationFraudSignals.isEmpty else {
+            idScanError = "Verification blocked. Please use a valid government-issued ID."
+            return
+        }
+        guard idVerificationNameConfidence >= minimumIDNameConfidence else {
+            idScanError = "Verification confidence is too low. Please retake your ID photo."
+            return
+        }
+
+        let generated = generateVerifiedUsername(firstName: extractedFirstName, lastName: extractedLastName)
+        let enforcedVerifiedUsername = FirebaseSpotService.normalizeUsername(generated)
+        guard !enforcedVerifiedUsername.isEmpty else {
+            idScanError = "Could not generate a valid username from your legal name."
+            return
+        }
+        generatedVerifiedUsername = enforcedVerifiedUsername
+
+        isProcessingID = true
+
+        do {
+            let previousUsername = capUsernameInput(accountUsername)
+            let userID = await ensureAuthenticatedUserRecord()
+            guard !userID.isEmpty else {
+                idScanError = "Could not create a user identity for this username."
+                isProcessingID = false
+                return
+            }
+
+            let isAvailableInFirestore = try await FirebaseSpotService.shared.checkUsernameAvailability(
+                username: enforcedVerifiedUsername,
+                currentUserID: userID
+            )
+            guard isAvailableInFirestore else {
+                idScanError = "That username is taken by another account."
+                isProcessingID = false
+                return
+            }
+
+            try await FirebaseSpotService.shared.saveUserProfile(
+                userID: userID,
+                username: enforcedVerifiedUsername,
+                displayName: "\(extractedFirstName) \(extractedLastName)".trimmingCharacters(in: .whitespacesAndNewlines),
+                bio: nil,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+            )
+
+            let verificationRouting = FirebaseIDVerificationRoutingContext(
+                documentFamily: idVerificationDocumentFamilyHint,
+                countryHint: idVerificationCountryHint,
+                parseRoute: idVerificationParseRoute,
+                nameExtractionConfidence: idVerificationNameConfidence
+            )
+
+            _ = try? await FirebaseSpotService.shared.submitIDVerificationExtractionStub(
+                userID: userID,
+                firstName: extractedFirstName,
+                lastName: extractedLastName,
+                username: enforcedVerifiedUsername,
+                routingContext: verificationRouting,
+                provider: .localHeuristic
+            )
+
+            UserDefaults.standard.set(enforcedVerifiedUsername, forKey: accountUsernameDefaultsKey)
+            UserDefaults.standard.set(true, forKey: accountVerifiedUnderlineDefaultsKey)
+            profileUsername = enforcedVerifiedUsername
+            accountUsername = enforcedVerifiedUsername
+            signInUsername = enforcedVerifiedUsername
+            isVerifiedUsernameUnderlined = true
+            rememberUsernameAliases([enforcedVerifiedUsername, previousUsername])
+            applyUserProfileToOwnPosts(
+                username: enforcedVerifiedUsername,
+                displayName: profileName,
+                previousUsernames: [previousUsername]
+            )
+            upsertSavedAccount(
+                email: accountEmail,
+                username: enforcedVerifiedUsername,
+                displayName: profileName,
+                profilePhotoURL: profilePhotoRemoteURL,
+                password: accountPassword
+            )
+            idVerificationStep = .intro
+            activeSettingsEditor = nil
+        } catch {
+            idScanError = "Could not save verified username: \(error.localizedDescription)"
+        }
+
+        isProcessingID = false
+    }
+
+    private struct IDScannerView: View {
+        var onCapture: (UIImage?) -> Void
+
+        var body: some View {
+            IDCameraCaptureView(onCapture: onCapture)
+                .ignoresSafeArea()
+                .overlay(alignment: .top) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text("AI verification: capture your photo ID")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.62))
+                    .clipShape(Capsule())
+                    .padding(.top, 16)
+                }
+        }
+    }
+
+    private struct IDCameraCaptureView: UIViewControllerRepresentable {
+        var onCapture: (UIImage?) -> Void
+
+        func makeUIViewController(context: Context) -> IDCameraViewController {
+            let controller = IDCameraViewController()
+            controller.onCapture = onCapture
+            return controller
+        }
+
+        func updateUIViewController(_ uiViewController: IDCameraViewController, context: Context) {}
+    }
+
+    private class IDCameraViewController: UIViewController, AVCapturePhotoCaptureDelegate {
+        var onCapture: ((UIImage?) -> Void)?
+        private var captureSession: AVCaptureSession?
+        private var photoOutput: AVCapturePhotoOutput?
+        private var previewLayer: AVCaptureVideoPreviewLayer?
+        private let idGuideFrameView = UIView()
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            setupCamera()
+            addIDGuideFrameOverlay()
+            addCaptureButton()
+        }
+
+        private func setupCamera() {
+            let session = AVCaptureSession()
+            session.sessionPreset = .photo
+
+            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                  let input = try? AVCaptureDeviceInput(device: device) else {
+                onCapture?(nil)
+                return
+            }
+
+            if session.canAddInput(input) {
+                session.addInput(input)
+            }
+
+            let output = AVCapturePhotoOutput()
+            if session.canAddOutput(output) {
+                session.addOutput(output)
+                photoOutput = output
+            }
+
+            let preview = AVCaptureVideoPreviewLayer(session: session)
+            preview.videoGravity = .resizeAspectFill
+            preview.frame = view.bounds
+            view.layer.addSublayer(preview)
+            previewLayer = preview
+
+            captureSession = session
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                session.startRunning()
+            }
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            previewLayer?.frame = view.bounds
+        }
+
+        private func addIDGuideFrameOverlay() {
+            idGuideFrameView.translatesAutoresizingMaskIntoConstraints = false
+            idGuideFrameView.backgroundColor = .clear
+            idGuideFrameView.layer.borderColor = UIColor.white.withAlphaComponent(0.95).cgColor
+            idGuideFrameView.layer.borderWidth = 2
+            idGuideFrameView.layer.cornerRadius = 14
+            idGuideFrameView.isUserInteractionEnabled = false
+            view.addSubview(idGuideFrameView)
+
+            NSLayoutConstraint.activate([
+                idGuideFrameView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                idGuideFrameView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -22),
+                idGuideFrameView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.82),
+                idGuideFrameView.widthAnchor.constraint(lessThanOrEqualToConstant: 360),
+                idGuideFrameView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
+                idGuideFrameView.heightAnchor.constraint(equalTo: idGuideFrameView.widthAnchor, multiplier: 0.63)
+            ])
+        }
+
+        private func addCaptureButton() {
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.backgroundColor = .white
+            button.layer.cornerRadius = 35
+            button.layer.borderWidth = 4
+            button.layer.borderColor = UIColor.gray.cgColor
+            button.addTarget(self, action: #selector(captureTapped), for: .touchUpInside)
+            view.addSubview(button)
+
+            NSLayoutConstraint.activate([
+                button.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                button.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -32),
+                button.widthAnchor.constraint(equalToConstant: 70),
+                button.heightAnchor.constraint(equalToConstant: 70)
+            ])
+        }
+
+        @objc private func captureTapped() {
+            let settings = AVCapturePhotoSettings()
+            settings.flashMode = .auto
+            photoOutput?.capturePhoto(with: settings, delegate: self)
+        }
+
+        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+            guard error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
+                onCapture?(nil)
+                return
+            }
+            onCapture?(image)
+        }
+
+        deinit {
+            captureSession?.stopRunning()
+        }
+    }
+
+    private struct PostCameraCaptureView: UIViewControllerRepresentable {
+        var onCapture: (UIImage?) -> Void
+
+        func makeCoordinator() -> Coordinator {
+            Coordinator(onCapture: onCapture)
+        }
+
+        func makeUIViewController(context: Context) -> UIImagePickerController {
+            let picker = UIImagePickerController()
+            picker.delegate = context.coordinator
+            picker.mediaTypes = ["public.image"]
+            picker.allowsEditing = false
+            picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+            return picker
+        }
+
+        func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+        final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+            private let onCapture: (UIImage?) -> Void
+
+            init(onCapture: @escaping (UIImage?) -> Void) {
+                self.onCapture = onCapture
+            }
+
+            func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+                onCapture(nil)
+            }
+
+            func imagePickerController(
+                _ picker: UIImagePickerController,
+                didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+            ) {
+                let image = info[.originalImage] as? UIImage
+                onCapture(image)
             }
         }
     }
@@ -10129,8 +12414,12 @@ struct ContentView: View {
     private func usernameEditorView() -> some View {
         let normalizedInput = capUsernameInput(profileUsername)
         let normalizedSaved = capUsernameInput(accountUsername)
-        let canSaveUsername = FirebaseSpotService.isAllowedUsername(normalizedInput, reservedAgainst: normalizedSaved)
+        let canSaveUsername = !isVerifiedUsernameUnderlined && FirebaseSpotService.isAllowedUsername(normalizedInput, reservedAgainst: normalizedSaved)
         let rejectionMessage: String = {
+            if isVerifiedUsernameUnderlined {
+                return "Username is locked after legal-name verification."
+            }
+
             let trimmed = normalizedInput.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty || isCheckingUsernameAvailability {
                 return ""
@@ -10162,10 +12451,13 @@ struct ContentView: View {
             .padding(12)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .disabled(isVerifiedUsernameUnderlined)
             .onChange(of: profileUsername) { _, _ in
+                guard !isVerifiedUsernameUnderlined else { return }
                 refreshUsernameAvailabilityStatus()
             }
             .onSubmit {
+                guard !isVerifiedUsernameUnderlined else { return }
                 guard canSaveUsername else { return }
                 Task { await persistCurrentUsername() }
             }
@@ -10181,6 +12473,7 @@ struct ContentView: View {
                 }
             }
             .onDisappear {
+                guard !isVerifiedUsernameUnderlined else { return }
                 guard canSaveUsername, normalizedInput != normalizedSaved else { return }
                 Task { await persistCurrentUsername() }
             }
@@ -10239,21 +12532,11 @@ struct ContentView: View {
     }
 
     private func accountPasswordEditorView() -> some View {
-        let savedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasSavedPassword = !savedPassword.isEmpty
         let hasDraftPassword = !accountPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasDraftUsername = !capUsernameInput(signInUsername).isEmpty
         let isResolvedSignedIn = resolvedSignedInState
 
         return VStack(alignment: .leading, spacing: 12) {
-            Toggle(isOn: $isPasswordFaceIDProtectionEnabled) {
-                Text("Protect with Face ID")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: .black))
-
             if !isResolvedSignedIn {
                 Text(isSigningUpUser ? "Sign up" : "Sign in")
                     .font(.title3.weight(.semibold))
@@ -10333,7 +12616,6 @@ struct ContentView: View {
                                 accountUsername = capped
                                 profileUsername = capped
                                 UserDefaults.standard.set(capped, forKey: accountUsernameDefaultsKey)
-                                UserDefaults.standard.set(capped, forKey: profileNameDefaultsKey)
                             }
                         ))
                         .textInputAutocapitalization(.never)
@@ -10341,6 +12623,13 @@ struct ContentView: View {
                         .padding(12)
                         .background(Color(.secondarySystemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .disabled(isVerifiedUsernameUnderlined)
+
+                        if isVerifiedUsernameUnderlined {
+                            Text("Username is locked to your verified legal name.")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -10356,20 +12645,6 @@ struct ContentView: View {
                             .background(Color(.secondarySystemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-
-                    Button {
-                        Task { await saveAccountPasswordWithAuthIfNeeded() }
-                    } label: {
-                        Text("Update Account Info")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(hasDraftPassword ? Color.black : Color.gray.opacity(0.35))
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!hasDraftPassword)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -10741,6 +13016,7 @@ struct ContentView: View {
             accountEmail = ""
             accountPassword = ""
             profileName = ""
+            isVerifiedUsernameUnderlined = false
             phoneNumber = ""
             backupPhoneNumber = ""
             profilePhotoImage = nil
@@ -10788,6 +13064,7 @@ struct ContentView: View {
             UserDefaults.standard.removeObject(forKey: backupPhoneNumberDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountUsernameDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountUsernameAliasesDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: accountVerifiedUnderlineDefaultsKey)
             UserDefaults.standard.removeObject(forKey: profileNameDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountEmailDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountPasswordDefaultsKey)
@@ -11995,11 +14272,29 @@ struct ContentView: View {
             )
         }
 
-        let candidates = (firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityUsers.map { profile in
-            FakeUserProfile(username: profile.username, name: profile.name, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: String(profile.name.prefix(2)))
-        } + [
-            FakeUserProfile(username: profileUsername.isEmpty ? "you" : profileUsername, name: profileName.isEmpty ? "You" : profileName, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: "YO")
-        ])
+        let communityProfiles = communityUsers.map { profile in
+            FakeUserProfile(
+                username: profile.username,
+                name: profile.name,
+                city: "",
+                bio: "",
+                followerCount: 0,
+                followingCount: 0,
+                profilePhotoText: String(profile.name.prefix(2))
+            )
+        }
+        let currentUserProfile = FakeUserProfile(
+            username: profileUsername.isEmpty ? "you" : profileUsername,
+            name: profileName.isEmpty ? "You" : profileName,
+            city: "",
+            bio: "",
+            followerCount: 0,
+            followingCount: 0,
+            profilePhotoText: "YO"
+        )
+        let mergedProfiles = firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityProfiles + [currentUserProfile]
+
+        let candidates = mergedProfiles
             .filter { profile in
                 !Self.isCurrentUserDMProfile(profile, currentUsername: profileUsername)
             }
@@ -12069,11 +14364,29 @@ struct ContentView: View {
                 profilePhotoURL: post.authorProfilePhotoURL
             )
         }
-        let candidates = (firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityUsers.map { profile in
-            FakeUserProfile(username: profile.username, name: profile.name, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: String(profile.name.prefix(2)))
-        } + [
-            FakeUserProfile(username: profileUsername.isEmpty ? "you" : profileUsername, name: profileName.isEmpty ? "You" : profileName, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: "YO")
-        ])
+        let communityProfiles = communityUsers.map { profile in
+            FakeUserProfile(
+                username: profile.username,
+                name: profile.name,
+                city: "",
+                bio: "",
+                followerCount: 0,
+                followingCount: 0,
+                profilePhotoText: String(profile.name.prefix(2))
+            )
+        }
+        let currentUserProfile = FakeUserProfile(
+            username: profileUsername.isEmpty ? "you" : profileUsername,
+            name: profileName.isEmpty ? "You" : profileName,
+            city: "",
+            bio: "",
+            followerCount: 0,
+            followingCount: 0,
+            profilePhotoText: "YO"
+        )
+        let mergedProfiles = firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityProfiles + [currentUserProfile]
+
+        let candidates = mergedProfiles
             .filter { profile in
                 !Self.isCurrentUserDMProfile(profile, currentUsername: profileUsername)
             }
@@ -12083,6 +14396,68 @@ struct ContentView: View {
             }
 
         return Array(candidates.prefix(12))
+    }
+
+    private func userSearchAgeAndPosition(for user: FakeUserProfile) -> (age: String, position: String) {
+        let trimmedUserID = user.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(user.username)
+
+        let matchedPost = posts.first { post in
+            guard !post.isAnonymous else { return false }
+            let byUserID = !trimmedUserID.isEmpty && !post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && post.authorUserID == trimmedUserID
+            let byUsername = !normalizedUsername.isEmpty && FirebaseSpotService.normalizeUsername(post.handle) == normalizedUsername
+            return byUserID || byUsername
+        }
+
+        let ownNormalizedUsername = FirebaseSpotService.normalizeUsername(profileUsername)
+        let isOwnUser = (!trimmedUserID.isEmpty && !currentUserID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && trimmedUserID == currentUserID)
+            || (!normalizedUsername.isEmpty && !ownNormalizedUsername.isEmpty && normalizedUsername == ownNormalizedUsername)
+
+        let fallbackOwnAge = isOwnUser ? postDetailAgeValue.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        let fallbackOwnPosition = isOwnUser ? postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+
+        let ageValue = (matchedPost?.authorAge ?? fallbackOwnAge).trimmingCharacters(in: .whitespacesAndNewlines)
+        let positionValue = (matchedPost?.authorPosition ?? fallbackOwnPosition).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return (
+            age: ageValue.isEmpty ? "Not set" : ageValue,
+            position: positionValue.isEmpty ? "Not set" : positionValue
+        )
+    }
+
+    private func userSearchResultSummaryView(for user: FakeUserProfile) -> some View {
+        let details = userSearchAgeAndPosition(for: user)
+
+        return HStack(alignment: .center, spacing: 10) {
+            userProfileAvatarView(for: user, size: 34)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayUsername(user.username))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(usernameGoldTextColor)
+
+                HStack(alignment: .center, spacing: 6) {
+                    Text(details.age)
+                        .lineLimit(1)
+
+                    Rectangle()
+                        .fill(Color(.systemGray3))
+                        .frame(width: 1, height: 10)
+
+                    Text(details.position)
+                        .lineLimit(1)
+                }
+                .font(.caption)
+                .foregroundStyle(Color(.systemGray))
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @MainActor
@@ -12207,66 +14582,27 @@ struct ContentView: View {
             return poiSearchRequestRevision
         }
 
-        let loweredQuery = query.lowercased()
-
-        // 1. Instantly execute local memory search in background
-        let localFallbackPOIs = await Task.detached(priority: .userInitiated) {
-            NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: center, limit: 100)
-        }.value
-
-        // 2. Immediately render local memory matches without waiting for network Firestore search
-        await MainActor.run {
-            guard requestRevision == poiSearchRequestRevision else { return }
-            let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard currentQuery == query else { return }
-            self.firestorePOISearchResults = localFallbackPOIs
-        }
-
         do {
-            // 3. Fast network query for remote POIs
-            let rawResults = try await FirebaseSpotService.shared.searchPOIs(
-                query: query,
-                limit: 100,
-                center: center
-            )
+            let rawResults = try await searchOpenStreetMapPOIs(query: query, center: center, limit: 120)
 
-            // Heavy filtering, scoring, deduplication, and sorting on background thread
-            let finalOrderedPOIs = await Task.detached(priority: .userInitiated) { () -> [FirebasePOIRecord] in
-                var mergedByKey: [String: FirebasePOIRecord] = [:]
-                for poi in localFallbackPOIs + rawResults {
-                    let key = "\(Self.normalizedLocationRealm(poi.name))|\(poi.latitude)|\(poi.longitude)"
-                    if mergedByKey[key] == nil {
-                        mergedByKey[key] = poi
-                    }
-                }
-
-                let mergedResults = Array(mergedByKey.values)
-                let scored = mergedResults.map { poi -> (poi: FirebasePOIRecord, score: Double, distance: Double) in
-                    let distance = NearbyPlaceLoader.haversineMiles(
-                        from: center,
-                        to: CLLocationCoordinate2D(latitude: poi.latitude, longitude: poi.longitude)
-                    )
-
-                    let textScore: Double = {
-                        if loweredQuery.isEmpty { return max(0, 280 - distance * 14) }
-                        return FirebaseSpotService.poiSearchScore(query: query, poi: poi)
-                    }()
-
-                    // Proximity boost is capped to prevent famous local landmarks (like Space Needle) from overriding weak text matches
-                    let proximityScore = max(0.0, 50.0 - (distance * 0.5))
-                    let combinedScore = loweredQuery.isEmpty
-                        ? textScore
-                        : textScore + proximityScore
-                    return (poi, combinedScore, distance)
-                }
-                .filter { loweredQuery.isEmpty ? true : FirebaseSpotService.poiSearchMatches(query: query, poi: $0.poi) }
+            let finalOrderedPOIs = rawResults
                 .sorted { lhs, rhs in
-                    if lhs.score != rhs.score { return lhs.score > rhs.score }
-                    return lhs.distance < rhs.distance
-                }
+                    let lhsScore = FirebaseSpotService.poiSearchScore(query: query, poi: lhs)
+                    let rhsScore = FirebaseSpotService.poiSearchScore(query: query, poi: rhs)
+                    if lhsScore != rhsScore { return lhsScore > rhsScore }
 
-                return Array(scored.prefix(150).map(\.poi))
-            }.value
+                    let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                        from: center,
+                        to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+                    )
+                    let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                        from: center,
+                        to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+                    )
+                    return lhsDistance < rhsDistance
+                }
+                .prefix(120)
+                .map { $0 }
 
             await MainActor.run {
                 guard requestRevision == poiSearchRequestRevision else { return }
@@ -12279,9 +14615,7 @@ struct ContentView: View {
                 guard requestRevision == poiSearchRequestRevision else { return }
                 let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard currentQuery == query else { return }
-                if firestorePOISearchResults.isEmpty {
-                    firestorePOISearchResults = localFallbackPOIs
-                }
+                firestorePOISearchResults = []
             }
         }
     }
@@ -12305,34 +14639,7 @@ struct ContentView: View {
                             Button {
                                 openUserProfileScreen(with: user)
                             } label: {
-                                HStack(alignment: .center, spacing: 12) {
-                                    userProfileAvatarView(for: user, size: 34, samplePosts: posts)
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        let displayNameText = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        let isDisplayNameSameAsUsername = FirebaseSpotService.normalizeUsername(displayNameText) == FirebaseSpotService.normalizeUsername(user.username)
-                                        let shouldShowDisplayName = !displayNameText.isEmpty && !isDisplayNameSameAsUsername
-
-                                        if shouldShowDisplayName {
-                                            Text(displayNameText)
-                                                .font(.subheadline.weight(.semibold))
-                                                .foregroundStyle(.primary)
-                                        }
-
-                                        Text(displayUsername(user.username))
-                                            .font(shouldShowDisplayName ? .caption : .subheadline.weight(.semibold))
-                                            .foregroundStyle(usernameGoldTextColor)
-                                    }
-
-                                    Spacer()
-                                    Image(systemName: "arrow.up.right")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 10)
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                userSearchResultSummaryView(for: user)
                             }
                             .buttonStyle(.plain)
                         }
@@ -13071,7 +15378,7 @@ struct ContentView: View {
 
     private func postTypeGroupPill(for type: String) -> String {
         switch type {
-        case "Photo", "Video", "Audio":
+        case "Photo", "Video", "Photo/Video", "Audio":
             return "MEDIA"
         case "Text", "Poll", "Link":
             return "SOCIAL"
@@ -13083,48 +15390,51 @@ struct ContentView: View {
     }
 
     private func postTypeSelectionButton(for type: String, compact: Bool = false) -> some View {
-        let row: some View = HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    Text(type)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.black)
-                        .lineLimit(1)
-
-                    Text(postTypeGroupPill(for: type))
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.black.opacity(0.08))
-                        .clipShape(Capsule())
+        let isCompact = compact
+        let isSelectedType = selectedPostType == type
+        let card: some View = VStack(alignment: .center, spacing: isCompact ? 10 : 12) {
+            if isCompact {
+                Image(systemName: postTypeIcon(for: type))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 54, height: 54)
+                    .scaleEffect(isSelectedType ? 1.06 : 1.0)
+                    .opacity(isSelectedType ? 1.0 : 0.72)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(height: 108)
+                        .overlay(
+                            Image(systemName: postTypeIcon(for: type))
+                                .font(.system(size: 33, weight: .semibold))
+                                .foregroundStyle(.black)
+                        )
                 }
             }
 
-            Spacer(minLength: 0)
-
-            Image(systemName: postTypeIcon(for: type))
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.black)
-                .frame(width: 38, height: 38)
+            if !isCompact {
+                Text(displayNameForPostType(type))
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .lineLimit(1)
+            }
         }
-        .padding(.horizontal, compact ? 12 : 14)
-        .padding(.vertical, compact ? 10 : 12)
-        .frame(maxWidth: .infinity, minHeight: compact ? 68 : 74, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white)
-        )
+        .padding(isCompact ? 8 : 12)
+        .frame(maxWidth: isCompact ? 86 : .infinity, minHeight: isCompact ? 76 : 188, alignment: .center)
+        .background(isCompact ? Color.clear : Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: isCompact ? 0 : 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.black, lineWidth: 1)
+            RoundedRectangle(cornerRadius: isCompact ? 0 : 18, style: .continuous)
+                .stroke(Color.clear, lineWidth: 0)
         )
-        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
+        .shadow(color: Color.black.opacity(isCompact ? 0 : 0.04), radius: isCompact ? 0 : 8, x: 0, y: isCompact ? 0 : 6)
 
         if type == "Photo" {
             return AnyView(
                 PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
-                    row
+                    card
                 }
                 .buttonStyle(.plain)
                 .task(id: draftPhotoItem) {
@@ -13155,10 +15465,25 @@ struct ContentView: View {
                     }
                 }
             )
+        } else if type == "Camera" {
+            return AnyView(
+                Button {
+                    openPostCameraCapture()
+                } label: {
+                    card
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $isShowingPostCameraCapture) {
+                    PostCameraCaptureView { image in
+                        handlePostCameraCapture(image)
+                    }
+                    .ignoresSafeArea()
+                }
+            )
         } else if type == "Video" {
             return AnyView(
                 PhotosPicker(selection: $draftVideoItem, matching: .videos, photoLibrary: .shared()) {
-                    row
+                    card
                 }
                 .buttonStyle(.plain)
                 .task(id: draftVideoItem) {
@@ -13219,7 +15544,7 @@ struct ContentView: View {
                     }
                     currentScreen = .composer
                 } label: {
-                    row
+                    card
                 }
                 .buttonStyle(.plain)
             )
@@ -13227,9 +15552,7 @@ struct ContentView: View {
     }
 
     private func postTypeTileCard(for type: String, title: String? = nil, isFeaturedHero: Bool = false) -> some View {
-        let displayTitle = title ?? type
         let iconName = postTypeIcon(for: type)
-        let pillTag = postTypeGroupPill(for: type)
 
         let pillGradient = LinearGradient(
             colors: [
@@ -13241,41 +15564,23 @@ struct ContentView: View {
         )
 
         let pillContent: some View = HStack(alignment: .center, spacing: 12) {
+            Spacer(minLength: 0)
+
             ZStack {
                 Circle()
                     .fill(Color.black.opacity(0.06))
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
 
                 Image(systemName: iconName)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.black)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(displayTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.black)
-                    .lineLimit(1)
-
-                Text(postTypeDescription(for: type))
-                    .font(.caption)
-                    .foregroundStyle(Color.black.opacity(0.55))
-                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
-
-            Text(pillTag)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(.black)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.black.opacity(0.08))
-                .clipShape(Capsule())
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .frame(height: 58)
+        .frame(height: 66)
         .frame(maxWidth: .infinity)
         .background(pillGradient)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -13313,6 +15618,21 @@ struct ContentView: View {
                     }
                 }
             )
+        } else if type == "Camera" {
+            return AnyView(
+                Button {
+                    openPostCameraCapture()
+                } label: {
+                    pillContent
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $isShowingPostCameraCapture) {
+                    PostCameraCaptureView { image in
+                        handlePostCameraCapture(image)
+                    }
+                    .ignoresSafeArea()
+                }
+            )
         } else if type == "Video" {
             return AnyView(
                 PhotosPicker(selection: $draftVideoItem, matching: .videos, photoLibrary: .shared()) {
@@ -13384,6 +15704,16 @@ struct ContentView: View {
         }
     }
 
+    private var postTypeShowcaseLocations: [String] {
+        [
+            "LAX Terminal, Los Angeles",
+            "Times Square, New York",
+            "Pike Place Market, Seattle",
+            "Millennium Park, Chicago",
+            "Santa Monica Pier, Los Angeles"
+        ]
+    }
+
     private var createTypePickerView: some View {
         ZStack(alignment: .bottom) {
             Color.white
@@ -13391,46 +15721,59 @@ struct ContentView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
-                    // MEDIA SECTION (Photo, Video, Audio)
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("MEDIA")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 4)
+                    TimelineView(.periodic(from: .now, by: 2.6)) { context in
+                        let options = postTypeShowcaseLocations
+                        let rawIndex = Int(context.date.timeIntervalSinceReferenceDate / 2.6)
+                        let index = options.isEmpty ? 0 : abs(rawIndex % options.count)
+                        let locationLabel = options.isEmpty ? "LAX Terminal, Los Angeles" : options[index]
 
+                        HStack(spacing: 10) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.black)
+
+                            Text(locationLabel)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.black)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.black.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal, 18)
+
+                    VStack(alignment: .leading, spacing: 10) {
                         postTypeTileCard(for: "Photo")
-                        postTypeTileCard(for: "Video")
+                        postTypeTileCard(for: "Camera")
                         postTypeTileCard(for: "Audio")
                     }
                     .padding(.horizontal, 18)
 
-                    // SOCIAL SECTION (Text, Poll, Link)
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("SOCIAL")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 4)
-
                         postTypeTileCard(for: "Text")
                         postTypeTileCard(for: "Poll")
                         postTypeTileCard(for: "Link")
                     }
                     .padding(.horizontal, 18)
 
-                    // UTILITY SECTION (Guide, For Sale)
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("UTILITY")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 4)
-
                         postTypeTileCard(for: "Guide")
                         postTypeTileCard(for: "For Sale")
                     }
                     .padding(.horizontal, 18)
 
                     Color.clear
-                        .frame(height: 120)
+                        .frame(height: 132)
                 }
                 .padding(.top, 16)
             }
@@ -13444,6 +15787,9 @@ struct ContentView: View {
                 .padding(.bottom, 20)
             }
         }
+        .onAppear {
+            postComposerReturnScreen = .contentTypePicker
+        }
     }
 
     private var createComposerView: some View {
@@ -13455,7 +15801,7 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    backButton(destination: .contentTypePicker)
+                    backButton(destination: postComposerReturnScreen)
                     Spacer()
                     Spacer()
                 }
@@ -13465,6 +15811,18 @@ struct ContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         draftPreviewCard
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(postTypes, id: \.self) { type in
+                                    postTypeSelectionButton(for: type, compact: true)
+                                }
+                            }
+                            .padding(.leading, 18)
+                            .padding(.trailing, 18)
+                            .padding(.vertical, 8)
+                        }
+
                     }
                     .padding(.bottom, 140)
                 }
@@ -13511,10 +15869,12 @@ struct ContentView: View {
                 if isMapPinnedComposer {
                     currentScreen = .mapPostPreview
                 } else {
-                    currentScreen = .postLocationPicker
+                    let activeFeedLocation = activeFeedLocationForPostComposer()
+                    applyLocationSelection(activeFeedLocation, context: .post)
+                    submitDraftPost()
                 }
             } label: {
-                Text("Next")
+                Text(isSubmittingPost ? "Posting..." : "Post")
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -14567,6 +16927,15 @@ struct ContentView: View {
             return
         }
 
+        if selectedPostType == "Photo/Video"
+            && draftPhotoImage == nil
+            && draftVideoURL == nil
+            && !Self.isRemoteURLString(draftUrl) {
+            accountAuthMessage = "Choose a photo or video before posting."
+            lastSentMessage = "Media post needs a photo or video file."
+            return
+        }
+
         if selectedPostType == "Video" && draftVideoURL == nil && !Self.isRemoteURLString(draftUrl) {
             accountAuthMessage = "Choose a video before posting."
             lastSentMessage = "Video post needs a video file."
@@ -14868,6 +17237,9 @@ struct ContentView: View {
                 localPosted.mediaURLs = resolvedMediaURLs
                 localPosted.sourceURL = payload.sourceURL
                 localPosted.firestoreID = persistedPostID
+                if localPosted.isAnonymous {
+                    rememberOwnedAnonymousPostIDs([persistedPostID, String(localPosted.id)])
+                }
                 posts.removeAll(where: { $0.id == localPosted.id })
                 posts.insert(localPosted, at: 0)
 
@@ -14901,7 +17273,6 @@ struct ContentView: View {
 
     private var draftPreviewCard: some View {
         let previewPost = makeDraftPost()
-        let previewIdentityText = draftIsAnonymous ? "" : displayUsername(profileUsername.isEmpty ? "you" : profileUsername)
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 10) {
@@ -14910,16 +17281,23 @@ struct ContentView: View {
                 } else {
                     HStack(spacing: 8) {
                         profileAvatarView(size: 28, textSize: 12)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(previewIdentityText)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(usernameGoldTextColor)
-                        }
                     }
                 }
 
                 Spacer()
+
+                TimelineView(.periodic(from: .now, by: 2.6)) { context in
+                    let options = postTypeShowcaseLocations
+                    let rawIndex = Int(context.date.timeIntervalSinceReferenceDate / 2.6)
+                    let index = options.isEmpty ? 0 : abs(rawIndex % options.count)
+                    let locationLabel = options.isEmpty ? "LAX Terminal, Los Angeles" : options[index]
+
+                    Text(locationLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
             .padding(.horizontal, 12)
 
@@ -14986,9 +17364,36 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
             } else if selectedPostType == "Photo/Video" {
-                PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
+                PhotosPicker(selection: $draftPhotoItem, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
                     Group {
-                        if let image = draftPhotoImage {
+                        if let videoURL = draftVideoURL {
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(LinearGradient(colors: [ContentView.appPrimaryThemeColor, ContentView.appSecondaryThemeColor], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 230)
+                                .overlay(
+                                    VStack(alignment: .center, spacing: 10) {
+                                        Spacer()
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.white.opacity(0.2))
+                                                .frame(width: 56, height: 56)
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.title2)
+                                                .foregroundStyle(.white)
+                                        }
+                                        Text("Video selected")
+                                            .font(.headline)
+                                            .foregroundStyle(.white)
+                                        Text(videoURL.lastPathComponent)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.white.opacity(0.9))
+                                            .lineLimit(1)
+                                        Spacer()
+                                    }
+                                    .padding(18)
+                                )
+                        } else if let image = draftPhotoImage {
                             Image(uiImage: image)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -15034,7 +17439,7 @@ struct ContentView: View {
                                         Text("Add media")
                                             .font(.headline)
                                             .foregroundStyle(.white)
-                                        Text("Photo")
+                                        Text("Photo or video")
                                             .font(.subheadline)
                                             .foregroundStyle(.white.opacity(0.9))
                                         Spacer()
@@ -15322,10 +17727,41 @@ struct ContentView: View {
         .onChange(of: draftPhotoItem) { _, newItem in
             guard let newItem else { return }
             Task {
+                if selectedPostType == "Photo/Video",
+                   let selectedURL = try? await newItem.loadTransferable(type: URL.self) {
+                    let ext = selectedURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    if let type = UTType(filenameExtension: ext), type.conforms(to: .movie) {
+                        let stableURL = await MainActor.run { copyVideoToTemporaryLocation(sourceURL: selectedURL) } ?? selectedURL
+                        await MainActor.run {
+                            draftVideoURL = stableURL
+                            draftUrl = stableURL.absoluteString
+                            draftPhotoImage = nil
+                        }
+                        return
+                    }
+                }
+
                 if let data = try? await newItem.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     draftPhotoImage = image
+                    if selectedPostType == "Photo/Video" {
+                        draftVideoURL = nil
+                    }
                     persistSaleDraftState()
+                    return
+                }
+
+                if selectedPostType == "Photo/Video",
+                   let data = try? await newItem.loadTransferable(type: Data.self) {
+                    let fallbackURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                        .appendingPathComponent(UUID().uuidString)
+                        .appendingPathExtension("mp4")
+                    try? data.write(to: fallbackURL)
+                    await MainActor.run {
+                        draftVideoURL = fallbackURL
+                        draftUrl = fallbackURL.absoluteString
+                        draftPhotoImage = nil
+                    }
                 }
             }
         }
@@ -16158,9 +18594,16 @@ struct ContentView: View {
 
     static func normalizedLocationRealm(_ raw: String) -> String {
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return cleaned
+        let normalized = cleaned
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
+
+        // Keep Nearby local and treat Nearest as shared-feed alias.
+        if normalized == "nearest" {
+            return "metric"
+        }
+
+        return normalized
     }
 
     static func isMapAreaRealm(_ value: String) -> Bool {
@@ -16193,7 +18636,6 @@ struct ContentView: View {
     static func resolvedPostingLocation(postLocation: String, feedLocation: String, nearbyPlaceName: String? = nil) -> String {
         let cleanedPost = postLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanedFeed = feedLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanedNearby = nearbyPlaceName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         if !cleanedPost.isEmpty {
             return cleanedPost
@@ -16201,10 +18643,7 @@ struct ContentView: View {
         if !cleanedFeed.isEmpty {
             return cleanedFeed
         }
-        if !cleanedNearby.isEmpty {
-            return cleanedNearby
-        }
-        return "Metric"
+        return "Nearby"
     }
 
     static func resolvedPostedRealms(location: String, postedInLocations: [String]) -> [String] {
@@ -16257,11 +18696,24 @@ struct ContentView: View {
 
     static func postsForLocationRealm(_ posts: [MockPost], activeLocation: String, includeVideos: Bool = true) -> [MockPost] {
         let selected = activeLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedSelected = normalizedLocationRealm(selected.isEmpty ? "Tokyo, Japan" : selected)
+        let normalizedSelected = normalizedLocationRealm(selected.isEmpty ? "Nearby" : selected)
+        let metricRealm = normalizedLocationRealm("Metric")
 
         return posts.filter { post in
             let realms = resolvedPostedRealms(location: post.location, postedInLocations: post.postedInLocations)
-            let matchesLocation = realms.contains { normalizedLocationRealm($0) == normalizedSelected }
+            let normalizedPostRealms = realms.map { normalizedLocationRealm($0) }
+            let postIsSharedNearest = normalizedPostRealms.contains(metricRealm)
+
+            // Hard channel boundary:
+            // - Shared feed shows only Shared(Nearest/Metric) posts.
+            // - Other channels never show Shared posts.
+            if normalizedSelected == metricRealm {
+                guard postIsSharedNearest else { return false }
+            } else if postIsSharedNearest {
+                return false
+            }
+
+            let matchesLocation = normalizedPostRealms.contains(normalizedSelected)
             let matchesType = includeVideos || post.type != "Video"
             return matchesLocation && matchesType
         }
@@ -16720,6 +19172,29 @@ struct ContentView: View {
         }()
 
         let isMetricFeed = normalizedLocation == "metric"
+        let sharedNearestBonus: Double = {
+            guard isMetricFeed else { return 0.0 }
+
+            if let distanceMiles = distanceMilesFromUser(to: post) {
+                // Shared feed should feel geographically relevant while still global.
+                return max(0.0, 28_000.0 - (distanceMiles * 1_100.0))
+            }
+
+            return 6_000.0
+        }()
+
+        let sharedFreshnessLift: Double = {
+            guard isMetricFeed else { return 0.0 }
+
+            if ageMinutes <= 30.0 {
+                return 16_000.0 - (ageMinutes * 320.0)
+            }
+            if ageHours <= 6.0 {
+                return max(0.0, 6_400.0 - ((ageHours - 0.5) * 900.0))
+            }
+            return 0.0
+        }()
+
         let userCoord = locationService.lastKnownLocation?.coordinate
         let rawMlScore = MetricFeedMLEngine.shared.calculateMLScore(
             for: post,
@@ -16735,7 +19210,17 @@ struct ContentView: View {
 
         let ownPostPenalty = Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: profileUsername) ? 150_000.0 : 0.0
 
-        return trendScore + recencyBoost + resurgenceBonus + localSuccessBonus + metricBoostBonus + mlRecommendationScore - freshnessPenalty - viewedPenalty - ownPostPenalty
+        return trendScore
+            + recencyBoost
+            + resurgenceBonus
+            + localSuccessBonus
+            + metricBoostBonus
+            + sharedNearestBonus
+            + sharedFreshnessLift
+            + mlRecommendationScore
+            - freshnessPenalty
+            - viewedPenalty
+            - ownPostPenalty
     }
 
     private func rankedPostsForFeed(_ candidates: [MockPost], activeLocation: String, isFriendsFeed: Bool) -> [MockPost] {
@@ -16922,6 +19407,18 @@ struct ContentView: View {
         )
         guard globalPinnedKeys.contains(postAdminPinStorageKey(post)) else { return false }
 
+        let activeLocationRealm = Self.normalizedLocationRealm(location)
+        let metricRealm = Self.normalizedLocationRealm("Metric")
+        let postRealms = Self.resolvedPostedRealms(location: post.location, postedInLocations: post.postedInLocations)
+        let postIsSharedNearest = postRealms.contains { Self.normalizedLocationRealm($0) == metricRealm }
+
+        // Enforce Shared isolation even when global pin logic is applied.
+        if activeLocationRealm == metricRealm {
+            guard postIsSharedNearest else { return false }
+        } else {
+            if postIsSharedNearest { return false }
+        }
+
         // Nearest POI feeds exclude posts pinned with spot:all-non-metric
         let realmMap = adminPinnedRealmMap()
         let postKey = postAdminPinStorageKey(post)
@@ -16937,7 +19434,6 @@ struct ContentView: View {
             }
         }
 
-        let activeLocationRealm = Self.normalizedLocationRealm(location)
         let unpinnedPostsInLocation = posts.filter { p in
             !globalPinnedKeys.contains(postAdminPinStorageKey(p)) &&
             Self.resolvedPostedRealms(location: p.location, postedInLocations: p.postedInLocations)
@@ -17129,6 +19625,25 @@ struct ContentView: View {
         "spot_post_photo_\(postID)"
     }
 
+    private static func rememberedOwnedAnonymousPostIDs() -> Set<String> {
+        let raw = UserDefaults.standard.array(forKey: ownedAnonymousPostIDsDefaultsKey) as? [String] ?? []
+        let cleaned = raw.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return Set(cleaned)
+    }
+
+    @MainActor
+    private func rememberOwnedAnonymousPostIDs(_ ids: [String]) {
+        let additions = ids.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !additions.isEmpty else { return }
+
+        var merged = Self.rememberedOwnedAnonymousPostIDs()
+        for id in additions {
+            merged.insert(id)
+        }
+
+        UserDefaults.standard.set(Array(merged), forKey: Self.ownedAnonymousPostIDsDefaultsKey)
+    }
+
     private func makeDraftPost(id: Int = 999) -> MockPost {
         let location = draftLocation.isEmpty ? (postLocation.isEmpty ? "Tokyo, Japan" : postLocation) : draftLocation
         let cappedTitle = String(draftTitle.prefix(35))
@@ -17150,7 +19665,7 @@ struct ContentView: View {
         let primaryListingImage = selectedPostType == "For Sale" ? draftListingImages.first : draftPhotoImage
         let resolvedAudioURL = selectedPostType == "Audio" ? Self.audioPostSourceURL(draftUrl: draftUrl, recordedAudioURL: draftRecordedAudioURL) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
         let resolvedSongURL = selectedPostType == "Song" ? (draftSongFileURL?.absoluteString ?? (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
-        let resolvedVideoURL = selectedPostType == "Video" ? (draftVideoURL?.absoluteString ?? (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
+        let resolvedVideoURL = (selectedPostType == "Video" || selectedPostType == "Photo/Video") ? (draftVideoURL?.absoluteString ?? (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)) : (draftUrl.isEmpty ? defaultURLFor(selectedPostType) : draftUrl)
         let songArtworkImage = selectedPostType == "Song" ? SongPostRules.embeddedArtworkImage(from: draftSongFileURL ?? (URL(string: draftUrl) ?? nil)) : nil
         let routeStart = draftRouteStart.trimmingCharacters(in: .whitespacesAndNewlines)
         let routeEnd = draftRouteEnd.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -17162,7 +19677,7 @@ struct ContentView: View {
             ? resolvedAudioURL
             : (selectedPostType == "Song"
                 ? resolvedSongURL
-            : (selectedPostType == "Video"
+            : ((selectedPostType == "Video" || selectedPostType == "Photo/Video")
                 ? resolvedVideoURL
                 : (selectedPostType == "Live Route"
                     ? resolvedRouteURL
@@ -17415,6 +19930,7 @@ struct ContentView: View {
         switch type {
         case "Text": return "text.alignleft"
         case "Photo": return "photo.fill"
+        case "Camera": return "camera.fill"
         case "Video": return "play.fill"
         case "Photo/Video": return "photo.on.rectangle.angled"
         case "Link": return "link"
@@ -17439,6 +19955,8 @@ struct ContentView: View {
 
     private func displayNameForPostType(_ type: String) -> String {
         switch type {
+        case "Camera": return "Camera"
+        case "Photo/Video": return "Media"
         case "For Sale": return "Listing"
         default: return type
         }
@@ -17448,6 +19966,7 @@ struct ContentView: View {
         switch type {
         case "Text": return "A thought, note, or story."
         case "Photo": return "Share a still image from this place."
+        case "Camera": return "Take a photo now and post it."
         case "Video": return "Share a short moving moment from here."
         case "Photo/Video": return "Share a photo or video from this place."
         case "Link": return "Send a location or article."
@@ -17460,6 +19979,21 @@ struct ContentView: View {
         case "For Sale": return "List items with price and contact phone."
         default: return "Share a short audio clip."
         }
+    }
+
+    private func openPostCameraCapture() {
+        selectedPostType = "Photo"
+        resetDraftFor("Photo")
+        isShowingPostCameraCapture = true
+    }
+
+    private func handlePostCameraCapture(_ image: UIImage?) {
+        isShowingPostCameraCapture = false
+        guard let image else { return }
+        draftPhotoImage = image
+        draftPhotoCropScale = 1.0
+        draftPhotoCropOffset = .zero
+        currentScreen = .composer
     }
 
     private func defaultTitleFor(_ type: String) -> String {
@@ -17637,9 +20171,6 @@ struct ContentView: View {
             let followerUserID = (try? FirebaseSpotService.shared.currentUserID())?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !followerUserID.isEmpty else {
                 await MainActor.run {
-                    UserDefaults.standard.set(false, forKey: accountSignedInDefaultsKey)
-                    UserDefaults.standard.removeObject(forKey: accountPasswordDefaultsKey)
-                    isSignedInToAccount = false
                     accountAuthMessage = "Sign in to follow accounts."
                 }
                 return
@@ -18225,6 +20756,7 @@ struct ContentView: View {
         let currentAuthUserID = (Auth.auth().currentUser?.uid ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let persistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedCurrentHandle = FirebaseSpotService.normalizeUsername(ownerHandle)
+        let ownedAnonymousPostIDs = Self.rememberedOwnedAnonymousPostIDs()
 
         let currentByID = Dictionary(uniqueKeysWithValues: currentPosts.map { ($0.id, $0) })
         var usedNumericIDs = Set<Int>()
@@ -18243,6 +20775,7 @@ struct ContentView: View {
             let rawHandle = FirebaseSpotService.normalizeUsername(payload.authorUsername)
             let isOwnPayload = (!payloadAuthorID.isEmpty && (payloadAuthorID == currentAuthUserID || payloadAuthorID == persistedUserID))
                 || (!rawHandle.isEmpty && !normalizedCurrentHandle.isEmpty && rawHandle == normalizedCurrentHandle)
+                || ownedAnonymousPostIDs.contains(payload.id.trimmingCharacters(in: .whitespacesAndNewlines))
 
             let rawAuthor = payload.authorDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -18355,6 +20888,12 @@ struct ContentView: View {
                 next.mediaImage = currentImage
             }
 
+            let persistedPhotoURL = (next.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let currentPhotoURL = (current.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if persistedPhotoURL.isEmpty && !currentPhotoURL.isEmpty {
+                next.authorProfilePhotoURL = current.authorProfilePhotoURL
+            }
+
             return next
         }
 
@@ -18369,6 +20908,15 @@ struct ContentView: View {
     }
 
     static func isPostOwnedByUser(_ post: MockPost, currentUserID: String, currentUsername: String) -> Bool {
+        if post.isAnonymous {
+            let ownedAnonymousIDs = rememberedOwnedAnonymousPostIDs()
+            let firestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let localID = String(post.id).trimmingCharacters(in: .whitespacesAndNewlines)
+            if (!firestoreID.isEmpty && ownedAnonymousIDs.contains(firestoreID)) || ownedAnonymousIDs.contains(localID) {
+                return true
+            }
+        }
+
         let candidateUserIDs: Set<String> = {
             var ids: Set<String> = []
 
@@ -18564,6 +21112,14 @@ struct ContentView: View {
     }
 
     private func persistCurrentUsername() async {
+        if isVerifiedUsernameUnderlined {
+            usernameAvailabilityMessage = "Username locked after verification"
+            usernameAvailabilityIsAvailable = false
+            profileUsername = accountUsername
+            signInUsername = accountUsername
+            return
+        }
+
         let cleanedUsername = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedUsername = capUsernameInput(cleanedUsername)
         let currentSavedUsername = capUsernameInput(accountUsername)
@@ -18610,6 +21166,7 @@ struct ContentView: View {
 
             profileUsername = normalizedUsername
             accountUsername = normalizedUsername
+            signInUsername = normalizedUsername
             usernameAvailabilityMessage = "Saved"
             usernameAvailabilityIsAvailable = true
             UserDefaults.standard.set(normalizedUsername, forKey: accountUsernameDefaultsKey)
@@ -18623,7 +21180,8 @@ struct ContentView: View {
                 email: accountEmail,
                 username: normalizedUsername,
                 displayName: profileName,
-                profilePhotoURL: profilePhotoRemoteURL
+                profilePhotoURL: profilePhotoRemoteURL,
+                password: accountPassword
             )
             activeSettingsEditor = nil
         } catch {
@@ -19988,6 +22546,7 @@ struct ContentView: View {
         let updatedSavedCount = isOwnPost
             ? posts[representativeIndex].savedCount
             : max(0, posts[representativeIndex].savedCount + (nextSavedState ? 1 : -1))
+        let updatedLikeCount = posts[representativeIndex].likes
         let now = Date().timeIntervalSince1970
 
         if nextSavedState {
@@ -20016,9 +22575,7 @@ struct ContentView: View {
         if var pending = pendingSharePost, postAdminPinStorageKey(pending) == targetKey {
             pending.isSaved = nextSavedState
             pending.savedCount = updatedSavedCount
-            pendingSharePost = nextSavedState ? pending : nil
-        } else {
-            pendingSharePost = nextSavedState ? posts[representativeIndex] : nil
+            pendingSharePost = pending
         }
 
         persistUserAccountActivity(for: posts[representativeIndex], saved: nextSavedState)
@@ -20032,10 +22589,74 @@ struct ContentView: View {
                 do {
                     try await FirebaseSpotService.shared.updatePostEngagement(
                         postID: postIDForEngagement,
+                        likesCount: updatedLikeCount,
                         savedCount: updatedSavedCount
                     )
                 } catch {
                     print("Spot save engagement update failed for post \(postIDForEngagement): \(error)")
+                }
+            }
+        }
+    }
+
+    private func toggleLikedState(for post: MockPost) {
+        let targetKey = postAdminPinStorageKey(post)
+        let matchingIndices = posts.indices.filter { postAdminPinStorageKey(posts[$0]) == targetKey }
+        guard let representativeIndex = matchingIndices.first else {
+            pendingSharePost = nil
+            return
+        }
+
+        let representativePost = posts[representativeIndex]
+        let isOwnPost = Self.isPostOwnedByUser(
+            representativePost,
+            currentUserID: currentUserID,
+            currentUsername: profileUsername
+        )
+
+        let nextLikedState = !posts[representativeIndex].isLiked
+        let updatedLikeCount = isOwnPost
+            ? posts[representativeIndex].likes
+            : max(0, posts[representativeIndex].likes + (nextLikedState ? 1 : -1))
+        let updatedSavedCount = posts[representativeIndex].savedCount
+
+        if nextLikedState {
+            MetricFeedMLEngine.shared.recordInteraction(post: posts[representativeIndex], signal: .like, allPosts: posts)
+        }
+
+        for index in matchingIndices {
+            posts[index].isLiked = nextLikedState
+            posts[index].likes = updatedLikeCount
+        }
+
+        if var selected = selectedProfilePost, postAdminPinStorageKey(selected) == targetKey {
+            selected.isLiked = nextLikedState
+            selected.likes = updatedLikeCount
+            selectedProfilePost = selected
+            cacheEngagementSnapshot(for: selected)
+        }
+
+        if var pending = pendingSharePost, postAdminPinStorageKey(pending) == targetKey {
+            pending.isLiked = nextLikedState
+            pending.likes = updatedLikeCount
+            pendingSharePost = pending
+        }
+
+        cacheEngagementSnapshot(for: posts[representativeIndex])
+
+        let postIDForEngagement = posts[representativeIndex].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? String(posts[representativeIndex].id)
+            : posts[representativeIndex].firestoreID
+        if !isOwnPost {
+            Task {
+                do {
+                    try await FirebaseSpotService.shared.updatePostEngagement(
+                        postID: postIDForEngagement,
+                        likesCount: updatedLikeCount,
+                        savedCount: updatedSavedCount
+                    )
+                } catch {
+                    print("Spot like engagement update failed for post \(postIDForEngagement): \(error)")
                 }
             }
         }
@@ -20145,6 +22766,7 @@ struct ContentView: View {
     }
 
     private func reportPost(_ post: MockPost) {
+        let targetKey = postAdminPinStorageKey(post)
         reportedPostIds.insert(post.id)
         for key in reportedStorageKeys(for: post) {
             reportedPostKeys.insert(key)
@@ -20158,6 +22780,15 @@ struct ContentView: View {
         persistReportedPostKeys()
         persistAdminFlaggedPostsByKey()
         persistUserAccountActivity(for: post, flagged: true)
+
+        posts.removeAll { postAdminPinStorageKey($0) == targetKey }
+        if let selected = selectedProfilePost, postAdminPinStorageKey(selected) == targetKey {
+            selectedProfilePost = nil
+        }
+        if let pending = pendingSharePost, postAdminPinStorageKey(pending) == targetKey {
+            pendingSharePost = nil
+            isShareFlowActive = false
+        }
     }
 
     private func unlockAdminModerationFeedIfAuthorized() {
@@ -20189,6 +22820,7 @@ struct ContentView: View {
         reportedUsers.insert(user.username.lowercased())
         if let thread = messages.first(where: { $0.username.lowercased() == user.username.lowercased() || $0.participant.lowercased() == user.name.lowercased() }) {
             selectedChatThread = thread
+            chatDetailReturnScreen = currentScreen
             currentScreen = .chatDetail
         }
     }
@@ -20270,25 +22902,66 @@ struct ContentView: View {
         }
 
         pendingSharePost = post
+        isShareFlowActive = true
         selectedUserProfile = nil
         currentScreen = .messages
     }
 
-    private func addSharedPostToThread(_ thread: DirectMessageThread, post: MockPost, isMine: Bool = true) {
-        var updatedMessages = chatMessages[thread.id] ?? []
-        updatedMessages.append(
-            ChatMessage(
-                id: (updatedMessages.last?.id ?? 0) + 1,
-                text: "",
-                isMine: isMine,
-                time: "now",
-                sharedPost: post
+    private func addSharedPostToThread(_ thread: DirectMessageThread, post: MockPost, isMine: Bool = true) async {
+        var remoteMessageID: String? = nil
+        var resolvedChatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let senderID = try? FirebaseSpotService.shared.currentUserID(), !senderID.isEmpty {
+            let recipientID = await resolveDirectMessageThreadUserID(thread)
+            if !recipientID.isEmpty {
+                do {
+                    let cloudChatID = try await FirebaseSpotService.shared.createOrGetChat(
+                        participantIDs: [senderID, recipientID],
+                        isAnonymous: thread.isAnonymousConversation
+                    )
+                    resolvedChatID = cloudChatID
+                    let sharedPostID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? String(post.id)
+                        : post.firestoreID
+                    remoteMessageID = try await FirebaseSpotService.shared.sendChatMessage(
+                        chatID: cloudChatID,
+                        senderID: senderID,
+                        text: "Shared post",
+                        sharedPostID: sharedPostID
+                    )
+                } catch {
+                    print("Spot shared-post send failed for thread \(thread.id): \(error)")
+                }
+            }
+        }
+
+        await MainActor.run {
+            if !resolvedChatID.isEmpty, let index = messages.firstIndex(where: { $0.id == thread.id }) {
+                messages[index].chatID = resolvedChatID
+            }
+
+            var updatedMessages = chatMessages[thread.id] ?? []
+            updatedMessages.append(
+                ChatMessage(
+                    id: (updatedMessages.last?.id ?? 0) + 1,
+                    text: "",
+                    isMine: isMine,
+                    time: "now",
+                    remoteMessageID: remoteMessageID,
+                    sharedPost: post
+                )
             )
-        )
-        chatMessages[thread.id] = updatedMessages
-        refreshThreadPreview(for: thread.id)
-        pendingSharePost = nil
-        chatComposerText = ""
+            chatMessages[thread.id] = updatedMessages
+            refreshThreadPreview(for: thread.id)
+            pendingSharePost = nil
+            isShareFlowActive = false
+            chatComposerText = ""
+        }
+
+        if !resolvedChatID.isEmpty {
+            let refreshedThread = await MainActor.run { messages.first(where: { $0.id == thread.id }) ?? thread }
+            await fetchDirectMessagesForThread(refreshedThread)
+        }
     }
 
     private func shareTextFor(_ post: MockPost) -> String {
@@ -20297,7 +22970,7 @@ struct ContentView: View {
         return "I wanted to share this with you: \(title) — \(location)\n\(post.body)"
     }
 
-    private func openDM(with user: FakeUserProfile, startsAnonymous: Bool = false) {
+    private func openDM(with user: FakeUserProfile, startsAnonymous: Bool = false, includePendingShare: Bool = false) {
         MetricFeedMLEngine.shared.recordInteraction(forUser: user, signal: .messageTap, allPosts: posts)
 
         let targetUsername = user.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -20349,15 +23022,22 @@ struct ContentView: View {
             }
         }
 
-        if let post = pendingSharePost {
+        let shouldAttachPendingShare = (includePendingShare || isShareFlowActive) && pendingSharePost != nil
+
+        if shouldAttachPendingShare, let post = pendingSharePost {
             if let thread = selectedChatThread {
-                addSharedPostToThread(thread, post: post, isMine: true)
+                Task {
+                    await addSharedPostToThread(thread, post: post, isMine: true)
+                }
             }
-        } else {
+        } else if !isShareFlowActive {
+            isShareFlowActive = false
+            pendingSharePost = nil
             chatComposerText = ""
         }
 
         selectedUserProfile = user
+        chatDetailReturnScreen = currentScreen
         currentScreen = .chatDetail
     }
 }
@@ -20906,7 +23586,7 @@ struct DirectMessageThread: Identifiable {
     var preview: String
     var time: String
     let unread: Int
-    let isIncoming: Bool
+    var isIncoming: Bool
     var isPinned: Bool = false
     var isAnonymousConversation: Bool = false
     var participantUserID: String = ""
@@ -20924,6 +23604,7 @@ struct ChatMessage: Identifiable {
     let text: String
     let isMine: Bool
     let time: String
+    var remoteMessageID: String? = nil
     var sharedPost: MockPost? = nil
 }
 
@@ -20946,7 +23627,6 @@ struct MockPost: Identifiable {
         likes: 0,
         viewCount: 0,
         timeViewedSeconds: 0,
-        savedCount: 0,
         shareCount: 0,
         isLiked: false,
         comments: [],
@@ -21397,10 +24077,14 @@ struct PostCardView: View {
     var currentUserProfilePhotoImage: UIImage? = nil
     var showsAuthorLine: Bool = true
     var prefersDeleteAction: Bool = false
+    var showsDeleteButtonTrailing: Bool = false
     var videoPlaybackEnabled: Bool? = nil
     var showProfileLocationBadge: Bool = false
     var isReported: Bool = false
+    var allowsAdminPinLongPress: Bool = true
     var onSend: () -> Void = {}
+    var onShare: (() -> Void)? = nil
+    var onLike: (MockPost) -> Void = { _ in }
     var onSave: (MockPost) -> Void = { _ in }
     var onDelete: (() -> Void)? = nil
     var onAdminForceDelete: (String) -> Void = { _ in }
@@ -21567,7 +24251,7 @@ struct PostCardView: View {
         return type == "For Sale" && hasMediaImage
     }
 
-    static func mediaFrameSize(for image: UIImage?, availableWidth: CGFloat = UIScreen.main.bounds.width - 54, maxHeight: CGFloat = 760) -> CGSize {
+    static func mediaFrameSize(for image: UIImage?, availableWidth: CGFloat = UIScreen.main.bounds.width - 28, maxHeight: CGFloat = 760) -> CGSize {
         if let image {
             let width = max(1.0, image.size.width)
             let height = max(1.0, image.size.height)
@@ -21582,7 +24266,7 @@ struct PostCardView: View {
     }
 
     private var mediaCardSize: CGSize {
-        Self.mediaFrameSize(for: post.mediaImage, availableWidth: UIScreen.main.bounds.width - 54)
+        Self.mediaFrameSize(for: post.mediaImage, availableWidth: UIScreen.main.bounds.width - 28)
     }
 
     private var isVideoPost: Bool {
@@ -21596,7 +24280,7 @@ struct PostCardView: View {
     private var effectiveVideoCardSize: CGSize {
         if isVideoPost, showsAuthorLine {
             // Flexible card width centered inside container
-            let desiredWidth = UIScreen.main.bounds.width - 20.0
+            let desiredWidth = UIScreen.main.bounds.width - 12.0
             let fixedHeight: CGFloat = 580.0
             return CGSize(width: desiredWidth, height: fixedHeight)
         }
@@ -21731,30 +24415,6 @@ struct PostCardView: View {
 
         let copiedURL = copyVideoToTemporaryLocation(sourceURL: sourceURL)
         return copiedURL ?? sourceURL
-    }
-
-    private var displayedEngagementScore: Double {
-        guard shouldTrackViews, viewStartedAt != nil else {
-            return post.engagementScore
-        }
-
-        // Keep score moving for the full visible session, even between persisted engagement writes.
-        let sessionDurationSeconds = liveViewSessionBaseDurationSeconds + max(0, liveViewSessionElapsedSeconds)
-        let liveDurationSeconds = max(post.timeViewedSeconds, sessionDurationSeconds)
-        let interval = max(1, Self.liveViewRegistrationIntervalSeconds)
-        let liveViewProgress = min(max(Double(liveViewElapsedSeconds) / Double(interval), 0), 1)
-        let currentScore = FirebaseSpotService.engagementScore(
-            views: post.viewCount,
-            totalViewDurationSeconds: liveDurationSeconds,
-            saves: post.savedCount,
-            likes: post.likes,
-            comments: post.comments.count,
-            shares: post.shareCount,
-            viewProgress: liveViewProgress,
-            locationBreadth: max(1, Set(post.postedInLocations.map { $0.lowercased() }).count),
-            isBoosted: post.isBoosted
-        )
-        return max(post.engagementScore, currentScore)
     }
 
     private func persistEngagement(_ trackedPost: MockPost) {
@@ -22317,30 +24977,32 @@ struct PostCardView: View {
                             )
                     }
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .center, spacing: 6) {
                         Text(authorIdentityText)
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(authorIdentityColor)
 
                         if shouldShowAge || shouldShowPosition {
-                            HStack(alignment: .center, spacing: 6) {
-                                if shouldShowAge {
-                                    Text(ageText)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color(.systemGray))
-                                }
+                            Rectangle()
+                                .fill(Color.black)
+                                .frame(width: 1, height: 10)
 
-                                if shouldShowAge && shouldShowPosition {
-                                    Rectangle()
-                                        .fill(Color.black)
-                                        .frame(width: 1, height: 10)
-                                }
+                            if shouldShowAge {
+                                Text(ageText)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color(.systemGray))
+                            }
 
-                                if shouldShowPosition {
-                                    Text(positionText)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color(.systemGray))
-                                }
+                            if shouldShowAge && shouldShowPosition {
+                                Rectangle()
+                                    .fill(Color.black)
+                                    .frame(width: 1, height: 10)
+                            }
+
+                            if shouldShowPosition {
+                                Text(positionText)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color(.systemGray))
                             }
                         }
                     }
@@ -23017,20 +25679,23 @@ struct PostCardView: View {
                 onMapFocusTap(post)
             }
             .onLongPressGesture(minimumDuration: 0.55) {
+                guard allowsAdminPinLongPress else { return }
                 adminPinErrorMessage = ""
                 adminPinCodeInput = ""
                 showAdminPinCodePrompt = true
             }
 
-            VStack(spacing: 2) {
+            VStack(spacing: 0) {
                 postActionRow
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .padding(.top, 6)
+            .padding(.bottom, 6)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 8)
-        .background(Color(.systemGray6))
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.vertical, 2)
         .sheet(isPresented: $isExpandedListingImagePresented) {
@@ -23227,37 +25892,49 @@ struct PostCardView: View {
 
     private var postActionRow: some View {
         let showsDeleteAction = effectiveDeleteAction != nil
-        let targetIconSize: CGFloat = 12
+        let showsTrailingDelete = showsDeleteAction && showsDeleteButtonTrailing
+        let targetIconSize: CGFloat = 17
+        let heartIconSize: CGFloat = targetIconSize
+        let iconSpacing: CGFloat = 14
 
         return HStack(spacing: 10) {
-            HStack(spacing: 10) {
-                if !prefersDeleteAction {
+            HStack(spacing: iconSpacing) {
+                if !prefersDeleteAction || showsTrailingDelete {
                     Button {
-                        onSave(post)
+                        onLike(post)
                     } label: {
-                        ZStack {
-                            Circle()
-                                .strokeBorder(Color(.systemGray), lineWidth: 1.2)
-                                .frame(width: targetIconSize, height: targetIconSize)
-                            Circle()
-                                .fill(post.isSaved ? Color(.systemGray) : Color.clear)
-                                .frame(width: targetIconSize, height: targetIconSize)
+                        HStack(spacing: 6) {
+                            actionRowIcon(
+                                post.isLiked ? "heart.fill" : "heart",
+                                color: post.isLiked ? Color.red : Color(.systemGray),
+                                size: heartIconSize
+                            )
+
+                            if showsTrailingDelete {
+                                Text(formatFollowerCount(max(post.likes, 0)))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Color(.systemGray))
+                            }
                         }
-                        .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onMessageTap()
+                    } label: {
+                        actionRowIcon("bubble.left.and.bubble.right", color: Color(.systemGray), size: targetIconSize)
                     }
                     .buttonStyle(.plain)
                 }
 
-                Button {
-                    onSend()
-                } label: {
-                    Image(systemName: "arrowshape.turn.up.right.fill")
-                        .font(.system(size: targetIconSize, weight: .semibold))
-                        .foregroundStyle(Color(.systemGray))
-                }
-                .buttonStyle(.plain)
+                if showsDeleteAction && !showsTrailingDelete {
+                    HStack(spacing: 4) {
+                        actionRowIcon("heart.fill", color: Color.red, size: heartIconSize)
+                        Text(formatFollowerCount(max(post.likes, 0)))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Color(.systemGray))
+                    }
 
-                if showsDeleteAction {
                     Button {
                         showDeleteConfirmation = true
                     } label: {
@@ -23270,45 +25947,116 @@ struct PostCardView: View {
                     Button {
                         onReport?()
                     } label: {
-                        Image(systemName: "flag")
-                            .font(.system(size: targetIconSize, weight: .semibold))
-                            .foregroundStyle(Color(.systemGray))
+                        actionRowIcon("flag", color: Color(.systemGray), size: targetIconSize)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onSend()
+                    } label: {
+                        actionRowIcon("arrow.2.squarepath", color: Color(.systemGray), size: targetIconSize)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        if let onShare {
+                            onShare()
+                        } else {
+                            onSend()
+                        }
+                    } label: {
+                        actionRowIcon("square.and.arrow.up", color: Color(.systemGray), size: targetIconSize)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onSave(post)
+                    } label: {
+                        actionRowIcon(post.isSaved ? "bookmark.fill" : "bookmark", color: Color(.systemGray), size: targetIconSize)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.leading, 8)
 
-            Spacer()
+            if showsTrailingDelete {
+                Spacer(minLength: 0)
 
-            HStack(spacing: 8) {
-                HStack(alignment: .center, spacing: 3) {
-                    Text(formatCompactNumber(displayedEngagementScore))
-                        .font(.system(size: 9, weight: .semibold))
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    Text("Delete")
+                        .font(.system(size: targetIconSize, weight: .semibold))
                         .foregroundStyle(Color(.systemGray))
-                        .offset(x: -4, y: 1.5)
-                    TrendLineView()
-                        .frame(width: 14, height: 8)
                 }
+                .buttonStyle(.plain)
+                .padding(.trailing, 8)
             }
-            .frame(alignment: .trailing)
-            .padding(.trailing, 8)
         }
     }
-}
 
-func formatCompactNumber(_ value: Double) -> String {
-    if value >= 10000 {
-        return String(format: "%.1fK", value / 1000.0)
+    private func actionIconYOffset(for symbolName: String) -> CGFloat {
+        switch symbolName {
+        case "square.and.arrow.up":
+            return -1.0
+        case "bookmark", "bookmark.fill":
+            return -0.5
+        case "flag":
+            return 0.5
+        case "arrow.2.squarepath":
+            return 0.25
+        case "bubble.left.and.bubble.right":
+            return 0.25
+        case "heart", "heart.fill":
+            return 0.4
+        default:
+            return 0
+        }
     }
 
-    let rounded = (value * 100).rounded() / 100
-    let wholeValue = rounded.rounded()
-    if abs(rounded - wholeValue) < 0.0001 {
-        return String(Int(wholeValue))
+    private func actionIconWidth(for symbolName: String, baseSize: CGFloat) -> CGFloat {
+        switch symbolName {
+        case "bookmark", "bookmark.fill":
+            return baseSize - 2.0
+        case "heart", "heart.fill", "bubble.left.and.bubble.right":
+            return baseSize + 0.5
+        case "flag", "square.and.arrow.up":
+            return baseSize
+        default:
+            return baseSize
+        }
     }
 
-    return String(format: "%.2f", rounded)
+    private func actionIconScale(for symbolName: String) -> CGFloat {
+        switch symbolName {
+        case "bookmark", "bookmark.fill":
+            return 1.08
+        case "flag", "square.and.arrow.up":
+            return 1.05
+        case "heart", "heart.fill", "bubble.left.and.bubble.right":
+            return 1.06
+        default:
+            return 1.0
+        }
+    }
+
+    private func actionIconWeight(for symbolName: String) -> Font.Weight {
+        switch symbolName {
+        case "bookmark", "bookmark.fill", "flag", "square.and.arrow.up", "heart", "heart.fill", "bubble.left.and.bubble.right":
+            return .bold
+        default:
+            return .semibold
+        }
+    }
+
+    private func actionRowIcon(_ symbolName: String, color: Color, size: CGFloat) -> some View {
+        Image(systemName: symbolName)
+            .font(.system(size: size, weight: actionIconWeight(for: symbolName)))
+            .foregroundStyle(color)
+            .scaleEffect(actionIconScale(for: symbolName))
+            .frame(width: actionIconWidth(for: symbolName, baseSize: size), height: size)
+            .offset(y: actionIconYOffset(for: symbolName))
+    }
 }
 
 func formatFollowerCount(_ value: Int) -> String {
@@ -23316,20 +26064,6 @@ func formatFollowerCount(_ value: Int) -> String {
         return String(format: "%.1fK", Double(value) / 1000.0)
     }
     return String(value)
-}
-
-private struct TrendLineView: View {
-    var body: some View {
-        Path { path in
-            path.move(to: CGPoint(x: 0, y: 11))
-            path.addLine(to: CGPoint(x: 5, y: 8))
-            path.addLine(to: CGPoint(x: 9, y: 5))
-            path.addLine(to: CGPoint(x: 14, y: 7))
-            path.addLine(to: CGPoint(x: 22, y: 2))
-        }
-        .stroke(Color.green, lineWidth: 1.8)
-        .frame(width: 22, height: 13)
-    }
 }
 
 extension Color {
@@ -23663,6 +26397,142 @@ final class MetricFeedMLEngine {
             return 1.35
         }
         return 1.0
+    }
+}
+
+// MARK: - ID Scanner Components
+
+struct IDScannerView: View {
+    var onCapture: (UIImage?) -> Void
+
+    var body: some View {
+        IDCameraCaptureView(onCapture: onCapture)
+            .ignoresSafeArea()
+            .overlay(alignment: .top) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("AI verification: capture your photo ID")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.black.opacity(0.62))
+                .clipShape(Capsule())
+                .padding(.top, 16)
+            }
+    }
+}
+
+private struct IDCameraCaptureView: UIViewControllerRepresentable {
+    var onCapture: (UIImage?) -> Void
+
+    func makeUIViewController(context: Context) -> IDCameraViewController {
+        let controller = IDCameraViewController()
+        controller.onCapture = onCapture
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: IDCameraViewController, context: Context) {}
+}
+
+private class IDCameraViewController: UIViewController {
+    var onCapture: ((UIImage?) -> Void)?
+    private var captureSession: AVCaptureSession?
+    private var photoOutput: AVCapturePhotoOutput?
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private let idGuideFrameView = UIView()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupCamera()
+        addIDGuideFrameOverlay()
+        addCaptureButton()
+    }
+
+    private func setupCamera() {
+        let session = AVCaptureSession()
+        session.sessionPreset = .photo
+
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+              let input = try? AVCaptureDeviceInput(device: device) else {
+            onCapture?(nil)
+            return
+        }
+
+        if session.canAddInput(input) {
+            session.addInput(input)
+        }
+
+        let output = AVCapturePhotoOutput()
+        if session.canAddOutput(output) {
+            session.addOutput(output)
+            photoOutput = output
+        }
+
+        let preview = AVCaptureVideoPreviewLayer(session: session)
+        preview.videoGravity = .resizeAspectFill
+        preview.frame = view.bounds
+        view.layer.addSublayer(preview)
+        previewLayer = preview
+
+        captureSession = session
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.startRunning()
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+    }
+
+    private func addIDGuideFrameOverlay() {
+        idGuideFrameView.translatesAutoresizingMaskIntoConstraints = false
+        idGuideFrameView.backgroundColor = .clear
+        idGuideFrameView.layer.borderColor = UIColor.white.withAlphaComponent(0.95).cgColor
+        idGuideFrameView.layer.borderWidth = 2
+        idGuideFrameView.layer.cornerRadius = 14
+        idGuideFrameView.isUserInteractionEnabled = false
+        view.addSubview(idGuideFrameView)
+
+        NSLayoutConstraint.activate([
+            idGuideFrameView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            idGuideFrameView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -22),
+            idGuideFrameView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.82),
+            idGuideFrameView.widthAnchor.constraint(lessThanOrEqualToConstant: 360),
+            idGuideFrameView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
+            idGuideFrameView.heightAnchor.constraint(equalTo: idGuideFrameView.widthAnchor, multiplier: 0.63)
+        ])
+    }
+
+    private func addCaptureButton() {
+        let btn = UIButton(type: .custom)
+        btn.frame = CGRect(x: (view.bounds.width - 70) / 2, y: view.bounds.height - 100, width: 70, height: 70)
+        btn.layer.cornerRadius = 35
+        btn.backgroundColor = .white
+        btn.layer.borderColor = UIColor.lightGray.cgColor
+        btn.layer.borderWidth = 4
+        btn.autoresizingMask = [.flexibleTopMargin, .flexibleLeftMargin, .flexibleRightMargin]
+        btn.addTarget(self, action: #selector(takePhoto), for: .touchUpInside)
+        view.addSubview(btn)
+    }
+
+    @objc private func takePhoto() {
+        let settings = AVCapturePhotoSettings()
+        photoOutput?.capturePhoto(with: settings, delegate: self)
+    }
+}
+
+extension IDCameraViewController: AVCapturePhotoCaptureDelegate {
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
+            onCapture?(nil)
+            return
+        }
+        onCapture?(image)
     }
 }
 

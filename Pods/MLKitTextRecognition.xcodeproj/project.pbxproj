@@ -1,0 +1,530 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		189EE77070BF459424A36691D61D1C35 /* MLKitTextRecognition */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D369D0E4E50BE6EEB9C4F7F4E8004F55 /* Build configuration list for PBXAggregateTarget "MLKitTextRecognition" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E86EFC34FD592424C63A17AD73A3F8AB /* PBXTargetDependency */,
+				137EEE3F2740D89AFE9B4FFA20A39AC6 /* PBXTargetDependency */,
+				B6043E952403F167D86DCB739912C7CF /* PBXTargetDependency */,
+				DA3596432A232993FC80913CABC8DD82 /* PBXTargetDependency */,
+			);
+			name = MLKitTextRecognition;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		0142A8F16E04177E7BF5C4A3589A8922 /* tflite_langid.tflite in Resources */ = {isa = PBXBuildFile; fileRef = 71B05D77FBCF781CAE7521B24297C3EA /* tflite_langid.tflite */; };
+		07E3836A5FD6F80D5DEE73F493F7CE5B /* rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite in Resources */ = {isa = PBXBuildFile; fileRef = E4D066CDDDF8509929F9F9FB674261CA /* rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite */; };
+		26DA77EE4E3A54DC2BABD07A51845DC3 /* tflite_lstm_recognizer_latin_0.3.bincfg in Resources */ = {isa = PBXBuildFile; fileRef = 24208393116386A5B277392353E28F37 /* tflite_lstm_recognizer_latin_0.3.bincfg */; };
+		6C4B918E73CA435BB4DA72D65AEB0DAE /* region_proposal_text_detector_tflite_gray_quantized.bincfg in Resources */ = {isa = PBXBuildFile; fileRef = DB2554F68990AFC835539F37AFCEDB21 /* region_proposal_text_detector_tflite_gray_quantized.bincfg */; };
+		74D3C087268D222C3C08D8A6BE597F23 /* rpn_lstm_engine_tflite_latin.bincfg in Resources */ = {isa = PBXBuildFile; fileRef = E6B2C706B677F8AC636B56F56F5DA51E /* rpn_lstm_engine_tflite_latin.bincfg */; };
+		8FDAA5DBC997DB904B5EE5226249AE03 /* tflite_lstm_recognizer_latin_0.3.conv_model in Resources */ = {isa = PBXBuildFile; fileRef = F5EBEEB2AAE4ED34739B210A30A17BDD /* tflite_lstm_recognizer_latin_0.3.conv_model */; };
+		C367DC1F80D35F2E5441C99F54D13C76 /* tflite_lstm_recognizer_latin_0.3.class_lst in Resources */ = {isa = PBXBuildFile; fileRef = 028B451B08B7247CB8010ED503F95CB1 /* tflite_lstm_recognizer_latin_0.3.class_lst */; };
+		ED943247473618831929BC0E2081E588 /* tflite_lstm_recognizer_latin_0.3.lstm_model in Resources */ = {isa = PBXBuildFile; fileRef = E5D0CB2978423DD6B246C7AF0ACCD631 /* tflite_lstm_recognizer_latin_0.3.lstm_model */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3E08ABBED8D6B9476814863D2446E2BA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 202E0997A2A1252107EC9CF723CB644D /* MLKitVision.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = F53D357392763B3BC8501CB3792A518F;
+			remoteInfo = MLKitVision;
+		};
+		43C0A4E5AE92F87365469CB1207D5B8D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 71BFEBB5378558D03E85559AD30933C2 /* MLKitTextRecognitionCommon.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 175881674366F4CBA4EF5A859B207AE2;
+			remoteInfo = MLKitTextRecognitionCommon;
+		};
+		C56DC3DA181099E481EE0A8D77078BB5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E7F9BD9BC8771E810CA023D02EF8C474 /* MLKitCommon.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8C2A273675CD8B6097B5EF5BCDD199A5;
+			remoteInfo = MLKitCommon;
+		};
+		E3B2272EADFB9BFA56575D9E31D6A121 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0E46F974258E6E345953EF69780540C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0038BFFCA2564C2A1D5814A4E552D102;
+			remoteInfo = "MLKitTextRecognition-LatinOCRResources";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		028B451B08B7247CB8010ED503F95CB1 /* tflite_lstm_recognizer_latin_0.3.class_lst */ = {isa = PBXFileReference; includeInIndex = 1; name = tflite_lstm_recognizer_latin_0.3.class_lst; path = Resources/LatinOCRResources/tflite_lstm_recognizer_latin_0.3.class_lst; sourceTree = "<group>"; };
+		06121221C346A7D2E12752A16F7AF1A8 /* ResourceBundle-LatinOCRResources-MLKitTextRecognition-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "ResourceBundle-LatinOCRResources-MLKitTextRecognition-Info.plist"; sourceTree = "<group>"; };
+		0B9EF527E49C7957C4CE67B3D8B68983 /* MLKitTextRecognition.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MLKitTextRecognition.framework; path = Frameworks/MLKitTextRecognition.framework; sourceTree = "<group>"; };
+		202E0997A2A1252107EC9CF723CB644D /* MLKitVision */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitVision; path = MLKitVision.xcodeproj; sourceTree = "<group>"; };
+		24208393116386A5B277392353E28F37 /* tflite_lstm_recognizer_latin_0.3.bincfg */ = {isa = PBXFileReference; includeInIndex = 1; name = tflite_lstm_recognizer_latin_0.3.bincfg; path = Resources/LatinOCRResources/tflite_lstm_recognizer_latin_0.3.bincfg; sourceTree = "<group>"; };
+		40D304FCB0841216182723626532F36F /* MLKitTextRecognition.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitTextRecognition.debug.xcconfig; sourceTree = "<group>"; };
+		70D054514B515F1FA1FA746EDB69DE92 /* MLKitTextRecognition-LatinOCRResources */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = "MLKitTextRecognition-LatinOCRResources"; path = LatinOCRResources.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		71B05D77FBCF781CAE7521B24297C3EA /* tflite_langid.tflite */ = {isa = PBXFileReference; includeInIndex = 1; name = tflite_langid.tflite; path = Resources/LatinOCRResources/tflite_langid.tflite; sourceTree = "<group>"; };
+		71BFEBB5378558D03E85559AD30933C2 /* MLKitTextRecognitionCommon */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitTextRecognitionCommon; path = MLKitTextRecognitionCommon.xcodeproj; sourceTree = "<group>"; };
+		8136CD9F0D32CE89CA70E86325DD02E5 /* MLKitTextRecognition.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitTextRecognition.release.xcconfig; sourceTree = "<group>"; };
+		DB2554F68990AFC835539F37AFCEDB21 /* region_proposal_text_detector_tflite_gray_quantized.bincfg */ = {isa = PBXFileReference; includeInIndex = 1; name = region_proposal_text_detector_tflite_gray_quantized.bincfg; path = Resources/LatinOCRResources/region_proposal_text_detector_tflite_gray_quantized.bincfg; sourceTree = "<group>"; };
+		E4D066CDDDF8509929F9F9FB674261CA /* rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite */ = {isa = PBXFileReference; includeInIndex = 1; name = rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite; path = Resources/LatinOCRResources/rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite; sourceTree = "<group>"; };
+		E5D0CB2978423DD6B246C7AF0ACCD631 /* tflite_lstm_recognizer_latin_0.3.lstm_model */ = {isa = PBXFileReference; includeInIndex = 1; name = tflite_lstm_recognizer_latin_0.3.lstm_model; path = Resources/LatinOCRResources/tflite_lstm_recognizer_latin_0.3.lstm_model; sourceTree = "<group>"; };
+		E6B2C706B677F8AC636B56F56F5DA51E /* rpn_lstm_engine_tflite_latin.bincfg */ = {isa = PBXFileReference; includeInIndex = 1; name = rpn_lstm_engine_tflite_latin.bincfg; path = Resources/LatinOCRResources/rpn_lstm_engine_tflite_latin.bincfg; sourceTree = "<group>"; };
+		E7F9BD9BC8771E810CA023D02EF8C474 /* MLKitCommon */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitCommon; path = MLKitCommon.xcodeproj; sourceTree = "<group>"; };
+		F5EBEEB2AAE4ED34739B210A30A17BDD /* tflite_lstm_recognizer_latin_0.3.conv_model */ = {isa = PBXFileReference; includeInIndex = 1; name = tflite_lstm_recognizer_latin_0.3.conv_model; path = Resources/LatinOCRResources/tflite_lstm_recognizer_latin_0.3.conv_model; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D3588A727D095BD6683E9E2D7CA85861 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		215B5BEE2142F4E4484840F8DE6C8B03 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				70D054514B515F1FA1FA746EDB69DE92 /* MLKitTextRecognition-LatinOCRResources */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		289A4E91C2111DB9FD690B7749E57074 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DB2554F68990AFC835539F37AFCEDB21 /* region_proposal_text_detector_tflite_gray_quantized.bincfg */,
+				E6B2C706B677F8AC636B56F56F5DA51E /* rpn_lstm_engine_tflite_latin.bincfg */,
+				E4D066CDDDF8509929F9F9FB674261CA /* rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite */,
+				71B05D77FBCF781CAE7521B24297C3EA /* tflite_langid.tflite */,
+				24208393116386A5B277392353E28F37 /* tflite_lstm_recognizer_latin_0.3.bincfg */,
+				028B451B08B7247CB8010ED503F95CB1 /* tflite_lstm_recognizer_latin_0.3.class_lst */,
+				F5EBEEB2AAE4ED34739B210A30A17BDD /* tflite_lstm_recognizer_latin_0.3.conv_model */,
+				E5D0CB2978423DD6B246C7AF0ACCD631 /* tflite_lstm_recognizer_latin_0.3.lstm_model */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		4220AA2841972156092144DB8E3E091E /* Dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				E7F9BD9BC8771E810CA023D02EF8C474 /* MLKitCommon */,
+				71BFEBB5378558D03E85559AD30933C2 /* MLKitTextRecognitionCommon */,
+				202E0997A2A1252107EC9CF723CB644D /* MLKitVision */,
+			);
+			name = Dependencies;
+			sourceTree = "<group>";
+		};
+		5EF981349A62D97C3AC45A6E8E5C80E0 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				40D304FCB0841216182723626532F36F /* MLKitTextRecognition.debug.xcconfig */,
+				8136CD9F0D32CE89CA70E86325DD02E5 /* MLKitTextRecognition.release.xcconfig */,
+				06121221C346A7D2E12752A16F7AF1A8 /* ResourceBundle-LatinOCRResources-MLKitTextRecognition-Info.plist */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/MLKitTextRecognition";
+			sourceTree = "<group>";
+		};
+		6EF49B71A86083F25A1AC015CAC1AE58 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0B9EF527E49C7957C4CE67B3D8B68983 /* MLKitTextRecognition.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		7BD381C69C6136DBE4F070161BF60987 /* MLKitTextRecognition */ = {
+			isa = PBXGroup;
+			children = (
+				6EF49B71A86083F25A1AC015CAC1AE58 /* Frameworks */,
+				289A4E91C2111DB9FD690B7749E57074 /* Resources */,
+				5EF981349A62D97C3AC45A6E8E5C80E0 /* Support Files */,
+			);
+			name = MLKitTextRecognition;
+			path = MLKitTextRecognition;
+			sourceTree = "<group>";
+		};
+		9BB200739BD0AB8307C33E408D8EFF37 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FB3114F3B1E799A45C784ED6195E5884 = {
+			isa = PBXGroup;
+			children = (
+				4220AA2841972156092144DB8E3E091E /* Dependencies */,
+				9BB200739BD0AB8307C33E408D8EFF37 /* Frameworks */,
+				7BD381C69C6136DBE4F070161BF60987 /* MLKitTextRecognition */,
+				215B5BEE2142F4E4484840F8DE6C8B03 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0038BFFCA2564C2A1D5814A4E552D102 /* MLKitTextRecognition-LatinOCRResources */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B5DECDD738D20BA58F03C267F88181B7 /* Build configuration list for PBXNativeTarget "MLKitTextRecognition-LatinOCRResources" */;
+			buildPhases = (
+				952D7285DA8A4C327B162BC46F323A52 /* Sources */,
+				D3588A727D095BD6683E9E2D7CA85861 /* Frameworks */,
+				BF65FAC51D4E5D8575C86E98DC308B3E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "MLKitTextRecognition-LatinOCRResources";
+			productName = LatinOCRResources;
+			productReference = 70D054514B515F1FA1FA746EDB69DE92 /* MLKitTextRecognition-LatinOCRResources */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0E46F974258E6E345953EF69780540C6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = F151020A82CF9DD5E40A00E94A92B9AF /* Build configuration list for PBXProject "MLKitTextRecognition" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FB3114F3B1E799A45C784ED6195E5884;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 215B5BEE2142F4E4484840F8DE6C8B03 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProjectRef = E7F9BD9BC8771E810CA023D02EF8C474 /* MLKitCommon */;
+				},
+				{
+					ProjectRef = 71BFEBB5378558D03E85559AD30933C2 /* MLKitTextRecognitionCommon */;
+				},
+				{
+					ProjectRef = 202E0997A2A1252107EC9CF723CB644D /* MLKitVision */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				189EE77070BF459424A36691D61D1C35 /* MLKitTextRecognition */,
+				0038BFFCA2564C2A1D5814A4E552D102 /* MLKitTextRecognition-LatinOCRResources */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BF65FAC51D4E5D8575C86E98DC308B3E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6C4B918E73CA435BB4DA72D65AEB0DAE /* region_proposal_text_detector_tflite_gray_quantized.bincfg in Resources */,
+				74D3C087268D222C3C08D8A6BE597F23 /* rpn_lstm_engine_tflite_latin.bincfg in Resources */,
+				07E3836A5FD6F80D5DEE73F493F7CE5B /* rpn_text_detector_mobile_space_to_depth_quantized_v2.tflite in Resources */,
+				0142A8F16E04177E7BF5C4A3589A8922 /* tflite_langid.tflite in Resources */,
+				26DA77EE4E3A54DC2BABD07A51845DC3 /* tflite_lstm_recognizer_latin_0.3.bincfg in Resources */,
+				C367DC1F80D35F2E5441C99F54D13C76 /* tflite_lstm_recognizer_latin_0.3.class_lst in Resources */,
+				8FDAA5DBC997DB904B5EE5226249AE03 /* tflite_lstm_recognizer_latin_0.3.conv_model in Resources */,
+				ED943247473618831929BC0E2081E588 /* tflite_lstm_recognizer_latin_0.3.lstm_model in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		952D7285DA8A4C327B162BC46F323A52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		137EEE3F2740D89AFE9B4FFA20A39AC6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "MLKitTextRecognition-LatinOCRResources";
+			target = 0038BFFCA2564C2A1D5814A4E552D102 /* MLKitTextRecognition-LatinOCRResources */;
+			targetProxy = E3B2272EADFB9BFA56575D9E31D6A121 /* PBXContainerItemProxy */;
+		};
+		B6043E952403F167D86DCB739912C7CF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitTextRecognitionCommon;
+			targetProxy = 43C0A4E5AE92F87365469CB1207D5B8D /* PBXContainerItemProxy */;
+		};
+		DA3596432A232993FC80913CABC8DD82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitVision;
+			targetProxy = 3E08ABBED8D6B9476814863D2446E2BA /* PBXContainerItemProxy */;
+		};
+		E86EFC34FD592424C63A17AD73A3F8AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitCommon;
+			targetProxy = C56DC3DA181099E481EE0A8D77078BB5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		23E538939EA5A323E041C509B4A6843B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		6A9B50833266F58BD016CE83283000AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8136CD9F0D32CE89CA70E86325DD02E5 /* MLKitTextRecognition.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		90F89E342C0378983F79AA896618CB65 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 40D304FCB0841216182723626532F36F /* MLKitTextRecognition.debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/MLKitTextRecognition";
+				IBSC_MODULE = MLKitTextRecognition;
+				INFOPLIST_FILE = "Target Support Files/MLKitTextRecognition/ResourceBundle-LatinOCRResources-MLKitTextRecognition-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_NAME = LatinOCRResources;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		9EE994ECCC414EED4EBC90BC7B743F02 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 40D304FCB0841216182723626532F36F /* MLKitTextRecognition.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E12B7C100464908E3B244876C6028771 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		E62CA33EB7AA5B783E2DEC465E21D6C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8136CD9F0D32CE89CA70E86325DD02E5 /* MLKitTextRecognition.release.xcconfig */;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/MLKitTextRecognition";
+				IBSC_MODULE = MLKitTextRecognition;
+				INFOPLIST_FILE = "Target Support Files/MLKitTextRecognition/ResourceBundle-LatinOCRResources-MLKitTextRecognition-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_NAME = LatinOCRResources;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B5DECDD738D20BA58F03C267F88181B7 /* Build configuration list for PBXNativeTarget "MLKitTextRecognition-LatinOCRResources" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				90F89E342C0378983F79AA896618CB65 /* Debug */,
+				E62CA33EB7AA5B783E2DEC465E21D6C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D369D0E4E50BE6EEB9C4F7F4E8004F55 /* Build configuration list for PBXAggregateTarget "MLKitTextRecognition" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9EE994ECCC414EED4EBC90BC7B743F02 /* Debug */,
+				6A9B50833266F58BD016CE83283000AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F151020A82CF9DD5E40A00E94A92B9AF /* Build configuration list for PBXProject "MLKitTextRecognition" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E12B7C100464908E3B244876C6028771 /* Debug */,
+				23E538939EA5A323E041C509B4A6843B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0E46F974258E6E345953EF69780540C6 /* Project object */;
+}

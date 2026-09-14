@@ -38,6 +38,20 @@ struct TidingPolicyView: View {
         VStack(spacing: 16) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    VStack(spacing: 10) {
+                        Image("Image")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 88, height: 88)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                        Text("Tiding")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.primary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 6)
+
                     Text("By creating an account and using Tiding, you agree to use the service lawfully and respectfully. You may not use Tiding to harass, deceive, abuse, or disrupt other users or the platform.")
                         .font(.footnote.weight(.medium))
 

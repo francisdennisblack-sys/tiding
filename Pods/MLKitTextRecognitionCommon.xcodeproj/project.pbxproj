@@ -1,0 +1,357 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		175881674366F4CBA4EF5A859B207AE2 /* MLKitTextRecognitionCommon */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C792F0CB8A1D1BEEE1CBBD1C8531D8A3 /* Build configuration list for PBXAggregateTarget "MLKitTextRecognitionCommon" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FE4A9A2EFF2A34EE14929A1FA6A5FD92 /* PBXTargetDependency */,
+				0C6AB7DA03D1C07A4D69B02E3A2C5D3B /* PBXTargetDependency */,
+			);
+			name = MLKitTextRecognitionCommon;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		1C7E88B9E579B0E2EF1739A89D73A6CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CE7A8524E04EDAE9E2E2A65B000CAB30 /* MLKitVision.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = F53D357392763B3BC8501CB3792A518F;
+			remoteInfo = MLKitVision;
+		};
+		F44649BCDE5A2F95CAEFFB1D39A2DC40 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2D720B6224D985CB2A494C35D722B6B0 /* MLKitCommon.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8C2A273675CD8B6097B5EF5BCDD199A5;
+			remoteInfo = MLKitCommon;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0F911C4C9D8FA92F913A8D3295F34584 /* MLKitTextRecognitionCommon.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitTextRecognitionCommon.debug.xcconfig; sourceTree = "<group>"; };
+		18291C35F9082090796CE43E9E3FE9D5 /* MLKitTextRecognitionCommon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MLKitTextRecognitionCommon.framework; path = Frameworks/MLKitTextRecognitionCommon.framework; sourceTree = "<group>"; };
+		2D720B6224D985CB2A494C35D722B6B0 /* MLKitCommon */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitCommon; path = MLKitCommon.xcodeproj; sourceTree = "<group>"; };
+		CDE3C0E55947BB6E854956E90EE6C9AE /* MLKitTextRecognitionCommon.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = MLKitTextRecognitionCommon.release.xcconfig; sourceTree = "<group>"; };
+		CE7A8524E04EDAE9E2E2A65B000CAB30 /* MLKitVision */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MLKitVision; path = MLKitVision.xcodeproj; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2CCD04CB8E86BF15BC6C753B9BB01655 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				18291C35F9082090796CE43E9E3FE9D5 /* MLKitTextRecognitionCommon.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4E4CE0FCF07DAF2004B73900293B9FB9 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				0F911C4C9D8FA92F913A8D3295F34584 /* MLKitTextRecognitionCommon.debug.xcconfig */,
+				CDE3C0E55947BB6E854956E90EE6C9AE /* MLKitTextRecognitionCommon.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/MLKitTextRecognitionCommon";
+			sourceTree = "<group>";
+		};
+		7ADCD4BB07906BC40908E142839966E9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AF8FF42E12C9DDF43A22097808C7E098 /* Dependencies */ = {
+			isa = PBXGroup;
+			children = (
+				2D720B6224D985CB2A494C35D722B6B0 /* MLKitCommon */,
+				CE7A8524E04EDAE9E2E2A65B000CAB30 /* MLKitVision */,
+			);
+			name = Dependencies;
+			sourceTree = "<group>";
+		};
+		C00610C076FDD01DE07635922249DE61 /* MLKitTextRecognitionCommon */ = {
+			isa = PBXGroup;
+			children = (
+				2CCD04CB8E86BF15BC6C753B9BB01655 /* Frameworks */,
+				4E4CE0FCF07DAF2004B73900293B9FB9 /* Support Files */,
+			);
+			name = MLKitTextRecognitionCommon;
+			path = MLKitTextRecognitionCommon;
+			sourceTree = "<group>";
+		};
+		C697F3E3217D91F2E823F4E2466363A2 = {
+			isa = PBXGroup;
+			children = (
+				AF8FF42E12C9DDF43A22097808C7E098 /* Dependencies */,
+				DB69B02CF610711031F7B83BABF4F336 /* Frameworks */,
+				C00610C076FDD01DE07635922249DE61 /* MLKitTextRecognitionCommon */,
+				7ADCD4BB07906BC40908E142839966E9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DB69B02CF610711031F7B83BABF4F336 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		7938DDCA22FB9231BA13F69961104927 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = FF1242E829B0695BA2F2BDB51E44EEF4 /* Build configuration list for PBXProject "MLKitTextRecognitionCommon" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C697F3E3217D91F2E823F4E2466363A2;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 100;
+			productRefGroup = 7ADCD4BB07906BC40908E142839966E9 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProjectRef = 2D720B6224D985CB2A494C35D722B6B0 /* MLKitCommon */;
+				},
+				{
+					ProjectRef = CE7A8524E04EDAE9E2E2A65B000CAB30 /* MLKitVision */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				175881674366F4CBA4EF5A859B207AE2 /* MLKitTextRecognitionCommon */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXTargetDependency section */
+		0C6AB7DA03D1C07A4D69B02E3A2C5D3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitVision;
+			targetProxy = 1C7E88B9E579B0E2EF1739A89D73A6CE /* PBXContainerItemProxy */;
+		};
+		FE4A9A2EFF2A34EE14929A1FA6A5FD92 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = MLKitCommon;
+			targetProxy = F44649BCDE5A2F95CAEFFB1D39A2DC40 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		00CEB4BE80328238D13C783528D45616 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		12CB186143135CAF35D6DF2E35C954CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CDE3C0E55947BB6E854956E90EE6C9AE /* MLKitTextRecognitionCommon.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		99F37E991FCF238961C14F82D775B08A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_APP_INTENTS_METADATA = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		9A21731A917A39CB0AA9D556DF41EE9F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0F911C4C9D8FA92F913A8D3295F34584 /* MLKitTextRecognitionCommon.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C792F0CB8A1D1BEEE1CBBD1C8531D8A3 /* Build configuration list for PBXAggregateTarget "MLKitTextRecognitionCommon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A21731A917A39CB0AA9D556DF41EE9F /* Debug */,
+				12CB186143135CAF35D6DF2E35C954CC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FF1242E829B0695BA2F2BDB51E44EEF4 /* Build configuration list for PBXProject "MLKitTextRecognitionCommon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00CEB4BE80328238D13C783528D45616 /* Debug */,
+				99F37E991FCF238961C14F82D775B08A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7938DDCA22FB9231BA13F69961104927 /* Project object */;
+}

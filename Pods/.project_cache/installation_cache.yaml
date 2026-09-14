@@ -1,0 +1,638 @@
+BUILD_CONFIGURATIONS:
+  Debug: :debug
+  Release: :release
+CACHE_KEYS:
+  abseil:
+    BUILD_SETTINGS_CHECKSUM:
+      abseil:
+        :debug: 4e9ab05ff41e6e445a2eb669a7b16d9c
+        :release: 4e9ab05ff41e6e445a2eb669a7b16d9c
+    CHECKSUM: a05cc83bf02079535e17169a73c5be5ba47f714b
+    PROJECT_NAME: abseil
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/abseil/xcprivacy.bundle"
+    SPECS:
+      - abseil/algorithm (1.20240722.0)
+      - abseil/algorithm/algorithm (1.20240722.0)
+      - abseil/algorithm/container (1.20240722.0)
+      - abseil/base (1.20240722.0)
+      - abseil/base/atomic_hook (1.20240722.0)
+      - abseil/base/base (1.20240722.0)
+      - abseil/base/base_internal (1.20240722.0)
+      - abseil/base/config (1.20240722.0)
+      - abseil/base/core_headers (1.20240722.0)
+      - abseil/base/cycleclock_internal (1.20240722.0)
+      - abseil/base/dynamic_annotations (1.20240722.0)
+      - abseil/base/endian (1.20240722.0)
+      - abseil/base/errno_saver (1.20240722.0)
+      - abseil/base/fast_type_id (1.20240722.0)
+      - abseil/base/log_severity (1.20240722.0)
+      - abseil/base/malloc_internal (1.20240722.0)
+      - abseil/base/no_destructor (1.20240722.0)
+      - abseil/base/nullability (1.20240722.0)
+      - abseil/base/poison (1.20240722.0)
+      - abseil/base/prefetch (1.20240722.0)
+      - abseil/base/pretty_function (1.20240722.0)
+      - abseil/base/raw_logging_internal (1.20240722.0)
+      - abseil/base/spinlock_wait (1.20240722.0)
+      - abseil/base/strerror (1.20240722.0)
+      - abseil/base/throw_delegate (1.20240722.0)
+      - abseil/cleanup/cleanup (1.20240722.0)
+      - abseil/cleanup/cleanup_internal (1.20240722.0)
+      - abseil/container/common (1.20240722.0)
+      - abseil/container/common_policy_traits (1.20240722.0)
+      - abseil/container/compressed_tuple (1.20240722.0)
+      - abseil/container/container_memory (1.20240722.0)
+      - abseil/container/fixed_array (1.20240722.0)
+      - abseil/container/flat_hash_map (1.20240722.0)
+      - abseil/container/flat_hash_set (1.20240722.0)
+      - abseil/container/hash_container_defaults (1.20240722.0)
+      - abseil/container/hash_function_defaults (1.20240722.0)
+      - abseil/container/hash_policy_traits (1.20240722.0)
+      - abseil/container/hashtable_debug_hooks (1.20240722.0)
+      - abseil/container/hashtablez_sampler (1.20240722.0)
+      - abseil/container/inlined_vector (1.20240722.0)
+      - abseil/container/inlined_vector_internal (1.20240722.0)
+      - abseil/container/layout (1.20240722.0)
+      - abseil/container/raw_hash_map (1.20240722.0)
+      - abseil/container/raw_hash_set (1.20240722.0)
+      - abseil/crc/cpu_detect (1.20240722.0)
+      - abseil/crc/crc32c (1.20240722.0)
+      - abseil/crc/crc_cord_state (1.20240722.0)
+      - abseil/crc/crc_internal (1.20240722.0)
+      - abseil/crc/non_temporal_arm_intrinsics (1.20240722.0)
+      - abseil/crc/non_temporal_memcpy (1.20240722.0)
+      - abseil/debugging/bounded_utf8_length_sequence (1.20240722.0)
+      - abseil/debugging/debugging_internal (1.20240722.0)
+      - abseil/debugging/decode_rust_punycode (1.20240722.0)
+      - abseil/debugging/demangle_internal (1.20240722.0)
+      - abseil/debugging/demangle_rust (1.20240722.0)
+      - abseil/debugging/examine_stack (1.20240722.0)
+      - abseil/debugging/stacktrace (1.20240722.0)
+      - abseil/debugging/symbolize (1.20240722.0)
+      - abseil/debugging/utf8_for_code_point (1.20240722.0)
+      - abseil/flags/commandlineflag (1.20240722.0)
+      - abseil/flags/commandlineflag_internal (1.20240722.0)
+      - abseil/flags/config (1.20240722.0)
+      - abseil/flags/flag (1.20240722.0)
+      - abseil/flags/flag_internal (1.20240722.0)
+      - abseil/flags/marshalling (1.20240722.0)
+      - abseil/flags/path_util (1.20240722.0)
+      - abseil/flags/private_handle_accessor (1.20240722.0)
+      - abseil/flags/program_name (1.20240722.0)
+      - abseil/flags/reflection (1.20240722.0)
+      - abseil/functional/any_invocable (1.20240722.0)
+      - abseil/functional/bind_front (1.20240722.0)
+      - abseil/functional/function_ref (1.20240722.0)
+      - abseil/hash/city (1.20240722.0)
+      - abseil/hash/hash (1.20240722.0)
+      - abseil/hash/low_level_hash (1.20240722.0)
+      - abseil/log/absl_check (1.20240722.0)
+      - abseil/log/absl_log (1.20240722.0)
+      - abseil/log/absl_vlog_is_on (1.20240722.0)
+      - abseil/log/check (1.20240722.0)
+      - abseil/log/globals (1.20240722.0)
+      - abseil/log/internal/append_truncated (1.20240722.0)
+      - abseil/log/internal/check_impl (1.20240722.0)
+      - abseil/log/internal/check_op (1.20240722.0)
+      - abseil/log/internal/conditions (1.20240722.0)
+      - abseil/log/internal/config (1.20240722.0)
+      - abseil/log/internal/fnmatch (1.20240722.0)
+      - abseil/log/internal/format (1.20240722.0)
+      - abseil/log/internal/globals (1.20240722.0)
+      - abseil/log/internal/log_impl (1.20240722.0)
+      - abseil/log/internal/log_message (1.20240722.0)
+      - abseil/log/internal/log_sink_set (1.20240722.0)
+      - abseil/log/internal/nullguard (1.20240722.0)
+      - abseil/log/internal/nullstream (1.20240722.0)
+      - abseil/log/internal/proto (1.20240722.0)
+      - abseil/log/internal/strip (1.20240722.0)
+      - abseil/log/internal/vlog_config (1.20240722.0)
+      - abseil/log/internal/voidify (1.20240722.0)
+      - abseil/log/log (1.20240722.0)
+      - abseil/log/log_entry (1.20240722.0)
+      - abseil/log/log_sink (1.20240722.0)
+      - abseil/log/log_sink_registry (1.20240722.0)
+      - abseil/log/vlog_is_on (1.20240722.0)
+      - abseil/memory (1.20240722.0)
+      - abseil/memory/memory (1.20240722.0)
+      - abseil/meta (1.20240722.0)
+      - abseil/meta/type_traits (1.20240722.0)
+      - abseil/numeric/bits (1.20240722.0)
+      - abseil/numeric/int128 (1.20240722.0)
+      - abseil/numeric/representation (1.20240722.0)
+      - abseil/profiling/exponential_biased (1.20240722.0)
+      - abseil/profiling/sample_recorder (1.20240722.0)
+      - abseil/random/bit_gen_ref (1.20240722.0)
+      - abseil/random/distributions (1.20240722.0)
+      - abseil/random/internal/distribution_caller (1.20240722.0)
+      - abseil/random/internal/fast_uniform_bits (1.20240722.0)
+      - abseil/random/internal/fastmath (1.20240722.0)
+      - abseil/random/internal/generate_real (1.20240722.0)
+      - abseil/random/internal/iostream_state_saver (1.20240722.0)
+      - abseil/random/internal/nonsecure_base (1.20240722.0)
+      - abseil/random/internal/pcg_engine (1.20240722.0)
+      - abseil/random/internal/platform (1.20240722.0)
+      - abseil/random/internal/pool_urbg (1.20240722.0)
+      - abseil/random/internal/randen (1.20240722.0)
+      - abseil/random/internal/randen_engine (1.20240722.0)
+      - abseil/random/internal/randen_hwaes (1.20240722.0)
+      - abseil/random/internal/randen_hwaes_impl (1.20240722.0)
+      - abseil/random/internal/randen_slow (1.20240722.0)
+      - abseil/random/internal/salted_seed_seq (1.20240722.0)
+      - abseil/random/internal/seed_material (1.20240722.0)
+      - abseil/random/internal/traits (1.20240722.0)
+      - abseil/random/internal/uniform_helper (1.20240722.0)
+      - abseil/random/internal/wide_multiply (1.20240722.0)
+      - abseil/random/random (1.20240722.0)
+      - abseil/random/seed_gen_exception (1.20240722.0)
+      - abseil/random/seed_sequences (1.20240722.0)
+      - abseil/status/status (1.20240722.0)
+      - abseil/status/statusor (1.20240722.0)
+      - abseil/strings/charset (1.20240722.0)
+      - abseil/strings/cord (1.20240722.0)
+      - abseil/strings/cord_internal (1.20240722.0)
+      - abseil/strings/cordz_functions (1.20240722.0)
+      - abseil/strings/cordz_handle (1.20240722.0)
+      - abseil/strings/cordz_info (1.20240722.0)
+      - abseil/strings/cordz_statistics (1.20240722.0)
+      - abseil/strings/cordz_update_scope (1.20240722.0)
+      - abseil/strings/cordz_update_tracker (1.20240722.0)
+      - abseil/strings/has_ostream_operator (1.20240722.0)
+      - abseil/strings/internal (1.20240722.0)
+      - abseil/strings/str_format (1.20240722.0)
+      - abseil/strings/str_format_internal (1.20240722.0)
+      - abseil/strings/string_view (1.20240722.0)
+      - abseil/strings/strings (1.20240722.0)
+      - abseil/synchronization/graphcycles_internal (1.20240722.0)
+      - abseil/synchronization/kernel_timeout_internal (1.20240722.0)
+      - abseil/synchronization/synchronization (1.20240722.0)
+      - abseil/time (1.20240722.0)
+      - abseil/time/internal (1.20240722.0)
+      - abseil/time/internal/cctz (1.20240722.0)
+      - abseil/time/internal/cctz/civil_time (1.20240722.0)
+      - abseil/time/internal/cctz/time_zone (1.20240722.0)
+      - abseil/time/time (1.20240722.0)
+      - abseil/types (1.20240722.0)
+      - abseil/types/any (1.20240722.0)
+      - abseil/types/bad_any_cast (1.20240722.0)
+      - abseil/types/bad_any_cast_impl (1.20240722.0)
+      - abseil/types/bad_optional_access (1.20240722.0)
+      - abseil/types/bad_variant_access (1.20240722.0)
+      - abseil/types/compare (1.20240722.0)
+      - abseil/types/optional (1.20240722.0)
+      - abseil/types/span (1.20240722.0)
+      - abseil/types/variant (1.20240722.0)
+      - abseil/utility/utility (1.20240722.0)
+      - abseil/xcprivacy (1.20240722.0)
+  AppCheckCore:
+    BUILD_SETTINGS_CHECKSUM:
+      AppCheckCore:
+        :debug: 8be650decdf6844d787be5f4a5394c02
+        :release: 8be650decdf6844d787be5f4a5394c02
+    CHECKSUM: e215d35177a9cf469927863e69c13e220df32a8b
+    PROJECT_NAME: AppCheckCore
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesSwift/Promises_Privacy.bundle"
+    SPECS:
+      - AppCheckCore (11.3.1)
+  BoringSSL-GRPC:
+    BUILD_SETTINGS_CHECKSUM:
+      BoringSSL-GRPC:
+        :debug: 51bc2615cccedd8b0177342bf45da2aa
+        :release: 51bc2615cccedd8b0177342bf45da2aa
+    CHECKSUM: dded2a44897e45f28f08ae87a55ee4bcd19bc508
+    PROJECT_NAME: BoringSSL-GRPC
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/BoringSSL-GRPC/openssl_grpc.bundle"
+    SPECS:
+      - BoringSSL-GRPC (0.0.37)
+      - BoringSSL-GRPC/Implementation (0.0.37)
+      - BoringSSL-GRPC/Interface (0.0.37)
+  FirebaseAppCheck:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseAppCheck:
+        :debug: 0788197ba405e8c1ca51377493bd8229
+        :release: 0788197ba405e8c1ca51377493bd8229
+    CHECKSUM: 06fc2eca9cc0499dc393f9d4320faeb373b24851
+    PROJECT_NAME: FirebaseAppCheck
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+    SPECS:
+      - FirebaseAppCheck (12.18.0)
+  FirebaseAppCheckInterop:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseAppCheckInterop:
+        :debug: 14aaf58f3e2576db4e68cff53f16e5a3
+        :release: 14aaf58f3e2576db4e68cff53f16e5a3
+    CHECKSUM: 8c2fe8b563377bd948ee6acc2871fe2dfb3a034a
+    PROJECT_NAME: FirebaseAppCheckInterop
+    SPECS:
+      - FirebaseAppCheckInterop (12.18.0)
+  FirebaseAuth:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseAuth:
+        :debug: eb244701529db245d39c1c266f61c467
+        :release: eb244701529db245d39c1c266f61c467
+    CHECKSUM: 389097b0c63059262aa02800cb0b93c9fab09130
+    PROJECT_NAME: FirebaseAuth
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreExtension/FirebaseCoreExtension_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+    SPECS:
+      - FirebaseAuth (12.18.0)
+  FirebaseAuthInterop:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseAuthInterop:
+        :debug: 62d0057ea1dbf3e1c4dace4c00600bbd
+        :release: 62d0057ea1dbf3e1c4dace4c00600bbd
+    CHECKSUM: 32c03820809ddc9e63dfaaf3711ce2ac8da7e6ae
+    PROJECT_NAME: FirebaseAuthInterop
+    SPECS:
+      - FirebaseAuthInterop (12.18.0)
+  FirebaseCore:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseCore:
+        :debug: 875cd3c16d3ded0fe1d0cc78fd9bab13
+        :release: 875cd3c16d3ded0fe1d0cc78fd9bab13
+    CHECKSUM: 96787d19ee32dc2242cc487b301bc616afeb398b
+    PROJECT_NAME: FirebaseCore
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreInternal/FirebaseCoreInternal_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+    SPECS:
+      - FirebaseCore (12.18.0)
+  FirebaseCoreExtension:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseCoreExtension:
+        :debug: 1391a324f2aeaa674ea46d7dcf499346
+        :release: 1391a324f2aeaa674ea46d7dcf499346
+    CHECKSUM: a86bab02524ca2bff95dddab7a3fcad505c2ddeb
+    PROJECT_NAME: FirebaseCoreExtension
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+    SPECS:
+      - FirebaseCoreExtension (12.18.0)
+  FirebaseCoreInternal:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseCoreInternal:
+        :debug: 885225413d7bbec8b3f526846287ad74
+        :release: 885225413d7bbec8b3f526846287ad74
+    CHECKSUM: 93b2d5f9e184c6818a04433891c358b0720a6a38
+    PROJECT_NAME: FirebaseCoreInternal
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+    SPECS:
+      - FirebaseCoreInternal (12.18.0)
+  FirebaseDatabase:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseDatabase:
+        :debug: df478fafd0525a8e12e33844439af5a5
+        :release: df478fafd0525a8e12e33844439af5a5
+    CHECKSUM: 2c776e5deb613c0dacd5126f2894860dfbdc1c99
+    PROJECT_NAME: FirebaseDatabase
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/leveldb-library/leveldb_Privacy.bundle"
+    SPECS:
+      - FirebaseDatabase (12.18.0)
+  FirebaseFirestore:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseFirestore:
+        :debug: 1985b15dc2066d0e758a652da29d54ab
+        :release: 1985b15dc2066d0e758a652da29d54ab
+    CHECKSUM: a319a7476f34b7f6a0c9e7b123e0506681cc1f1f
+    PROJECT_NAME: FirebaseFirestore
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreExtension/FirebaseCoreExtension_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseFirestoreInternal/FirebaseFirestoreInternal_Privacy.bundle"
+    SPECS:
+      - FirebaseFirestore (12.18.0)
+  FirebaseFirestoreInternal:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseFirestoreInternal:
+        :debug: 249d2264062d524325d84e885a289728
+        :release: 249d2264062d524325d84e885a289728
+    CHECKSUM: fb923514fda3f48f61ffe588d662bc37a5c60bb2
+    PROJECT_NAME: FirebaseFirestoreInternal
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/abseil/xcprivacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/gRPCCertificates-Cpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/grpcpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-Core/grpc.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/leveldb-library/leveldb_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/nanopb/nanopb_Privacy.bundle"
+    SPECS:
+      - FirebaseFirestoreInternal (12.18.0)
+  FirebaseFunctions:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseFunctions:
+        :debug: 3fefc8e0394836484ad05a564dc11991
+        :release: 3fefc8e0394836484ad05a564dc11991
+    CHECKSUM: 1b8bc185cb14cc10f6244b2430bcd806ec1a8e7e
+    PROJECT_NAME: FirebaseFunctions
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreExtension/FirebaseCoreExtension_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+    SPECS:
+      - FirebaseFunctions (12.18.0)
+  FirebaseMessagingInterop:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseMessagingInterop:
+        :debug: 6b61d1f7d612ea1e099b663878b563a6
+        :release: 6b61d1f7d612ea1e099b663878b563a6
+    CHECKSUM: 2bc0ddbf26a3552c61a2efbecc8b8a3b68d383e4
+    PROJECT_NAME: FirebaseMessagingInterop
+    SPECS:
+      - FirebaseMessagingInterop (12.18.0)
+  FirebaseSharedSwift:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseSharedSwift:
+        :debug: 8781a3a8d01ecc5a17261ccd88accf6b
+        :release: 8781a3a8d01ecc5a17261ccd88accf6b
+    CHECKSUM: 9d9404eea60b650d3e549898bfebbb8f665fe601
+    PROJECT_NAME: FirebaseSharedSwift
+    SPECS:
+      - FirebaseSharedSwift (12.18.0)
+  FirebaseStorage:
+    BUILD_SETTINGS_CHECKSUM:
+      FirebaseStorage:
+        :debug: 4123bd92a3c4ce23a8e3f7cbea08f31f
+        :release: 4123bd92a3c4ce23a8e3f7cbea08f31f
+    CHECKSUM: 6dc90a86bf2a8f1dc54a6ca659ae9898465e10a0
+    PROJECT_NAME: FirebaseStorage
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreExtension/FirebaseCoreExtension_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+    SPECS:
+      - FirebaseStorage (12.18.0)
+  GoogleDataTransport:
+    BUILD_SETTINGS_CHECKSUM:
+      GoogleDataTransport:
+        :debug: d2da0487ba42ece46eb8ff0943057979
+        :release: d2da0487ba42ece46eb8ff0943057979
+    CHECKSUM: a24e58982ab3ba2f64d79613e027fe7f57e88539
+    PROJECT_NAME: GoogleDataTransport
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/nanopb/nanopb_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle"
+    SPECS:
+      - GoogleDataTransport (10.1.1)
+  GoogleMLKit:
+    BUILD_SETTINGS_CHECKSUM:
+      GoogleMLKit:
+        :debug: 3331eb4724e6a3a06ddca7067ae55d0c
+        :release: 3331eb4724e6a3a06ddca7067ae55d0c
+    CHECKSUM: eff9e23ec1d90ea4157a1ee2e32a4f610c5b3318
+    PROJECT_NAME: GoogleMLKit
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/MLKitTextRecognition/LatinOCRResources.bundle"
+    SPECS:
+      - GoogleMLKit/MLKitCore (7.0.0)
+      - GoogleMLKit/TextRecognition (7.0.0)
+  GoogleToolboxForMac:
+    BUILD_SETTINGS_CHECKSUM:
+      GoogleToolboxForMac:
+        :debug: 49b77498487d8145a1368c719a95c627
+        :release: 49b77498487d8145a1368c719a95c627
+    CHECKSUM: d1a2cbf009c453f4d6ded37c105e2f67a32206d8
+    PROJECT_NAME: GoogleToolboxForMac
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Logger_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Privacy.bundle"
+    SPECS:
+      - GoogleToolboxForMac/Defines (4.2.1)
+      - GoogleToolboxForMac/Logger (4.2.1)
+      - "GoogleToolboxForMac/NSData+zlib (4.2.1)"
+  GoogleUtilities:
+    BUILD_SETTINGS_CHECKSUM:
+      GoogleUtilities:
+        :debug: 72caf029f673e6cb84f14c4cc37cd7c4
+        :release: 72caf029f673e6cb84f14c4cc37cd7c4
+    CHECKSUM: 4e0c2ad9fa0d0d18b5c4df8bf57b461cba35b0bb
+    PROJECT_NAME: GoogleUtilities
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+    SPECS:
+      - GoogleUtilities/AppDelegateSwizzler (8.1.3)
+      - GoogleUtilities/Environment (8.1.3)
+      - GoogleUtilities/Logger (8.1.3)
+      - GoogleUtilities/Network (8.1.3)
+      - "GoogleUtilities/NSData+zlib (8.1.3)"
+      - GoogleUtilities/Privacy (8.1.3)
+      - GoogleUtilities/Reachability (8.1.3)
+      - GoogleUtilities/UserDefaults (8.1.3)
+  "gRPC-C++":
+    BUILD_SETTINGS_CHECKSUM:
+      "gRPC-C++":
+        :debug: 19f61b03cb500c4e246e52baae586298
+        :release: 19f61b03cb500c4e246e52baae586298
+    CHECKSUM: cc207623316fb041a7a3e774c252cf68a058b9e8
+    PROJECT_NAME: "gRPC-C++"
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/abseil/xcprivacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/gRPCCertificates-Cpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/grpcpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-Core/grpc.bundle"
+    SPECS:
+      - "gRPC-C++ (1.69.0)"
+      - "gRPC-C++/Implementation (1.69.0)"
+      - "gRPC-C++/Interface (1.69.0)"
+      - "gRPC-C++/Privacy (1.69.0)"
+  gRPC-Core:
+    BUILD_SETTINGS_CHECKSUM:
+      gRPC-Core:
+        :debug: 288868a858d831f5b4fc3d795dd7d286
+        :release: 288868a858d831f5b4fc3d795dd7d286
+    CHECKSUM: 860978b7db482de8b4f5e10677216309b5ff6330
+    PROJECT_NAME: gRPC-Core
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/abseil/xcprivacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/BoringSSL-GRPC/openssl_grpc.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-Core/grpc.bundle"
+    SPECS:
+      - gRPC-Core (1.69.0)
+      - gRPC-Core/Implementation (1.69.0)
+      - gRPC-Core/Interface (1.69.0)
+      - gRPC-Core/Privacy (1.69.0)
+  GTMSessionFetcher:
+    BUILD_SETTINGS_CHECKSUM:
+      GTMSessionFetcher:
+        :debug: 5987d62859246a4e07f2a3df99e5cb82
+        :release: 5987d62859246a4e07f2a3df99e5cb82
+    CHECKSUM: 5aea5ba6bd522a239e236100971f10cb71b96ab6
+    PROJECT_NAME: GTMSessionFetcher
+    SPECS:
+      - GTMSessionFetcher/Core (3.5.0)
+  leveldb-library:
+    BUILD_SETTINGS_CHECKSUM:
+      leveldb-library:
+        :debug: 14fece466ce40bb15e133679a9f43dc7
+        :release: 14fece466ce40bb15e133679a9f43dc7
+    CHECKSUM: cc8b8f8e013647a295ad3f8cd2ddf49a6f19be19
+    PROJECT_NAME: leveldb-library
+    SPECS:
+      - leveldb-library (1.22.6)
+  MLImage:
+    BUILD_SETTINGS_CHECKSUM:
+      MLImage:
+        :debug: b37c8bbe8f02c67dfb9ac6c0b0d7ac49
+        :release: b37c8bbe8f02c67dfb9ac6c0b0d7ac49
+    CHECKSUM: 0ad1c5f50edd027672d8b26b0fee78a8b4a0fc56
+    PROJECT_NAME: MLImage
+    SPECS:
+      - MLImage (1.0.0-beta6)
+  MLKitCommon:
+    BUILD_SETTINGS_CHECKSUM:
+      MLKitCommon:
+        :debug: 01e7cd0901f38632fbc0ad9055b2c56d
+        :release: 01e7cd0901f38632fbc0ad9055b2c56d
+    CHECKSUM: 07c2c33ae5640e5380beaaa6e4b9c249a205542d
+    PROJECT_NAME: MLKitCommon
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleDataTransport/GoogleDataTransport_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Logger_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+    SPECS:
+      - MLKitCommon (12.0.0)
+  MLKitTextRecognition:
+    BUILD_SETTINGS_CHECKSUM:
+      MLKitTextRecognition:
+        :debug: d1ca141c1be9118b14353a6969b27095
+        :release: d1ca141c1be9118b14353a6969b27095
+    CHECKSUM: 3b41f3ff084a79afb214408d25d2068d77ab322c
+    PROJECT_NAME: MLKitTextRecognition
+    RESOURCES:
+      []
+    SPECS:
+      - MLKitTextRecognition (5.0.0)
+  MLKitTextRecognitionCommon:
+    BUILD_SETTINGS_CHECKSUM:
+      MLKitTextRecognitionCommon:
+        :debug: be2e968f91201bcdfb048da6a603bd61
+        :release: be2e968f91201bcdfb048da6a603bd61
+    CHECKSUM: cd44577a8c506fc6bba065096de03bec0d01a213
+    PROJECT_NAME: MLKitTextRecognitionCommon
+    RESOURCES:
+      []
+    SPECS:
+      - MLKitTextRecognitionCommon (4.0.0)
+  MLKitVision:
+    BUILD_SETTINGS_CHECKSUM:
+      MLKitVision:
+        :debug: c736d0732c18b7de94b271c78d72a3d8
+        :release: c736d0732c18b7de94b271c78d72a3d8
+    CHECKSUM: 45e79d68845a2de77e2dd4d7f07947f0ed157b0e
+    PROJECT_NAME: MLKitVision
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Logger_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+    SPECS:
+      - MLKitVision (8.0.0)
+  nanopb:
+    BUILD_SETTINGS_CHECKSUM:
+      nanopb:
+        :debug: a2dc516a0a14a6244782197faff70c0e
+        :release: a2dc516a0a14a6244782197faff70c0e
+    CHECKSUM: fad817b59e0457d11a5dfbde799381cd727c1275
+    PROJECT_NAME: nanopb
+    SPECS:
+      - nanopb (3.30910.0)
+      - nanopb/decode (3.30910.0)
+      - nanopb/encode (3.30910.0)
+  Pods-Spot:
+    BUILD_SETTINGS_CHECKSUM:
+      Debug: 3e79b101f415bba1313342424ba68c0e
+      Release: 3e79b101f415bba1313342424ba68c0e
+    FILES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/abseil/xcprivacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/BoringSSL-GRPC/openssl_grpc.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseAuth/FirebaseAuth_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCore/FirebaseCore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreExtension/FirebaseCoreExtension_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseCoreInternal/FirebaseCoreInternal_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseFirestore/FirebaseFirestore_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/FirebaseFirestoreInternal/FirebaseFirestoreInternal_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleDataTransport/GoogleDataTransport_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Logger_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/gRPCCertificates-Cpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-C++/grpcpp.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/gRPC-Core/grpc.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/leveldb-library/leveldb_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/MLKitTextRecognition/LatinOCRResources.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/nanopb/nanopb_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle"
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesSwift/Promises_Privacy.bundle"
+  Pods-SpotTests:
+    BUILD_SETTINGS_CHECKSUM:
+      Debug: 116c2afb7452f3112c96058148287fc7
+      Release: 116c2afb7452f3112c96058148287fc7
+  Pods-SpotUITests:
+    BUILD_SETTINGS_CHECKSUM:
+      Debug: 116c2afb7452f3112c96058148287fc7
+      Release: 116c2afb7452f3112c96058148287fc7
+  PromisesObjC:
+    BUILD_SETTINGS_CHECKSUM:
+      PromisesObjC:
+        :debug: d5c897fec3257916eeb7e43e10bce7c8
+        :release: d5c897fec3257916eeb7e43e10bce7c8
+    CHECKSUM: 752c3227f599e3467650e47ea36f433eeb10c273
+    PROJECT_NAME: PromisesObjC
+    SPECS:
+      - PromisesObjC (2.4.1)
+  PromisesSwift:
+    BUILD_SETTINGS_CHECKSUM:
+      PromisesSwift:
+        :debug: 69f85be7493e528284ea56a9c282f5a4
+        :release: 69f85be7493e528284ea56a9c282f5a4
+    CHECKSUM: 217dea0fd5d2ad65222a109c48698add13cc1c5b
+    PROJECT_NAME: PromisesSwift
+    RESOURCES:
+      - "${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle"
+    SPECS:
+      - PromisesSwift (2.4.1)
+  RecaptchaInterop:
+    BUILD_SETTINGS_CHECKSUM:
+      RecaptchaInterop:
+        :debug: f90b2457ba8fd7af99a827a05d347a9c
+        :release: f90b2457ba8fd7af99a827a05d347a9c
+    CHECKSUM: 11e0b637842dfb48308d242afc3f448062325aba
+    PROJECT_NAME: RecaptchaInterop
+    SPECS:
+      - RecaptchaInterop (101.0.0)
+INSTALLATION_OPTIONS:
+  clean: true
+  deduplicate_targets: true
+  deterministic_uuids: true
+  disable_input_output_paths: false
+  generate_multiple_pod_projects: true
+  incremental_installation: true
+  integrate_targets: true
+  lock_pod_sources: true
+  parallel_pod_download_thread_pool_size: 40
+  parallel_pod_downloads: false
+  preserve_pod_file_structure: false
+  share_schemes_for_development_pods: false
+  skip_pods_project_generation: false
+  warn_for_multiple_pod_sources: true
+  warn_for_unused_master_specs_repo: true
+OBJECT_VERSION: 77
+PLUGINS:
+  {}
