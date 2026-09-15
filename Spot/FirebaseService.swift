@@ -194,12 +194,14 @@ public struct FirebaseUserAccountRecord: Codable {
     public let createdAt: TimeInterval
     public let updatedAt: TimeInterval
     public let savedPostIDs: [String]
+    public let likedPostIDs: [String]
     public let flaggedPostIDs: [String]
     public let postedPostIDs: [String]
     public let areaHistory: [String]
     public let followerCount: Int
     public let followingCount: Int
     public let remainingBoosts: Int
+    public let isVerifiedUsernameUnderlined: Bool
 
     public init(
         uid: String,
@@ -211,12 +213,14 @@ public struct FirebaseUserAccountRecord: Codable {
         createdAt: TimeInterval = Date().timeIntervalSince1970,
         updatedAt: TimeInterval = Date().timeIntervalSince1970,
         savedPostIDs: [String] = [],
+        likedPostIDs: [String] = [],
         flaggedPostIDs: [String] = [],
         postedPostIDs: [String] = [],
         areaHistory: [String] = [],
         followerCount: Int = 0,
         followingCount: Int = 0,
-        remainingBoosts: Int = 0
+        remainingBoosts: Int = 0,
+        isVerifiedUsernameUnderlined: Bool = false
     ) {
         self.uid = uid
         self.username = username
@@ -227,12 +231,14 @@ public struct FirebaseUserAccountRecord: Codable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.savedPostIDs = savedPostIDs
+        self.likedPostIDs = likedPostIDs
         self.flaggedPostIDs = flaggedPostIDs
         self.postedPostIDs = postedPostIDs
         self.areaHistory = areaHistory
         self.followerCount = followerCount
         self.followingCount = followingCount
         self.remainingBoosts = max(0, remainingBoosts)
+        self.isVerifiedUsernameUnderlined = isVerifiedUsernameUnderlined
     }
 }
 
@@ -1205,6 +1211,28 @@ public final class FirebaseSpotService {
         .sorted { $0.createdAt > $1.createdAt }
     }
 
+    public func fetchPostsForUsername(username: String, limit: Int = 200) async throws -> [FirebasePostPayload] {
+        let normalizedUsername = Self.normalizeUsername(username)
+        guard !normalizedUsername.isEmpty else { return [] }
+
+        let documents: QuerySnapshot
+        do {
+            documents = try await db.collection("posts")
+                .whereField("authorUsername", isEqualTo: normalizedUsername)
+                .order(by: "createdAt", descending: true)
+                .limit(to: limit)
+                .getDocuments()
+        } catch {
+            documents = try await db.collection("posts")
+                .whereField("authorUsername", isEqualTo: normalizedUsername)
+                .limit(to: limit)
+                .getDocuments()
+        }
+
+        return documents.documents.compactMap { decodePostPayload(from: $0) }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
     public func deletePost(postID: String, authorID: String, adminDeleteCode: String? = nil) async throws {
         let trimmedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPostID.isEmpty else { return }
@@ -1306,7 +1334,7 @@ public final class FirebaseSpotService {
         }
     }
 
-    public func updatePostEngagement(postID: String, likesCount: Int? = nil, commentsCount: Int? = nil, viewCount: Int? = nil, totalViewDurationSeconds: Int? = nil, savedCount: Int? = nil, shareCount: Int? = nil) async throws {
+    public func updatePostEngagement(postID: String, likesCount: Int? = nil, likesDelta: Int? = nil, commentsCount: Int? = nil, viewCount: Int? = nil, totalViewDurationSeconds: Int? = nil, savedCount: Int? = nil, shareCount: Int? = nil) async throws {
         // Keep engagement growth available for signed-out sessions.
         // If there is no active Firebase auth user, establish an anonymous session first.
         if Auth.auth().currentUser == nil {
@@ -1338,7 +1366,14 @@ public final class FirebaseSpotService {
 
                 // Multiple feed surfaces may report engagement for the same post concurrently.
                 // Use monotonic merges so stale/lower payloads never reduce aggregate counts.
-                let resolvedLikes = max(existingLikes, max(0, likesCount ?? existingLikes))
+                let resolvedLikes: Int
+                if let likesDelta {
+                    // Delta mode is authoritative for user heart toggles.
+                    // Do not combine with client absolute likesCount or we can double-apply.
+                    resolvedLikes = max(0, existingLikes + likesDelta)
+                } else {
+                    resolvedLikes = max(existingLikes, max(0, likesCount ?? existingLikes))
+                }
                 let resolvedComments = max(existingComments, max(0, commentsCount ?? existingComments))
                 let resolvedViews = max(existingViews, max(0, viewCount ?? existingViews))
                 let resolvedViewDuration = max(existingViewDuration, max(0, totalViewDurationSeconds ?? existingViewDuration))
@@ -1470,7 +1505,7 @@ public final class FirebaseSpotService {
         let cleanedAuthorID = authorID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedAuthorID.isEmpty else { return }
 
-        let normalizedURL = (photoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedURL = (Self.normalizedStoragePublicURL(photoURL) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let updatedAt = Date().timeIntervalSince1970
         var lastDocument: DocumentSnapshot?
 
@@ -1708,7 +1743,15 @@ public final class FirebaseSpotService {
         let verifiedSymbols = CharacterSet(charactersIn: "%@#$&*!?+=")
         let containsVerifiedSymbol = withoutAt.rangeOfCharacter(from: verifiedSymbols) != nil
         let base = containsVerifiedSymbol ? withoutAt : withoutAt.lowercased()
-        let allowed = base.filter { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." || verifiedSymbols.contains($0.unicodeScalars.first!) }
+        let allowed = base.filter { character in
+            if character.isLetter || character.isNumber || character == "_" || character == "." {
+                return true
+            }
+            guard let scalar = character.unicodeScalars.first else {
+                return false
+            }
+            return verifiedSymbols.contains(scalar)
+        }
         return String(String(allowed).prefix(15))
     }
 
@@ -1774,6 +1817,43 @@ public final class FirebaseSpotService {
         guard let raw else { return nil }
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty ? nil : cleaned
+    }
+
+    public static func normalizedStoragePublicURL(_ raw: String?) -> String? {
+        guard let cleaned = normalizedOptionalString(raw) else { return nil }
+
+        if cleaned.hasPrefix("https://") || cleaned.hasPrefix("http://") {
+            return cleaned
+        }
+
+        let toPublicURL: (String, String) -> String = { bucket, objectPath in
+            let encodedPath = objectPath
+                .split(separator: "/")
+                .map { segment in
+                    String(segment).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String(segment)
+                }
+                .joined(separator: "%2F")
+            return "https://firebasestorage.googleapis.com/v0/b/\(bucket)/o/\(encodedPath)?alt=media"
+        }
+
+        if cleaned.hasPrefix("gs://") {
+            let stripped = String(cleaned.dropFirst(5))
+            let parts = stripped.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true)
+            guard parts.count == 2 else { return cleaned }
+            let bucket = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let objectPath = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !bucket.isEmpty, !objectPath.isEmpty else { return cleaned }
+            return toPublicURL(bucket, objectPath)
+        }
+
+        if cleaned.contains("/") {
+            let objectPath = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if !objectPath.isEmpty {
+                return toPublicURL(FirebaseConfig.storageBucket, objectPath)
+            }
+        }
+
+        return cleaned
     }
 
     private static func firestoreNumericDouble(_ value: Any?) -> Double {
@@ -1904,7 +1984,7 @@ public final class FirebaseSpotService {
             authorID: authorID,
             authorUsername: data["authorUsername"] as? String ?? "",
             authorDisplayName: data["authorDisplayName"] as? String ?? "",
-            authorProfilePhotoURL: Self.normalizedOptionalString(data["authorProfilePhotoURL"] as? String),
+            authorProfilePhotoURL: Self.normalizedStoragePublicURL(data["authorProfilePhotoURL"] as? String),
             contentType: contentType,
             title: data["title"] as? String,
             body: data["body"] as? String,
@@ -2067,9 +2147,14 @@ public final class FirebaseSpotService {
         isAllowedUsername(username)
     }
 
-    public func checkUsernameAvailability(username: String, currentUserID: String? = nil) async throws -> Bool {
+    public func checkUsernameAvailability(username: String, currentUserID: String? = nil, allowVerifiedDuplicate: Bool = false) async throws -> Bool {
         let normalized = Self.normalizeUsername(username)
         guard Self.isAllowedUsername(normalized, reservedAgainst: username) else { return false }
+
+        if allowVerifiedDuplicate {
+            // Verified identity can share a username across multiple accounts.
+            return true
+        }
 
         let snapshot = try await db.collection("usernames").document(normalized).getDocument()
         guard snapshot.exists else {
@@ -2097,12 +2182,44 @@ public final class FirebaseSpotService {
         let normalized = Self.normalizeUsername(username)
         guard !normalized.isEmpty else { return nil }
 
-        let snapshot = try await db.collection("usernames").document(normalized).getDocument()
-        guard snapshot.exists else { return nil }
+        // Primary path: canonical username index.
+        if let snapshot = try? await db.collection("usernames").document(normalized).getDocument(), snapshot.exists {
+            let userID = (snapshot.data()? ["userID"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !userID.isEmpty {
+                return userID
+            }
+        }
 
-        let userID = (snapshot.data()? ["userID"] as? String ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return userID.isEmpty ? nil : userID
+        // Fallback path: resolve directly from users collection for legacy accounts
+        // that were created before usernames index consistency guarantees.
+        let candidateUsernames = ["@\(normalized)", normalized]
+        if let byUsernameSnapshot = try? await db.collection("users")
+            .whereField("username", in: candidateUsernames)
+            .limit(to: 1)
+            .getDocuments(),
+           let matched = byUsernameSnapshot.documents.first {
+            let userID = (matched.data()["uid"] as? String ?? matched.documentID)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !userID.isEmpty {
+                return userID
+            }
+        }
+
+        // Final fallback: alias matching supports accounts that changed handles.
+        if let aliasSnapshot = try? await db.collection("users")
+            .whereField("usernameAliases", arrayContains: normalized)
+            .limit(to: 1)
+            .getDocuments(),
+           let matched = aliasSnapshot.documents.first {
+            let userID = (matched.data()["uid"] as? String ?? matched.documentID)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !userID.isEmpty {
+                return userID
+            }
+        }
+
+        return nil
     }
 
     public func fetchUserAccount(username: String) async throws -> FirebaseUserAccountRecord? {
@@ -2230,24 +2347,42 @@ public final class FirebaseSpotService {
             .limit(to: limit)
             .getDocuments()
 
-        let accounts = snapshot.documents.compactMap { document -> FirebaseUserAccountRecord? in
-            let data = document.data()
-            guard let uid = data["uid"] as? String else { return nil }
-            return FirebaseUserAccountRecord(
-                uid: uid,
-                username: data["username"] as? String ?? "@user",
-                displayName: data["displayName"] as? String ?? "User",
-                phoneNumber: Self.normalizedOptionalString(data["phoneNumber"] as? String),
-                bio: data["bio"] as? String,
-                profilePhotoURL: data["profilePhotoURL"] as? String,
-                createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
-                updatedAt: data["updatedAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
-                savedPostIDs: data["savedPostIDs"] as? [String] ?? [],
-                flaggedPostIDs: data["flaggedPostIDs"] as? [String] ?? [],
-                postedPostIDs: data["postedPostIDs"] as? [String] ?? [],
-                areaHistory: data["areaHistory"] as? [String] ?? [],
-                remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0)
-            )
+        let accounts = await withTaskGroup(of: FirebaseUserAccountRecord?.self, returning: [FirebaseUserAccountRecord].self) { group in
+            for document in snapshot.documents {
+                group.addTask {
+                    let data = document.data()
+                    guard let uid = data["uid"] as? String else { return nil }
+                    let resolvedVerified = await self.resolveVerifiedUnderlineStatus(userID: uid, data: data)
+
+                    return FirebaseUserAccountRecord(
+                        uid: uid,
+                        username: data["username"] as? String ?? "@user",
+                        displayName: data["displayName"] as? String ?? "User",
+                        phoneNumber: Self.normalizedOptionalString(data["phoneNumber"] as? String),
+                        bio: data["bio"] as? String,
+                        profilePhotoURL: Self.normalizedStoragePublicURL((data["profilePhotoURL"] as? String) ?? (data["photoURL"] as? String)),
+                        createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
+                        updatedAt: data["updatedAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
+                        savedPostIDs: data["savedPostIDs"] as? [String] ?? [],
+                        likedPostIDs: data["likedPostIDs"] as? [String] ?? [],
+                        flaggedPostIDs: data["flaggedPostIDs"] as? [String] ?? [],
+                        postedPostIDs: data["postedPostIDs"] as? [String] ?? [],
+                        areaHistory: data["areaHistory"] as? [String] ?? [],
+                        followerCount: data["followerCount"] as? Int ?? 0,
+                        followingCount: data["followingCount"] as? Int ?? 0,
+                        remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0),
+                        isVerifiedUsernameUnderlined: resolvedVerified
+                    )
+                }
+            }
+
+            var resolved: [FirebaseUserAccountRecord] = []
+            for await account in group {
+                if let account {
+                    resolved.append(account)
+                }
+            }
+            return resolved
         }
 
         if cleanedQuery.isEmpty {
@@ -2446,12 +2581,29 @@ public final class FirebaseSpotService {
         return textScore + proximityScore
     }
 
-    public func reserveUsername(userID: String, username: String, previousUsername: String? = nil) async throws -> Bool {
+    public func reserveUsername(userID: String, username: String, previousUsername: String? = nil, allowVerifiedDuplicate: Bool = false) async throws -> Bool {
         let normalized = Self.normalizeUsername(username)
         guard Self.isAllowedUsername(normalized, reservedAgainst: previousUsername) else { throw FirebaseSpotError.invalidUsername }
 
-        let usernameRef = db.collection("usernames").document(normalized)
         let previousNormalized = previousUsername.flatMap { Self.normalizeUsername($0) }
+
+        if allowVerifiedDuplicate {
+            // Skip canonical username reservation so verified accounts can share the same handle.
+            // Keep cleanup for the caller's previous unique username index if it exists.
+            if let previousNormalized, !previousNormalized.isEmpty, previousNormalized != normalized {
+                let previousRef = db.collection("usernames").document(previousNormalized)
+                if let previousDoc = try? await previousRef.getDocument(), previousDoc.exists {
+                    let previousUserID = (previousDoc.data()? ["userID"] as? String ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if previousUserID == userID {
+                        try? await previousRef.delete()
+                    }
+                }
+            }
+            return true
+        }
+
+        let usernameRef = db.collection("usernames").document(normalized)
 
         let reserved = try await db.runTransaction { transaction, errorPointer in
             do {
@@ -2512,12 +2664,15 @@ public final class FirebaseSpotService {
         previousUsername: String?
     ) -> [String: Any] {
         let normalizedUsername = Self.normalizeUsername(username)
-        let safePhotoURL = Self.normalizedOptionalString(photoURL) ?? ""
+        let safePhotoURL = Self.normalizedStoragePublicURL(photoURL) ?? ""
         let existingAliases = (existingData["usernameAliases"] as? [String] ?? [])
             .map { Self.normalizeUsername($0) }
             .filter { !$0.isEmpty }
         let normalizedPrevious = Self.normalizeUsername(previousUsername ?? "")
         let mergedAliases = Array(Set(existingAliases + [normalizedUsername, normalizedPrevious].filter { !$0.isEmpty })).sorted()
+        let existingVerifiedUnderline = existingData["isVerifiedUsernameUnderlined"] as? Bool
+            ?? existingData["verifiedUsernameUnderlined"] as? Bool
+            ?? false
 
         return [
             "uid": userID,
@@ -2528,14 +2683,54 @@ public final class FirebaseSpotService {
             "createdAt": existingData["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
             "updatedAt": Date().timeIntervalSince1970,
             "savedPostIDs": existingData["savedPostIDs"] as? [String] ?? [],
+            "likedPostIDs": existingData["likedPostIDs"] as? [String] ?? [],
             "flaggedPostIDs": existingData["flaggedPostIDs"] as? [String] ?? [],
             "postedPostIDs": existingData["postedPostIDs"] as? [String] ?? [],
             "usernameAliases": mergedAliases,
             "areaHistory": existingData["areaHistory"] as? [String] ?? [],
             "followerCount": existingData["followerCount"] as? Int ?? 0,
             "followingCount": existingData["followingCount"] as? Int ?? 0,
-            "remainingBoosts": max(0, existingData["remainingBoosts"] as? Int ?? 0)
+            "remainingBoosts": max(0, existingData["remainingBoosts"] as? Int ?? 0),
+            "isVerifiedUsernameUnderlined": existingVerifiedUnderline
         ]
+    }
+
+    public func setUserVerificationUnderline(userID: String, enabled: Bool) async throws {
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty else { return }
+
+        try await db.collection("users").document(cleanedUserID).setData([
+            "isVerifiedUsernameUnderlined": enabled,
+            "updatedAt": Date().timeIntervalSince1970
+        ], merge: true)
+    }
+
+    private func resolveVerifiedUnderlineStatus(userID: String, data: [String: Any]) async -> Bool {
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty else { return false }
+
+        if data.keys.contains("isVerifiedUsernameUnderlined") {
+            return data["isVerifiedUsernameUnderlined"] as? Bool ?? false
+        }
+
+        if data.keys.contains("verifiedUsernameUnderlined") {
+            return data["verifiedUsernameUnderlined"] as? Bool ?? false
+        }
+
+        let verificationRef = db.collection("users")
+            .document(cleanedUserID)
+            .collection("verification")
+            .document("latest")
+
+        if let snapshot = try? await verificationRef.getDocument(), snapshot.exists {
+            try? await db.collection("users").document(cleanedUserID).setData([
+                "isVerifiedUsernameUnderlined": true,
+                "updatedAt": Date().timeIntervalSince1970
+            ], merge: true)
+            return true
+        }
+
+        return false
     }
 
     public static func migratedPostUpdatePayload(
@@ -2548,7 +2743,7 @@ public final class FirebaseSpotService {
         let sanitizedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalDisplayName = sanitizedDisplayName.isEmpty ? (normalizedUsername.isEmpty ? "You" : normalizedUsername.capitalized) : sanitizedDisplayName
         let authorUsername = normalizedUsername.isEmpty ? "@you" : "@\(normalizedUsername)"
-        let safePhotoURL = Self.normalizedOptionalString(photoURL) ?? ""
+        let safePhotoURL = Self.normalizedStoragePublicURL(photoURL) ?? ""
 
         return [
             "authorID": authorID,
@@ -2613,7 +2808,7 @@ public final class FirebaseSpotService {
         ], merge: true)
     }
 
-    public func saveUserProfile(userID: String, username: String, displayName: String, bio: String?, photoURL: String?) async throws {
+    public func saveUserProfile(userID: String, username: String, displayName: String, bio: String?, photoURL: String?, allowVerifiedDuplicateUsername: Bool = false) async throws {
         let profileRef = db.collection("users").document(userID)
         let existing = try? await profileRef.getDocument()
         let existingData = existing?.data() ?? [:]
@@ -2629,7 +2824,17 @@ public final class FirebaseSpotService {
             throw FirebaseSpotError.invalidPayload
         }
 
-        _ = try await reserveUsername(userID: userID, username: normalizedUsername, previousUsername: previousUsername)
+        let existingVerifiedUnderline = existingData["isVerifiedUsernameUnderlined"] as? Bool
+            ?? existingData["verifiedUsernameUnderlined"] as? Bool
+            ?? false
+        let shouldAllowVerifiedDuplicate = allowVerifiedDuplicateUsername || existingVerifiedUnderline
+
+        _ = try await reserveUsername(
+            userID: userID,
+            username: normalizedUsername,
+            previousUsername: previousUsername,
+            allowVerifiedDuplicate: shouldAllowVerifiedDuplicate
+        )
 
         let payload = Self.makeUserProfileUpsertPayload(
             userID: userID,
@@ -2908,11 +3113,29 @@ public final class FirebaseSpotService {
         }
 
         let profileRef = db.collection("users").document(cleanedUserID)
-        let existing = try await profileRef.getDocument()
-        let current = (existing.data()? ["savedPostIDs"] as? [String]) ?? []
-        let next = saved ? Array(Set(current + [cleanedPostID])) : current.filter { $0 != cleanedPostID }
+        let mutation: FieldValue = saved
+            ? FieldValue.arrayUnion([cleanedPostID])
+            : FieldValue.arrayRemove([cleanedPostID])
         try await profileRef.setData([
-            "savedPostIDs": next,
+            "savedPostIDs": mutation,
+            "updatedAt": Date().timeIntervalSince1970
+        ], merge: true)
+    }
+
+    public func saveUserLikedPost(userID: String, postID: String, liked: Bool) async throws {
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedPostID = postID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedUserID.isEmpty, !cleanedPostID.isEmpty else { return }
+        guard !Self.isDeviceFallbackUserID(cleanedUserID) else {
+            return
+        }
+
+        let profileRef = db.collection("users").document(cleanedUserID)
+        let mutation: FieldValue = liked
+            ? FieldValue.arrayUnion([cleanedPostID])
+            : FieldValue.arrayRemove([cleanedPostID])
+        try await profileRef.setData([
+            "likedPostIDs": mutation,
             "updatedAt": Date().timeIntervalSince1970
         ], merge: true)
     }
@@ -2926,11 +3149,11 @@ public final class FirebaseSpotService {
         }
 
         let profileRef = db.collection("users").document(cleanedUserID)
-        let existing = try await profileRef.getDocument()
-        let current = (existing.data()? ["flaggedPostIDs"] as? [String]) ?? []
-        let next = flagged ? Array(Set(current + [cleanedPostID])) : current.filter { $0 != cleanedPostID }
+        let mutation: FieldValue = flagged
+            ? FieldValue.arrayUnion([cleanedPostID])
+            : FieldValue.arrayRemove([cleanedPostID])
         try await profileRef.setData([
-            "flaggedPostIDs": next,
+            "flaggedPostIDs": mutation,
             "updatedAt": Date().timeIntervalSince1970
         ], merge: true)
     }
@@ -2986,22 +3209,26 @@ public final class FirebaseSpotService {
         let rawUsername = data["username"] as? String ?? ""
         let cleanedUsername = (rawUsername == "user" || rawUsername == "@user") ? "" : rawUsername
 
+        let resolvedVerified = await resolveVerifiedUnderlineStatus(userID: userID, data: data)
+
         return FirebaseUserAccountRecord(
             uid: data["uid"] as? String ?? userID,
             username: cleanedUsername,
             displayName: data["displayName"] as? String ?? "",
             phoneNumber: Self.normalizedOptionalString(data["phoneNumber"] as? String),
             bio: data["bio"] as? String,
-            profilePhotoURL: Self.normalizedOptionalString(data["profilePhotoURL"] as? String),
+            profilePhotoURL: Self.normalizedStoragePublicURL((data["profilePhotoURL"] as? String) ?? (data["photoURL"] as? String)),
             createdAt: data["createdAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
             updatedAt: data["updatedAt"] as? TimeInterval ?? Date().timeIntervalSince1970,
             savedPostIDs: data["savedPostIDs"] as? [String] ?? [],
+            likedPostIDs: data["likedPostIDs"] as? [String] ?? [],
             flaggedPostIDs: data["flaggedPostIDs"] as? [String] ?? [],
             postedPostIDs: data["postedPostIDs"] as? [String] ?? [],
             areaHistory: data["areaHistory"] as? [String] ?? [],
             followerCount: data["followerCount"] as? Int ?? 0,
             followingCount: data["followingCount"] as? Int ?? 0,
-            remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0)
+            remainingBoosts: max(0, data["remainingBoosts"] as? Int ?? 0),
+            isVerifiedUsernameUnderlined: resolvedVerified
         )
     }
 
@@ -3019,14 +3246,21 @@ public final class FirebaseSpotService {
         let existing = try await chatRef.getDocument()
 
         if !existing.exists {
+            let now = Date().timeIntervalSince1970
+            var initialReadBy: [String: TimeInterval] = [:]
+            for participantID in cleanedIDs {
+                initialReadBy[participantID] = now
+            }
+
             try await chatRef.setData([
                 "id": chatID,
                 "participantIDs": cleanedIDs,
                 "isAnonymous": isAnonymous,
-                "createdAt": Date().timeIntervalSince1970,
-                "updatedAt": Date().timeIntervalSince1970,
+                "createdAt": now,
+                "updatedAt": now,
                 "lastMessage": "",
-                "lastSenderID": ""
+                "lastSenderID": "",
+                "readBy": initialReadBy
             ])
         }
 
@@ -3050,10 +3284,23 @@ public final class FirebaseSpotService {
         try await chatRef.updateData([
             "lastMessage": text,
             "lastSenderID": senderID,
-            "updatedAt": now
+            "updatedAt": now,
+            "readBy.\(senderID)": now
         ])
 
         return messageID
+    }
+
+    public func markChatAsRead(chatID: String, userID: String, readAt: TimeInterval = Date().timeIntervalSince1970) async throws {
+        let cleanedChatID = chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedChatID.isEmpty, !cleanedUserID.isEmpty else {
+            throw FirebaseSpotError.invalidPayload
+        }
+
+        try await db.collection("chats").document(cleanedChatID).setData([
+            "readBy": [cleanedUserID: readAt]
+        ], merge: true)
     }
 
     public func deleteChatMessage(chatID: String, messageID: String) async throws -> Bool {

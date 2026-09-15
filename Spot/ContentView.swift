@@ -1401,15 +1401,25 @@ struct ContentView: View {
         var displayName: String
         var profilePhotoURL: String?
         var password: String
+        var isVerifiedUsernameUnderlined: Bool
+        var verifiedLockedUsername: String
         var lastUsedAt: TimeInterval
 
         var id: String {
             let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
             if !normalizedUsername.isEmpty {
-                return normalizedUsername.lowercased()
+                let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedPassword.isEmpty {
+                    return "u:\(normalizedUsername.lowercased())|p:\(trimmedPassword)"
+                }
+                let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if !trimmedEmail.isEmpty {
+                    return "u:\(normalizedUsername.lowercased())|e:\(trimmedEmail)"
+                }
+                return "u:\(normalizedUsername.lowercased())"
             }
             let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            return trimmedEmail.isEmpty ? "anonymous" : trimmedEmail
+            return trimmedEmail.isEmpty ? "anonymous" : "e:\(trimmedEmail)"
         }
 
         init(
@@ -1418,6 +1428,8 @@ struct ContentView: View {
             displayName: String,
             profilePhotoURL: String? = nil,
             password: String = "",
+            isVerifiedUsernameUnderlined: Bool = false,
+            verifiedLockedUsername: String = "",
             lastUsedAt: TimeInterval
         ) {
             self.email = email
@@ -1425,36 +1437,48 @@ struct ContentView: View {
             self.displayName = displayName
             self.profilePhotoURL = profilePhotoURL
             self.password = password
+            self.isVerifiedUsernameUnderlined = isVerifiedUsernameUnderlined
+            self.verifiedLockedUsername = verifiedLockedUsername
             self.lastUsedAt = lastUsedAt
         }
     }
 
-    static func savedAccountIdentityKey(username: String, email: String) -> String {
+    static func savedAccountIdentityKey(username: String, email: String, password: String? = nil) -> String {
         let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
         if !normalizedUsername.isEmpty {
-            return normalizedUsername.lowercased()
+            let cleanedPassword = (password ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleanedPassword.isEmpty {
+                return "u:\(normalizedUsername.lowercased())|p:\(cleanedPassword)"
+            }
+
+            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !trimmedEmail.isEmpty {
+                return "u:\(normalizedUsername.lowercased())|e:\(trimmedEmail)"
+            }
+
+            return "u:\(normalizedUsername.lowercased())"
         }
 
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !trimmedEmail.isEmpty {
-            return trimmedEmail
+            return "e:\(trimmedEmail)"
         }
 
         return "anonymous"
     }
 
     static func preferredProfilePhotoURL(candidateRemoteURL: String?, savedAccountPhotoURL: String?, fallbackLocalValue: String? = nil) -> String {
-        let candidate = candidateRemoteURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidate = FirebaseSpotService.normalizedStoragePublicURL(candidateRemoteURL)?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let candidate, !candidate.isEmpty {
             return candidate
         }
 
-        let savedValue = savedAccountPhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedValue = FirebaseSpotService.normalizedStoragePublicURL(savedAccountPhotoURL)?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let savedValue, !savedValue.isEmpty {
             return savedValue
         }
 
-        let fallbackValue = fallbackLocalValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackValue = FirebaseSpotService.normalizedStoragePublicURL(fallbackLocalValue)?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let fallbackValue, !fallbackValue.isEmpty {
             return fallbackValue
         }
@@ -1463,17 +1487,17 @@ struct ContentView: View {
     }
 
     static func canonicalProfilePhotoURL(fetchedRemoteURL: String?, fallbackProfilePhotoURL: String?, localProfilePhotoURL: String? = nil) -> String {
-        let fetched = (fetchedRemoteURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let fetched = (FirebaseSpotService.normalizedStoragePublicURL(fetchedRemoteURL) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !fetched.isEmpty {
             return fetched
         }
 
-        let fallback = (fallbackProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = (FirebaseSpotService.normalizedStoragePublicURL(fallbackProfilePhotoURL) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !fallback.isEmpty {
             return fallback
         }
 
-        let local = (localProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let local = (FirebaseSpotService.normalizedStoragePublicURL(localProfilePhotoURL) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !local.isEmpty {
             return local
         }
@@ -1523,6 +1547,8 @@ struct ContentView: View {
     private let phoneNumberDefaultsKey = "spot_phone_number"
     private let backupPhoneNumberDefaultsKey = "spot_backup_phone_number"
     private let accountUsernameDefaultsKey = "spot_account_username"
+    private let verifiedLockedUsernameDefaultsKey = "spot_verified_locked_username"
+    private let verificationSyncPendingDefaultsKey = "spot_verification_sync_pending"
     private let accountUsernameAliasesDefaultsKey = "spot_account_username_aliases"
     private let accountVerifiedUnderlineDefaultsKey = "spot_account_verified_underline_enabled"
     private let profileNameDefaultsKey = "spot_profile_name"
@@ -1560,6 +1586,7 @@ struct ContentView: View {
     private static let anonymousTagMarker = "spot:anonymous"
     private static let ownedAnonymousPostIDsDefaultsKey = "spot_owned_anonymous_post_ids"
     private static let boostedTagMarker = "spot:boosted"
+    private static let verifiedTagMarker = "spot:verified"
     private static let ageTagPrefix = "spot:age:"
     private static let adminPinnedPostsByRealmDefaultsKey = "spot_admin_pinned_posts_by_realm"
     private static let adminPinnedPostsAtDefaultsKey = "spot_admin_pinned_posts_at"
@@ -1738,6 +1765,17 @@ struct ContentView: View {
     }
 
     private func resolvedUsernameForProfileSave(userID: String) async -> String {
+        let lockedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: verifiedLockedUsernameDefaultsKey) ?? ""
+        )
+        if isVerifiedUsernameUnderlined, !lockedUsername.isEmpty {
+            profileUsername = lockedUsername
+            accountUsername = lockedUsername
+            signInUsername = lockedUsername
+            UserDefaults.standard.set(lockedUsername, forKey: accountUsernameDefaultsKey)
+            return lockedUsername
+        }
+
         let savedUsername = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? ""
         let trimmedCurrent = profileUsername.isEmpty ? savedUsername.trimmingCharacters(in: .whitespacesAndNewlines) : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCurrent.isEmpty {
@@ -1908,8 +1946,8 @@ struct ContentView: View {
     @State private var adminModerationPasswordInput = ""
     @State private var adminModerationPasswordError = ""
     @State private var adminModerationActionMessage = ""
-    @State private var feedWindowSize = 8
-    @State private var feedLoadedCount = 24
+    @State private var feedWindowSize = 12
+    @State private var feedLoadedCount = 12
     @State private var feedRankedPostIDs: [Int] = []
     @State private var feedRankingSignature = ""
     @State private var lazyVideoWindowSize = 8
@@ -1942,6 +1980,10 @@ struct ContentView: View {
     @State private var currentUserFollowingCount: Int = 0
     @State private var currentUserProfileListener: ListenerRegistration? = nil
     @State private var currentUserProfileListenerTargetID: String = ""
+    @State private var currentUserPostsListener: ListenerRegistration? = nil
+    @State private var currentUserPostsListenerTargetID: String = ""
+    @State private var currentUserPostsByUsernameListener: ListenerRegistration? = nil
+    @State private var currentUserPostsByUsernameListenerTarget: String = ""
 
     @State private var communityUsers: [UserProfile] = []
 
@@ -1965,6 +2007,13 @@ struct ContentView: View {
 
     @State private var messages: [DirectMessageThread] = []
     @State private var userChatsListenerRegistration: ListenerRegistration? = nil
+    @State private var userChatsListenerOwnerID: String = ""
+    @State private var chatMessageListenersByChatID: [String: ListenerRegistration] = [:]
+    @State private var chatMessageListenersOwnerID: String = ""
+    @State private var threadIDByChatID: [String: Int] = [:]
+    @State private var chatLastSenderIDByChatID: [String: String] = [:]
+    @State private var chatUpdatedAtByChatID: [String: TimeInterval] = [:]
+    @State private var chatReadAtByChatID: [String: TimeInterval] = [:]
 
     @StateObject private var locationService = LocationService()
     @State private var locationSearchText = ""
@@ -2000,6 +2049,16 @@ struct ContentView: View {
     @State private var bottomVisibleFeedIndex: Int = 0
     @State private var showNewPostsAbovePill: Bool = false
     @State private var feedRawScrollY: CGFloat = 0
+    @State private var isChevronLaunchPressed: Bool = false
+    @State private var hasAnimatedChevronForBackToTop: Bool = false
+
+    private func triggerChevronHintAnimation() {
+        Task { @MainActor in
+            isChevronLaunchPressed = true
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            isChevronLaunchPressed = false
+        }
+    }
 
     @State private var pinnedScoresByPostRealm = Self.loadPinnedScoresByPostRealm()
     @State private var pinnedScoresByOwner = Self.loadPinnedScoresByOwner()
@@ -2240,10 +2299,9 @@ struct ContentView: View {
 
     private func recalculateUnreadDirectMessageCount() {
         let unreadCount = messages.filter { thread in
-            let isIncoming = isThreadIncoming(thread)
+            let isIncoming = isThreadUnread(thread)
             let isCurrentScreenChat = currentScreen == .chatDetail && selectedChatThread?.id == thread.id
-            let isRead = isChatThreadRead(thread)
-            return isIncoming && !isCurrentScreenChat && !isRead
+            return isIncoming && !isCurrentScreenChat
         }.count
 
         unreadDirectMessageCount = unreadCount
@@ -2266,6 +2324,25 @@ struct ContentView: View {
         persistUnreadDirectMessageCount()
         unreadBadgePulseTask?.cancel()
         unreadBadgeScale = 1.0
+    }
+
+    private func isThreadUnread(_ thread: DirectMessageThread) -> Bool {
+        let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !chatID.isEmpty {
+            let currentUID = (try? FirebaseSpotService.shared.currentUserID())?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !currentUID.isEmpty {
+                let lastSenderID = chatLastSenderIDByChatID[chatID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let updatedAt = chatUpdatedAtByChatID[chatID] ?? 0
+                let readAt = chatReadAtByChatID[chatID] ?? 0
+                if !lastSenderID.isEmpty {
+                    return lastSenderID != currentUID && updatedAt > readAt
+                }
+            }
+        }
+
+        let isIncoming = isThreadIncoming(thread)
+        let isRead = isChatThreadRead(thread)
+        return isIncoming && !isRead
     }
 
     private func videoFeedPostScrollID(_ postID: Int) -> String {
@@ -2407,7 +2484,7 @@ struct ContentView: View {
         static let annual = VideoUpgradePlan(
             id: "annual",
             name: "Annual Creator",
-            price: "$79.99/yr",
+            price: "81$/yr",
             subtitle: "Save 33% with a yearly plan",
             badge: "Best value",
             spotlight: false
@@ -2439,7 +2516,7 @@ struct ContentView: View {
         )
         let persistedRecentLocations = Self.deduplicatedLocationNames(
             UserDefaults.standard.array(forKey: "spot_recent_locations") as? [String] ?? [],
-            limit: 3
+            limit: 50
         )
         let persistedProfilePhoto = Self.cachedImage(forKey: "spot_profile_photo_data")
         let persistedPhoneNumber = UserDefaults.standard.string(forKey: "spot_phone_number") ?? ""
@@ -2490,7 +2567,6 @@ struct ContentView: View {
             backgroundGradient
                 .ignoresSafeArea()
                 .task {
-                    _ = await ensureNotificationAuthorization()
                     await loadCurrentUserProfileFromRecord()
                     await loadCurrentUserPosts()
                     await refreshFollowingUIDs()
@@ -2498,7 +2574,8 @@ struct ContentView: View {
                         prefetchBlockedUserProfiles()
                         startRealtimeFeedListener()
                         configureAudioSessionForAppUse()
-                        resetUnreadDirectMessageIndicator()
+                        listenToUserChatsFromFirestore()
+                        recalculateUnreadDirectMessageCount()
                     }
 
                     while !Task.isCancelled {
@@ -2520,7 +2597,13 @@ struct ContentView: View {
                 }
                 .onDisappear {
                     stopCurrentUserProfileLiveListener()
+                    stopCurrentUserPostsLiveListener()
                     stopRealtimeFeedListener()
+                    userChatsListenerRegistration?.remove()
+                    userChatsListenerRegistration = nil
+                    userChatsListenerOwnerID = ""
+                    resetAllChatMessageListeners()
+                    chatMessageListenersOwnerID = ""
                 }
                 .onChange(of: blockedUsers) { _, _ in
                     prefetchBlockedUserProfiles()
@@ -2533,6 +2616,11 @@ struct ContentView: View {
                 }
                 .onAppear {
                     recomputePinnedScores()
+                    locationService.requestPermission()
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        triggerChevronHintAnimation()
+                    }
                 }
 
             Group {
@@ -2566,7 +2654,7 @@ struct ContentView: View {
 
                                 ScrollViewReader { scrollProxy in
                                     ZStack(alignment: .top) {
-                                        ScrollView {
+                                        ScrollView(showsIndicators: false) {
                                             VStack(alignment: .leading, spacing: 0) {
                                                 feedSection
                                                     .padding(.top, isOwnProfileCompactMode ? 4 : feedTopInset)
@@ -2590,6 +2678,14 @@ struct ContentView: View {
                                             feedRawScrollY = value
                                             feedScrollOffset = min(max(value, 0), 24)
                                             handleFeedScrollYChange(value)
+                                            if value > 400 {
+                                                if !hasAnimatedChevronForBackToTop {
+                                                    hasAnimatedChevronForBackToTop = true
+                                                    triggerChevronHintAnimation()
+                                                }
+                                            } else if value < 100 {
+                                                hasAnimatedChevronForBackToTop = false
+                                            }
                                         }
                                         .onAppear {
                                             applyHomeFeedRestoreIfNeeded(scrollProxy)
@@ -2598,8 +2694,39 @@ struct ContentView: View {
                                             applyHomeFeedRestoreIfNeeded(scrollProxy)
                                         }
 
-                                        if showNewPostsAbovePill && !unseenNewPostsAboveIDs.isEmpty {
-                                            newPostsAbovePillButton(scrollProxy: scrollProxy, feedTopInset: feedTopInset)
+                                        if feedRawScrollY > 400 {
+                                            VStack {
+                                                Spacer()
+                                                HStack {
+                                                    Button {
+                                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                                            if let firstID = posts.first?.id {
+                                                                scrollProxy.scrollTo(homeFeedPostScrollID(firstID), anchor: .top)
+                                                            } else {
+                                                                scrollProxy.scrollTo(0, anchor: .top)
+                                                            }
+                                                        }
+                                                    } label: {
+                                                        HStack(spacing: 6) {
+                                                            Image(systemName: "arrow.up")
+                                                                .font(.system(size: 13, weight: .bold))
+                                                            Text("BACK TO TOP")
+                                                                .font(.system(size: 11, weight: .black, design: .rounded))
+                                                        }
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 8)
+                                                        .background(Color.black)
+                                                        .foregroundStyle(Color.white)
+                                                        .clipShape(Capsule())
+                                                        .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 3)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    Spacer()
+                                                }
+                                                .padding(.leading, 20)
+                                                .padding(.bottom, 24)
+                                            }
+                                            .transition(.move(edge: .bottom).combined(with: .opacity))
                                         }
                                     }
                                 }
@@ -2692,13 +2819,22 @@ struct ContentView: View {
                 currentScreen = .home
                 return
             }
-            if newScreen == .messages || newScreen == .chatDetail {
-                resetUnreadDirectMessageIndicator()
-            }
             if newScreen == .locationPicker || newScreen == .postLocationPicker {
                 locationService.requestPermission()
             }
             clearMapExplorerTransientState()
+        }
+        .onChange(of: isSignedInToAccount) { _, signedIn in
+            if signedIn {
+                listenToUserChatsFromFirestore()
+            } else {
+                userChatsListenerRegistration?.remove()
+                userChatsListenerRegistration = nil
+                userChatsListenerOwnerID = ""
+                resetAllChatMessageListeners()
+                chatMessageListenersOwnerID = ""
+            }
+            recalculateUnreadDirectMessageCount()
         }
         .onChange(of: fromLocation) { _, newValue in
             guard Self.isMapAreaRealm(newValue) || Self.isDeprecatedLocationOption(newValue) else { return }
@@ -2727,7 +2863,11 @@ struct ContentView: View {
     }
 
     private var supportsRightSwipeClose: Bool {
-        currentScreen == .profile || currentScreen == .userProfile || currentScreen == .contentTypePicker || currentScreen == .messages
+        currentScreen == .profile
+            || currentScreen == .userProfile
+            || currentScreen == .contentTypePicker
+            || currentScreen == .messages
+            || currentScreen == .settings
     }
 
     private var profileButtonDestinationScreen: Screen {
@@ -2746,11 +2886,6 @@ struct ContentView: View {
             : (isMapAreaFeed
                 ? postsForActiveMapArea(includeVideos: true)
                 : Self.postsForLocationRealm(boostedScopedSource, activeLocation: activeLocation)))
-        let globalPinnedKeys = Set(
-            adminPinnedRealmMap()
-                .filter { $0.value == Self.adminPinAllNonMetricMarker }
-                .map { $0.key }
-        )
         let includeGlobalPinnedForLocation = !isFriendsFeed
             && !isFollowingFeed
             && !isMapAreaFeed
@@ -2792,7 +2927,7 @@ struct ContentView: View {
         let effectiveFeedPosts: [MockPost] = isMetricRealmFeed
             ? rankedPostsForFeed(feedCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
             : newestFirstPosts(feedCandidates)
-        let sortedFeedPosts = prioritizeAdminPinnedPosts(effectiveFeedPosts, activeLocation: activeLocation)
+        let sortedFeedPosts = effectiveFeedPosts
         let loadedPosts = Array(sortedFeedPosts.prefix(feedLoadedCount))
         return loadedPosts.contains { $0.type == "For Sale" }
     }
@@ -2804,6 +2939,16 @@ struct ContentView: View {
         let verticalTravel = max(abs(value.translation.height), abs(value.predictedEndTranslation.height))
         guard effectiveHorizontalTravel > Self.pageSwipeDismissThreshold else { return }
         guard effectiveHorizontalTravel > (verticalTravel * Self.pageSwipeHorizontalDominanceRatio) else { return }
+
+        if currentScreen == .home && isOwnProfileCompactMode {
+            closeOwnProfileScreen()
+            return
+        }
+
+        if currentScreen == .settings {
+            closeSettingsScreen()
+            return
+        }
 
         if currentScreen == .home {
             guard !hasVisibleListingPostInFeed else { return }
@@ -2844,13 +2989,10 @@ struct ContentView: View {
                 HStack(spacing: 0) {
                     Button {
                         isFeedSearchFieldFocused = false
-                        resetUnreadDirectMessageIndicator()
                         currentScreen = .messages
                     } label: {
                         HStack(spacing: 5) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.system(size: 19, weight: .bold))
-                                .foregroundStyle(.black)
+                            dmSearchDualPurposeIcon
 
                             if unreadDirectMessageCount > 0 {
                                 Text(unreadDirectMessageCount > 99 ? "99+" : "\(unreadDirectMessageCount)")
@@ -2866,7 +3008,7 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Center: Location Picker Chevron
+                // Center: Location Picker Chevron & Active Node Display
                 HStack(spacing: 0) {
                     Button {
                         isFeedSearchFieldFocused = false
@@ -2888,9 +3030,21 @@ struct ContentView: View {
                         isFeedSearchFieldFocused = false
                         feedContentSearchText = ""
                     } label: {
-                        HStack(spacing: 0) {
-                            flatChevronDownIcon(size: 68, thickness: 6.5, color: Color.black)
+                        VStack(spacing: 1) {
+                            flatChevronDownIcon(size: 32, thickness: 3.8, color: Color.black)
+                            let currentLocName = (isVideoFeed ? videoLocation : fromLocation).trimmingCharacters(in: .whitespacesAndNewlines)
+                            let rawDisplayName = currentLocName.isEmpty ? "Tiding" : (currentLocName == "Nearest" ? "Tiding" : currentLocName)
+                            let nodeDisplayName = (rawDisplayName == "Metric" || rawDisplayName == "metric") ? "Tiding" : rawDisplayName
+                            Text(nodeDisplayName.uppercased())
+                                .font(.system(size: 10, weight: .black, design: .rounded))
+                                .foregroundStyle(.black)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
+                        .scaleEffect(isChevronLaunchPressed ? 0.86 : 1.0)
+                        .opacity(isChevronLaunchPressed ? 0.65 : 1.0)
+                        .offset(y: isChevronLaunchPressed ? 2 : 0)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isChevronLaunchPressed)
                         .frame(height: mediaRowControlHeight)
                         .contentShape(Rectangle())
                         .foregroundStyle(.black)
@@ -2930,9 +3084,9 @@ struct ContentView: View {
                             }
                         } label: {
                             Image(systemName: "person.crop.circle.fill")
-                                .font(.system(size: 19, weight: .bold))
+                                .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(.black)
-                                .frame(width: 38, height: 38)
+                                .frame(width: 32, height: 32)
                         }
                         .buttonStyle(.plain)
                     }
@@ -3182,8 +3336,10 @@ struct ContentView: View {
 
     private var shouldShowFloatingPostLauncher: Bool {
         switch currentScreen {
-        case .home, .profile:
+        case .home:
             return true
+        case .profile:
+            return selectedUserProfile == nil
         default:
             return false
         }
@@ -3193,13 +3349,33 @@ struct ContentView: View {
         Button {
             openPostTypePickerFromFloatingButton()
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 38, weight: .bold))
-                .foregroundStyle(.black)
-                .frame(width: 86, height: 86)
-                .contentShape(Circle())
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .bold))
+                Text("POST")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.black)
+            .foregroundStyle(Color.white)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
+    }
+
+    private var dmSearchDualPurposeIcon: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "bubble.left")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.black)
+
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.black)
+        }
+        .frame(width: 26, height: 22)
     }
 
     private func openPostTypePickerFromFloatingButton() {
@@ -3312,26 +3488,28 @@ struct ContentView: View {
     }
 
     private var feedSection: some View {
-        Group {
-            if isOwnProfileCompactMode {
-                let resolvedCurrentUserID = currentUserID.isEmpty ? (try? FirebaseSpotService.shared.currentUserID()) ?? "" : currentUserID
-                let yourPosts = newestFirstProfilePosts(posts.filter {
-                    let include = Self.shouldIncludePostInViewedProfile(
-                        $0,
-                        viewedUsername: profileUsername,
-                        viewedUserID: resolvedCurrentUserID,
-                        signedInUsername: profileUsername,
-                        currentUserID: resolvedCurrentUserID,
-                        isAnonymousModeActive: isAnonymousModeEnabled
-                    )
-                    return include && !isPostReported($0)
-                })
+        if isOwnProfileCompactMode {
+            let resolvedCurrentUserID = currentUserID.isEmpty ? (try? FirebaseSpotService.shared.currentUserID()) ?? "" : currentUserID
+            let yourPosts = newestFirstProfilePosts(posts.filter {
+                let include = Self.shouldIncludePostInViewedProfile(
+                    $0,
+                    viewedUsername: profileUsername,
+                    viewedUserID: resolvedCurrentUserID,
+                    signedInUsername: profileUsername,
+                    currentUserID: resolvedCurrentUserID,
+                    isAnonymousModeActive: isAnonymousModeEnabled
+                )
+                return include && !isPostReported($0)
+            })
 
+            return AnyView(
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(yourPosts, id: \.id) { post in
                         ownProfilePostCard(for: post)
                     }
                 }
+            )
+        }
             } else {
 
         let activeLocation = fromLocation.isEmpty ? "Nearby" : fromLocation
@@ -3345,11 +3523,6 @@ struct ContentView: View {
             : (isMapAreaFeed
                 ? postsForActiveMapArea(includeVideos: true)
                 : Self.postsForLocationRealm(boostedScopedSource, activeLocation: activeLocation)))
-        let globalPinnedKeys = Set(
-            adminPinnedRealmMap()
-                .filter { $0.value == Self.adminPinAllNonMetricMarker }
-                .map { $0.key }
-        )
         let includeGlobalPinnedForLocation = !isFriendsFeed
             && !isFollowingFeed
             && !isMapAreaFeed
@@ -3391,17 +3564,24 @@ struct ContentView: View {
         let effectiveFeedPosts: [MockPost] = isMetricRealmFeed
             ? rankedPostsForFeed(feedCandidates, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
             : newestFirstPosts(feedCandidates)
-        let sortedFeedPosts = prioritizeAdminPinnedPosts(effectiveFeedPosts, activeLocation: activeLocation)
+        let sortedFeedPosts = effectiveFeedPosts
         let restoreTargetIndex = pendingHomeFeedRestorePostID.flatMap { targetID in
             sortedFeedPosts.firstIndex(where: { $0.id == targetID })
         }
         let minimumLoadedCountForRestore = restoreTargetIndex.map { min(sortedFeedPosts.count, $0 + 3) } ?? feedLoadedCount
         let effectiveLoadedCount = max(feedLoadedCount, minimumLoadedCountForRestore)
         let loadedPosts = Array(sortedFeedPosts.prefix(effectiveLoadedCount))
+        let nodePulseMessage = nodeVelocityPulseSignal(for: activeLocation, posts: sortedFeedPosts)
 
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(loadedPosts.enumerated()), id: \.element.id) { index, post in
-                PostCardView(
+        return AnyView(
+            LazyVStack(alignment: .leading, spacing: 4) {
+                if let pulse = nodePulseMessage {
+                    nodePulsePillView(pulse)
+                        .padding(.vertical, 6)
+                }
+
+                ForEach(Array(loadedPosts.enumerated()), id: \.element.id) { index, post in
+                    PostCardView(
                     post: Binding(
                         get: {
                             // Get the latest version from the posts array
@@ -3442,9 +3622,7 @@ struct ContentView: View {
                         openUserProfile(from: post)
                     },
                     onMessageTap: {
-                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                        openDM(with: matchingUser)
+                        openDM(with: resolvedProfileForPost(post))
                     },
                     onMapFocusTap: { tappedPost in
                         openMapFocusedOnPost(tappedPost)
@@ -3522,10 +3700,103 @@ struct ContentView: View {
                 force: true
             )
         }
-            }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+            rebuildMainFeedRanking(
+                candidates: visiblePosts,
+                activeLocation: activeLocation,
+                followingOnly: showFollowingOnly,
+                isFriendsFeed: isFriendsFeed,
+                includeVideoResults: true,
+                force: true
+            )
         }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+            rebuildMainFeedRanking(
+                candidates: visiblePosts,
+                activeLocation: activeLocation,
+                followingOnly: showFollowingOnly,
+                isFriendsFeed: isFriendsFeed,
+                includeVideoResults: true,
+                force: true
+            )
+        }
+        )
     }
 
+    private func nodeVelocityPulseSignal(for location: String, posts: [MockPost]) -> String? {
+        let normalized = Self.normalizedLocationRealm(location)
+        guard !normalized.isEmpty, normalized != "nearby" else { return nil }
+
+        let now = Date()
+        let oneHourAgo = now.addingTimeInterval(-3600)
+        let oneDayAgo = now.addingTimeInterval(-86400)
+        let oneWeekAgo = now.addingTimeInterval(-604800)
+        let oneMonthAgo = now.addingTimeInterval(-2592000)
+
+        let postDates = posts.compactMap { post -> Date? in
+            let raw = post.timeAgo
+            if raw.contains("m") || raw.contains("h") || raw.contains("just now") || raw.contains("s") {
+                return now.addingTimeInterval(-1800)
+            } else if raw.contains("1d") {
+                return now.addingTimeInterval(-86400)
+            } else if raw.contains("d") {
+                return now.addingTimeInterval(-259200)
+            } else if raw.contains("w") {
+                return now.addingTimeInterval(-1209600)
+            }
+            return nil
+        }
+
+        let countHour = postDates.filter { $0 >= oneHourAgo }.count
+        let countDay = postDates.filter { $0 >= oneDayAgo }.count
+        let countWeek = postDates.filter { $0 >= oneWeekAgo }.count
+        let countMonth = postDates.filter { $0 >= oneMonthAgo }.count
+
+        var pool: [String] = []
+
+        if countHour >= 3 {
+            pool.append("⚡️ Node Heating Up • \(countHour) posts in the last hour")
+            pool.append("🔥 High Velocity • Local activity spiking right now")
+        } else if countDay >= 5 {
+            pool.append("⚡️ Steady Pulse • \(countDay) posts shared today in \(location)")
+            pool.append("📍 Active Node • Fresh local updates dropping daily")
+        } else if countWeek >= 2 {
+            pool.append("🌱 Slow & Steady • \(countWeek) posts in \(location) this week")
+            pool.append("⏱️ Quiet Realm • Latest post dropped recently")
+        } else if countMonth >= 1 {
+            pool.append("☕️ Low Velocity • Hidden gem node waiting for fresh tides")
+            pool.append("✨ Silent Spot • Be the first to spark \(location) today")
+        } else {
+            pool.append("✨ Uncharted Territory • Be the first to start the tide in \(location)")
+        }
+
+        let seed = abs(normalized.hashValue)
+        let selectedIndex = seed % pool.count
+        return pool[selectedIndex]
+    }
+
+    private func nodePulsePillView(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(message.contains("⚡️") || message.contains("🔥") ? Color.orange : Color.blue)
+                .frame(width: 7, height: 7)
+
+            Text(message)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(.black.opacity(0.85))
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(0.04))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 18)
+    }
 
     private func backButton(destination: Screen, title: String = "Back", foregroundColor: Color = .primary) -> some View {
         Button {
@@ -3617,6 +3888,18 @@ struct ContentView: View {
         return capped.isEmpty ? "@you" : "@\(capped)"
     }
 
+    private func resolvedPostingUsername() -> String {
+        if isVerifiedUsernameUnderlined {
+            let lockedUsername = resolvedVerifiedLockedUsername()
+            if !lockedUsername.isEmpty {
+                return lockedUsername
+            }
+        }
+
+        let normalized = FirebaseSpotService.normalizeUsername(profileUsername)
+        return normalized.isEmpty ? "you" : normalized
+    }
+
     private func rememberedUsernameAliases() -> [String] {
         let rawAliases = UserDefaults.standard.array(forKey: accountUsernameAliasesDefaultsKey) as? [String] ?? []
         var seen: Set<String> = []
@@ -3683,6 +3966,96 @@ struct ContentView: View {
         return nil
     }
 
+    private func bestKnownProfile(userID: String, username: String) -> FakeUserProfile? {
+        if let cached = cachedProfile(userID: userID, username: username) {
+            return cached
+        }
+
+        let trimmedUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+
+        let candidates = fakeUserProfiles.filter { profile in
+            let matchesByID = !trimmedUserID.isEmpty
+                && !profile.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && profile.userID.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedUserID
+            let matchesByUsername = !normalizedUsername.isEmpty
+                && FirebaseSpotService.normalizeUsername(profile.username) == normalizedUsername
+            return matchesByID || matchesByUsername
+        }
+
+        guard !candidates.isEmpty else { return nil }
+
+        func score(_ profile: FakeUserProfile) -> Int {
+            let hasPhoto = !(profile.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let matchesID = !trimmedUserID.isEmpty
+                && profile.userID.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedUserID
+            let matchesUsername = !normalizedUsername.isEmpty
+                && FirebaseSpotService.normalizeUsername(profile.username) == normalizedUsername
+
+            var total = 0
+            if matchesID { total += 100 }
+            if matchesUsername { total += 70 }
+            if hasPhoto { total += 25 }
+            if profile.isVerifiedUsernameUnderlined { total += 8 }
+            if !profile.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { total += 4 }
+            return total
+        }
+
+        return candidates.max { lhs, rhs in
+            score(lhs) < score(rhs)
+        }
+    }
+
+    private func resolvedProfileForPost(_ post: MockPost) -> FakeUserProfile {
+        let fallback = fallbackProfile(
+            for: post.handle,
+            displayName: post.author,
+            userID: post.authorUserID,
+            profilePhotoURL: post.authorProfilePhotoURL,
+            isVerifiedUsernameUnderlined: post.authorIsVerified
+        )
+
+        guard let known = bestKnownProfile(userID: post.authorUserID, username: post.handle) else {
+            return fallback
+        }
+
+        let knownUsername = FirebaseSpotService.normalizeUsername(known.username)
+        let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
+        let resolvedUsername = !knownUsername.isEmpty ? knownUsername : (!postUsername.isEmpty ? postUsername : fallback.username)
+
+        let fallbackName = post.author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback.name : post.author
+        let knownName = known.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = knownName.isEmpty ? fallbackName : known.name
+
+        let resolvedPhotoURLString = Self.canonicalProfilePhotoURL(
+            fetchedRemoteURL: known.profilePhotoURL,
+            fallbackProfilePhotoURL: post.authorProfilePhotoURL,
+            localProfilePhotoURL: fallback.profilePhotoURL
+        )
+        let resolvedPhotoURL = resolvedPhotoURLString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : resolvedPhotoURLString
+
+        let knownUserID = known.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedUserID = knownUserID.isEmpty ? post.authorUserID : known.userID
+
+        let resolvedPhotoText = known.profilePhotoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? fallback.profilePhotoText
+            : known.profilePhotoText
+
+        return FakeUserProfile(
+            id: known.id,
+            userID: resolvedUserID,
+            username: resolvedUsername,
+            name: resolvedName,
+            city: known.city,
+            bio: known.bio,
+            followerCount: max(known.followerCount, fallback.followerCount),
+            followingCount: max(known.followingCount, fallback.followingCount),
+            profilePhotoText: resolvedPhotoText,
+            profilePhotoURL: resolvedPhotoURL,
+            isVerifiedUsernameUnderlined: known.isVerifiedUsernameUnderlined || post.authorIsVerified
+        )
+    }
+
     @MainActor
     private func cachePrefetchedProfile(_ profile: FakeUserProfile) {
         let trimmedUserID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3731,6 +4104,11 @@ struct ContentView: View {
                     username: cached.username,
                     photoURL: cached.profilePhotoURL ?? profilePhotoURL
                 )
+                applyAuthorVerificationToPosts(
+                    authorUserID: cached.userID.isEmpty ? initialUserID : cached.userID,
+                    username: cached.username,
+                    isVerified: cached.isVerifiedUsernameUnderlined
+                )
             }
             return
         }
@@ -3753,11 +4131,21 @@ struct ContentView: View {
             if resolvedUserID.isEmpty, !normalizedUsername.isEmpty {
                 resolvedUserID = (try? await FirebaseSpotService.shared.resolveUserID(username: normalizedUsername)) ?? ""
             }
-            guard !resolvedUserID.isEmpty else { return }
 
             do {
-                let account = try await FirebaseSpotService.shared.fetchUserAccount(userID: resolvedUserID)
-                let liveCounts = try? await FirebaseSpotService.shared.fetchUserFollowCounts(userID: resolvedUserID)
+                let account: FirebaseUserAccountRecord
+                if !resolvedUserID.isEmpty,
+                   let byID = try? await FirebaseSpotService.shared.fetchUserAccount(userID: resolvedUserID) {
+                    account = byID
+                } else if !normalizedUsername.isEmpty,
+                          let byUsername = try? await FirebaseSpotService.shared.fetchUserAccount(username: normalizedUsername) {
+                    account = byUsername
+                    resolvedUserID = byUsername.uid.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    return
+                }
+
+                let liveCounts = try? await FirebaseSpotService.shared.fetchUserFollowCounts(userID: account.uid)
                 let resolvedUsername = FirebaseSpotService.normalizeUsername(account.username).isEmpty
                     ? (normalizedUsername.isEmpty ? "user" : normalizedUsername)
                     : FirebaseSpotService.normalizeUsername(account.username)
@@ -3778,7 +4166,8 @@ struct ContentView: View {
                     followerCount: liveCounts?.followers ?? account.followerCount,
                     followingCount: liveCounts?.following ?? account.followingCount,
                     profilePhotoText: String(resolvedDisplayName.prefix(2)).uppercased(),
-                    profilePhotoURL: resolvedPhotoURL
+                    profilePhotoURL: resolvedPhotoURL,
+                    isVerifiedUsernameUnderlined: account.isVerifiedUsernameUnderlined
                 )
 
                 await MainActor.run {
@@ -3786,8 +4175,12 @@ struct ContentView: View {
                     prefetchRemoteAvatarIfNeeded(resolvedPhotoURL)
 
                     if let index = fakeUserProfiles.firstIndex(where: { profile in
-                        let byID = !profile.userID.isEmpty && profile.userID == prefetched.userID
-                        let byUsername = FirebaseSpotService.normalizeUsername(profile.username) == FirebaseSpotService.normalizeUsername(prefetched.username)
+                        let profileID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let prefetchedID = prefetched.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let byID = !profileID.isEmpty && !prefetchedID.isEmpty && profileID == prefetchedID
+                        let byUsername = profileID.isEmpty
+                            && prefetchedID.isEmpty
+                            && FirebaseSpotService.normalizeUsername(profile.username) == FirebaseSpotService.normalizeUsername(prefetched.username)
                         return byID || byUsername
                     }) {
                         fakeUserProfiles[index] = prefetched
@@ -3800,6 +4193,11 @@ struct ContentView: View {
                         username: prefetched.username,
                         photoURL: prefetched.profilePhotoURL
                     )
+                    applyAuthorVerificationToPosts(
+                        authorUserID: prefetched.userID,
+                        username: prefetched.username,
+                        isVerified: prefetched.isVerifiedUsernameUnderlined
+                    )
                 }
             } catch {
                 // Ignore prefetch misses; profile screen still performs full refresh.
@@ -3807,7 +4205,13 @@ struct ContentView: View {
         }
     }
 
-    private func fallbackProfile(for username: String, displayName: String = "User", userID: String = "", profilePhotoURL: String? = nil) -> FakeUserProfile {
+    private func fallbackProfile(
+        for username: String,
+        displayName: String = "User",
+        userID: String = "",
+        profilePhotoURL: String? = nil,
+        isVerifiedUsernameUnderlined: Bool? = nil
+    ) -> FakeUserProfile {
         let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
         let resolvedUsername = normalizedUsername.isEmpty ? "you" : normalizedUsername
         let resolvedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3816,6 +4220,9 @@ struct ContentView: View {
         let isCurrentUserByUsername = !normalizedCurrentUsername.isEmpty && normalizedCurrentUsername != "you" && resolvedUsername != "you" && normalizedCurrentUsername == resolvedUsername
         let isCurrentUserByUserID = !userID.isEmpty && !currentUserID.isEmpty && userID == currentUserID
         let resolvedPhotoURL = profilePhotoURL ?? ((isCurrentUserByUsername || isCurrentUserByUserID) ? (profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL) : nil)
+        let resolvedVerified = (isCurrentUserByUsername || isCurrentUserByUserID)
+            ? self.isVerifiedUsernameUnderlined
+            : (isVerifiedUsernameUnderlined ?? false)
         let resolvedUserID = userID.isEmpty && (isCurrentUserByUsername || isCurrentUserByUserID) ? currentUserID : userID
 
         if let cached = cachedProfile(userID: resolvedUserID, username: resolvedUsername) {
@@ -3829,7 +4236,8 @@ struct ContentView: View {
                 followerCount: cached.followerCount,
                 followingCount: cached.followingCount,
                 profilePhotoText: cached.profilePhotoText,
-                profilePhotoURL: resolvedPhotoURL ?? cached.profilePhotoURL
+                profilePhotoURL: resolvedPhotoURL ?? cached.profilePhotoURL,
+                isVerifiedUsernameUnderlined: cached.isVerifiedUsernameUnderlined || resolvedVerified
             )
         }
 
@@ -3842,7 +4250,8 @@ struct ContentView: View {
             followerCount: 0,
             followingCount: 0,
             profilePhotoText: String(finalName.prefix(2)).uppercased(),
-            profilePhotoURL: resolvedPhotoURL
+            profilePhotoURL: resolvedPhotoURL,
+            isVerifiedUsernameUnderlined: resolvedVerified
         )
     }
 
@@ -3903,20 +4312,7 @@ struct ContentView: View {
             await refreshFollowingUIDs()
         }
 
-        let matchingUser = fakeUserProfiles.first(where: {
-            let byUserID = !post.authorUserID.isEmpty && !$0.userID.isEmpty && $0.userID == post.authorUserID
-            let byUsername = $0.username.lowercased() == post.handle.lowercased()
-            return byUserID || byUsername
-        })
-
-        let resolvedProfile = cachedProfile(userID: post.authorUserID, username: post.handle)
-            ?? matchingUser
-            ?? fallbackProfile(
-                for: post.handle,
-                displayName: post.author,
-                userID: post.authorUserID,
-                profilePhotoURL: post.authorProfilePhotoURL
-            )
+        let resolvedProfile = resolvedProfileForPost(post)
 
         openUserProfileScreen(with: resolvedProfile, originPostID: post.id)
     }
@@ -4081,6 +4477,7 @@ struct ContentView: View {
                 fallbackProfilePhotoURL: selectedSnapshot.profilePhotoURL,
                 localProfilePhotoURL: selectedSnapshot.profilePhotoURL
             )
+            let resolvedVerified = account.isVerifiedUsernameUnderlined || selectedSnapshot.isVerifiedUsernameUnderlined
             let resolvedFollowerCount = liveCounts?.followers ?? account.followerCount
             let resolvedFollowingCount = liveCounts?.following ?? account.followingCount
 
@@ -4101,7 +4498,8 @@ struct ContentView: View {
                     followerCount: resolvedFollowerCount,
                     followingCount: resolvedFollowingCount,
                     profilePhotoText: String((resolvedName.isEmpty ? selectedSnapshot.name : resolvedName).prefix(2)).uppercased(),
-                    profilePhotoURL: resolvedPhotoURL
+                    profilePhotoURL: resolvedPhotoURL,
+                    isVerifiedUsernameUnderlined: resolvedVerified
                 )
 
                 cachePrefetchedProfile(refreshed)
@@ -4109,9 +4507,10 @@ struct ContentView: View {
                 selectedUserProfile = refreshed
 
                 if let index = fakeUserProfiles.firstIndex(where: { profile in
-                    let byID = !profile.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        && profile.userID.trimmingCharacters(in: .whitespacesAndNewlines) == targetUserID
-                    let byUsername = FirebaseSpotService.normalizeUsername(profile.username) == FirebaseSpotService.normalizeUsername(selectedSnapshot.username)
+                    let profileID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let byID = !profileID.isEmpty && profileID == targetUserID
+                    let byUsername = profileID.isEmpty
+                        && FirebaseSpotService.normalizeUsername(profile.username) == FirebaseSpotService.normalizeUsername(selectedSnapshot.username)
                     return byID || byUsername
                 }) {
                     fakeUserProfiles[index] = refreshed
@@ -4121,6 +4520,11 @@ struct ContentView: View {
                     authorUserID: targetUserID,
                     username: refreshed.username,
                     photoURL: refreshed.profilePhotoURL
+                )
+                applyAuthorVerificationToPosts(
+                    authorUserID: targetUserID,
+                    username: refreshed.username,
+                    isVerified: resolvedVerified
                 )
             }
         } catch {
@@ -4198,10 +4602,146 @@ struct ContentView: View {
             }
     }
 
+    private func startCurrentUserPostsLiveListener(for userID: String, username: String) {
+        let targetUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetUsername = FirebaseSpotService.normalizeUsername(username)
+        guard !targetUserID.isEmpty else {
+            stopCurrentUserPostsLiveListener()
+            return
+        }
+
+        if currentUserPostsListenerTargetID != targetUserID {
+            currentUserPostsListener?.remove()
+            currentUserPostsListener = nil
+            currentUserPostsListenerTargetID = targetUserID
+            currentUserPostsListener = Firestore.firestore()
+                .collection("posts")
+                .whereField("authorID", isEqualTo: targetUserID)
+                .limit(to: 250)
+                .addSnapshotListener { _, error in
+                    if let error {
+                        print("Spot current user posts listener error: \(error)")
+                        let nsError = error as NSError
+                        if nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
+                            DispatchQueue.main.async {
+                                stopCurrentUserPostsLiveListener()
+                            }
+                        }
+                        return
+                    }
+
+                    Task {
+                        await refreshCurrentUserPostEngagement(userID: targetUserID, username: targetUsername)
+                    }
+                }
+        }
+
+        if targetUsername.isEmpty {
+            currentUserPostsByUsernameListener?.remove()
+            currentUserPostsByUsernameListener = nil
+            currentUserPostsByUsernameListenerTarget = ""
+        } else if currentUserPostsByUsernameListenerTarget != targetUsername {
+            currentUserPostsByUsernameListener?.remove()
+            currentUserPostsByUsernameListener = nil
+            currentUserPostsByUsernameListenerTarget = targetUsername
+            currentUserPostsByUsernameListener = Firestore.firestore()
+                .collection("posts")
+                .whereField("authorUsername", isEqualTo: targetUsername)
+                .limit(to: 250)
+                .addSnapshotListener { _, error in
+                    if let error {
+                        print("Spot current user username posts listener error: \(error)")
+                        return
+                    }
+
+                    Task {
+                        await refreshCurrentUserPostEngagement(userID: targetUserID, username: targetUsername)
+                    }
+                }
+        }
+    }
+
     private func stopCurrentUserProfileLiveListener() {
         currentUserProfileListener?.remove()
         currentUserProfileListener = nil
         currentUserProfileListenerTargetID = ""
+    }
+
+    private func stopCurrentUserPostsLiveListener() {
+        currentUserPostsListener?.remove()
+        currentUserPostsListener = nil
+        currentUserPostsListenerTargetID = ""
+        currentUserPostsByUsernameListener?.remove()
+        currentUserPostsByUsernameListener = nil
+        currentUserPostsByUsernameListenerTarget = ""
+    }
+
+    @MainActor
+    private func refreshCurrentUserPostEngagement(userID: String, username: String) async {
+        let targetUserID = userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetUsername = FirebaseSpotService.normalizeUsername(username)
+        guard !targetUserID.isEmpty else { return }
+
+        var payloads: [FirebasePostPayload] = []
+        do {
+            payloads = try await FirebaseSpotService.shared.fetchPostsForUser(userID: targetUserID)
+        } catch {
+            print("Spot own engagement refresh failed: \(error)")
+        }
+
+        if !targetUsername.isEmpty {
+            do {
+                let usernamePayloads = try await FirebaseSpotService.shared.fetchPostsForUsername(username: targetUsername)
+                var mergedByID: [String: FirebasePostPayload] = [:]
+                for payload in payloads + usernamePayloads {
+                    mergedByID[payload.id.trimmingCharacters(in: .whitespacesAndNewlines)] = payload
+                }
+                payloads = Array(mergedByID.values)
+            } catch {
+                print("Spot own username engagement refresh failed: \(error)")
+            }
+        }
+
+        guard !payloads.isEmpty else { return }
+        let payloadByID = Dictionary(uniqueKeysWithValues: payloads.map { ($0.id.trimmingCharacters(in: .whitespacesAndNewlines), $0) })
+
+        var updatedSelected = selectedProfilePost
+        var updatedPending = pendingSharePost
+
+        for index in posts.indices {
+            let key = posts[index].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, let payload = payloadByID[key] else { continue }
+
+            posts[index].likes = payload.likesCount
+            posts[index].viewCount = max(posts[index].viewCount, payload.viewCount)
+            posts[index].savedCount = max(posts[index].savedCount, payload.savedCount)
+            posts[index].shareCount = max(posts[index].shareCount, payload.shareCount)
+            posts[index].timeViewedSeconds = max(posts[index].timeViewedSeconds, payload.totalViewDurationSeconds)
+            posts[index].peakEngagementScore = max(posts[index].peakEngagementScore, payload.score)
+
+            if var selected = updatedSelected, postAdminPinStorageKey(selected) == postAdminPinStorageKey(posts[index]) {
+                selected.likes = payload.likesCount
+                selected.viewCount = max(selected.viewCount, payload.viewCount)
+                selected.savedCount = max(selected.savedCount, payload.savedCount)
+                selected.shareCount = max(selected.shareCount, payload.shareCount)
+                selected.timeViewedSeconds = max(selected.timeViewedSeconds, payload.totalViewDurationSeconds)
+                selected.peakEngagementScore = max(selected.peakEngagementScore, payload.score)
+                updatedSelected = selected
+            }
+
+            if var pending = updatedPending, postAdminPinStorageKey(pending) == postAdminPinStorageKey(posts[index]) {
+                pending.likes = payload.likesCount
+                pending.viewCount = max(pending.viewCount, payload.viewCount)
+                pending.savedCount = max(pending.savedCount, payload.savedCount)
+                pending.shareCount = max(pending.shareCount, payload.shareCount)
+                pending.timeViewedSeconds = max(pending.timeViewedSeconds, payload.totalViewDurationSeconds)
+                pending.peakEngagementScore = max(pending.peakEngagementScore, payload.score)
+                updatedPending = pending
+            }
+        }
+
+        selectedProfilePost = updatedSelected
+        pendingSharePost = updatedPending
     }
 
     static func isCurrentUserDMProfile(_ profile: FakeUserProfile, currentUsername: String) -> Bool {
@@ -4290,94 +4830,23 @@ struct ContentView: View {
             )
     }
 
+    private func appLogoAvatar(size: CGFloat) -> some View {
+        let _ = size
+        return EmptyView()
+    }
+
     private func profileAvatarView(size: CGFloat, textSize: CGFloat = 26, border: Bool = true, borderColor: Color? = nil) -> some View {
-        let activeProfileImage = displayProfilePhotoImage
-
-        return ZStack {
-            if isAnonymousModeEnabled {
-                anonymousMaskAvatar(size: size)
-            } else {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: size, height: size)
-
-                if let image = activeProfileImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
-                } else {
-                    if !resolvedSignedInState {
-                        emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.55))
-                            .overlay(
-                                Image(systemName: "hand.tap.fill")
-                                    .font(.system(size: max(14, size * 0.34), weight: .semibold))
-                                    .foregroundStyle(.black.opacity(0.55))
-                                    .scaleEffect(signedOutAvatarPressAnimating ? 0.88 : 1.04)
-                                    .offset(y: signedOutAvatarPressAnimating ? 2 : -1)
-                                    .onAppear {
-                                        guard !signedOutAvatarPressAnimating else { return }
-                                        withAnimation(.easeInOut(duration: 0.78).repeatForever(autoreverses: true)) {
-                                            signedOutAvatarPressAnimating = true
-                                        }
-                                    }
-                            )
-                    } else {
-                        emptyProfilePersonAvatar(size: size)
-                    }
-                }
-            }
-
-            if let customBorderColor = borderColor {
-                Circle()
-                    .stroke(customBorderColor, lineWidth: 2)
-                    .frame(width: size, height: size)
-            } else if border {
-                avatarGoldRing(lineWidth: 1.35)
-                    .frame(width: size, height: size)
-            }
-        }
+        let _ = size
+        let _ = textSize
+        let _ = border
+        let _ = borderColor
+        return EmptyView()
     }
 
     private func savedAccountAvatarView(for account: SavedAccountCredential, size: CGFloat = 34) -> some View {
-        let normalizedAccountEmail = account.id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedCurrentEmail = accountEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let shouldUseLocalCurrentPhoto = !normalizedCurrentEmail.isEmpty && normalizedAccountEmail == normalizedCurrentEmail
-        let remotePhotoURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return ZStack {
-            if shouldUseLocalCurrentPhoto, let localImage = displayProfilePhotoImage {
-                Image(uiImage: localImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
-                    default:
-                        emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.5))
-                    }
-                }
-            } else {
-                emptyProfilePersonAvatar(size: size, iconColor: .black.opacity(0.5))
-            }
-        }
-        .frame(width: size, height: size)
-        .overlay(avatarGoldRing(lineWidth: 1.2))
+        let _ = account
+        let _ = size
+        return EmptyView()
     }
 
     private func profileControlChrome(cornerRadius: CGFloat = 16) -> some View {
@@ -4445,13 +4914,9 @@ struct ContentView: View {
                     return
                 }
 
-                guard resolvedSignedInState else {
-                    profilePhotoItem = nil
-                    accountAuthMessage = "Create an account first before adding a profile photo."
-                    return
-                }
-
-                handleProfilePhotoSelection(newItem)
+                let _ = newItem
+                profilePhotoItem = nil
+                accountAuthMessage = "Profile photos are disabled right now."
             }
             .onChange(of: isAnonymousModeEnabled) { _, enabled in
                 UserDefaults.standard.set(enabled, forKey: anonymousModeDefaultsKey)
@@ -4505,20 +4970,16 @@ struct ContentView: View {
     }
 
     private var settingsViewBaseContent: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     Button {
                         closeSettingsScreen()
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Back")
-                                .font(.subheadline.weight(.semibold))
-                        }
+                        Image(systemName: "chevron.left")
+                            .font(.subheadline.weight(.semibold))
                         .padding(.vertical, 8)
-                        .padding(.trailing, 12)
+                        .padding(.horizontal, 10)
                         .contentShape(Rectangle())
                         .foregroundStyle(Color.primary)
                     }
@@ -4554,7 +5015,7 @@ struct ContentView: View {
             Color(.systemGray6)
                 .ignoresSafeArea()
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         backButton(destination: .settings, foregroundColor: .black)
@@ -4625,9 +5086,7 @@ struct ContentView: View {
                                             openUserProfile(from: post)
                                         },
                                         onMessageTap: {
-                                            let target = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                            openDM(with: target)
+                                            openDM(with: resolvedProfileForPost(post))
                                         },
                                         onMapFocusTap: { tappedPost in
                                             openMapFocusedOnPost(tappedPost)
@@ -4748,26 +5207,44 @@ struct ContentView: View {
         return "\(enabledCount)/5 on"
     }
 
+    private var settingsVerificationRowTitle: String {
+        isVerifiedUsernameUnderlined ? "Verified" : "Verification"
+    }
+
+    private var settingsVerificationRowValue: String {
+        isVerifiedUsernameUnderlined ? "Verified" : "Getunderlined"
+    }
+
+    private var canOpenVerificationSettings: Bool {
+        resolvedSignedInState && !isVerifiedUsernameUnderlined
+    }
+
     private var settingsProfileHeader: some View {
+        // PROFILE_PHOTO_RESTORE_MAP: swap back to profileAvatarView(size: 80) to re-enable user avatar here.
         VStack(alignment: .center, spacing: 14) {
-            PhotosPicker(selection: $profilePhotoItem, matching: .images, photoLibrary: .shared()) {
-                profileAvatarView(size: 80)
-            }
-            .buttonStyle(.plain)
+            appLogoAvatar(size: 80)
 
             VStack(alignment: .center, spacing: 6) {
                 if !isAnonymousModeEnabled {
-                    Text(displayUsername(profileUsername))
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(usernameGoldTextColor)
-                        .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .onLongPressGesture(minimumDuration: 2.0) {
-                            adminModerationPasswordInput = ""
-                            adminModerationPasswordError = ""
-                            isShowingAdminModerationPasswordPrompt = true
-                        }
+                    let renderedUsername = displayUsername(profileUsername)
+                    let usernameBody = renderedUsername.hasPrefix("@") ? String(renderedUsername.dropFirst()) : renderedUsername
+                    HStack(spacing: 0) {
+                        Text("@")
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(usernameGoldTextColor)
+
+                        Text(usernameBody)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(usernameGoldTextColor)
+                            .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
+                    }
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .onLongPressGesture(minimumDuration: 2.0) {
+                        adminModerationPasswordInput = ""
+                        adminModerationPasswordError = ""
+                        isShowingAdminModerationPasswordPrompt = true
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .center)
@@ -4816,10 +5293,15 @@ struct ContentView: View {
     private var settingsAdvancedRowsCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             settingsRow(
-                title: "Verification",
-                value: isVerifiedUsernameUnderlined ? "Underlined" : "Getunderlined",
+                title: settingsVerificationRowTitle,
+                value: settingsVerificationRowValue,
+                valueColor: isVerifiedUsernameUnderlined ? .green : .secondary,
                 isValueUnderlined: isVerifiedUsernameUnderlined,
                 action: {
+                guard canOpenVerificationSettings else {
+                    accountAuthMessage = "This account is already verified. Sign in to a different account on this phone to open verification."
+                    return
+                }
                 idScanError = ""
                 idVerificationStep = .intro
                 hasAutoOpenedIDScanner = false
@@ -5362,7 +5844,7 @@ struct ContentView: View {
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                        ScrollView {
+                        ScrollView(showsIndicators: false) {
                             LazyVStack(alignment: .leading, spacing: 4) {
                                 ForEach(filteredPositionPresets, id: \.self) { preset in
                                     let isSelected = postDetailPositionValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == preset.lowercased()
@@ -5585,11 +6067,11 @@ struct ContentView: View {
                                     .padding(.top, 4)
                             }
                         } else {
-                            ScrollView {
+                            ScrollView(showsIndicators: false) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(results, id: \.username) { user in
                                         Button {
-                                            openDM(with: user, startsAnonymous: true)
+                                            openUserProfileScreen(with: user)
                                         } label: {
                                             userSearchResultSummaryView(for: user)
                                         }
@@ -5603,7 +6085,7 @@ struct ContentView: View {
                     .padding(.horizontal, 18)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 } else {
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 22) {
                             let visibleThreads = (anonymousMessagesTab == .incoming
                                 ? messages.filter { isThreadIncoming($0) && $0.isAnonymousConversation }
@@ -5870,11 +6352,11 @@ struct ContentView: View {
                                     .padding(.top, 4)
                             }
                         } else {
-                            ScrollView {
+                            ScrollView(showsIndicators: false) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(results, id: \ .username) { user in
                                         Button {
-                                            openDM(with: user, includePendingShare: isShareFlowActive && pendingSharePost != nil)
+                                            openUserProfileScreen(with: user)
                                         } label: {
                                             userSearchResultSummaryView(for: user)
                                         }
@@ -5888,7 +6370,7 @@ struct ContentView: View {
                     .padding(.horizontal, 18)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 } else {
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 22) {
                             let visibleThreads = (messagesTab == .incoming
                                 ? messages.filter { isThreadIncoming($0) }
@@ -5935,8 +6417,16 @@ struct ContentView: View {
     }
 
     private func latestChatMessage(for thread: DirectMessageThread) -> ChatMessage? {
-        let messagesForThread = chatMessages[thread.id] ?? []
+        let messagesForThread = chatMessages[threadMessageStoreKey(for: thread)] ?? []
         return messagesForThread.max { $0.id < $1.id }
+    }
+
+    private func threadMessageStoreKey(for thread: DirectMessageThread) -> Int {
+        let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !chatID.isEmpty, let mapped = threadIDByChatID[chatID] {
+            return mapped
+        }
+        return thread.id
     }
 
     private func threadPreviewText(for thread: DirectMessageThread) -> String {
@@ -6003,7 +6493,8 @@ struct ContentView: View {
                     followerCount: fallbackProfile.followerCount,
                     followingCount: fallbackProfile.followingCount,
                     profilePhotoText: fallbackProfile.profilePhotoText,
-                    profilePhotoURL: currentRemotePhoto
+                    profilePhotoURL: currentRemotePhoto,
+                    isVerifiedUsernameUnderlined: isVerifiedUsernameUnderlined
                 )
             }
         }
@@ -6043,6 +6534,7 @@ struct ContentView: View {
     }
 
     private func messageThreadRow(for thread: DirectMessageThread) -> some View {
+        // PROFILE_PHOTO_RESTORE_MAP: swap back to userProfileAvatarView(for:size:) to restore DM cell avatars.
         let previewText = threadPreviewText(for: thread)
         let previewTime = latestChatMessage(for: thread)?.time ?? thread.time
         let rawUsername = thread.username.isEmpty ? thread.participant : thread.username
@@ -6051,16 +6543,11 @@ struct ContentView: View {
             ? (thread.participant.hasPrefix("@") ? thread.participant : (thread.participant.isEmpty ? "@user" : thread.participant))
             : "@\(cleanedHandle)"
 
-        let resolvedUsername = thread.username.isEmpty ? "user" : (thread.username.hasPrefix("@") ? String(thread.username.dropFirst()) : thread.username)
-        let fallbackProfile = FakeUserProfile(userID: thread.participantUserID, username: resolvedUsername, name: thread.participant, city: "", bio: "", followerCount: 0, followingCount: 0, profilePhotoText: thread.initials)
-        let profileForThread: FakeUserProfile = resolveProfileForThread(thread, resolvedUsername: resolvedUsername, fallbackProfile: fallbackProfile)
-
         let effectiveIsIncoming = isThreadIncoming(thread)
 
-        let isUnread = effectiveIsIncoming && !isChatThreadRead(thread) && (selectedChatThread?.id != thread.id || currentScreen != .chatDetail)
+        let isUnread = isThreadUnread(thread) && (selectedChatThread?.id != thread.id || currentScreen != .chatDetail)
 
         return Button {
-            markChatThreadAsRead(thread)
             selectedChatThread = thread
             chatDetailReturnScreen = .messages
             if isShareFlowActive, let post = pendingSharePost {
@@ -6074,18 +6561,7 @@ struct ContentView: View {
             recalculateUnreadDirectMessageCount()
         } label: {
             HStack(alignment: .center, spacing: 12) {
-                if thread.isAnonymousConversation {
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: 42, height: 42)
-                        .overlay(
-                            Image(systemName: "theatermasks.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.95))
-                        )
-                } else {
-                    userProfileAvatarView(for: profileForThread, size: 42)
-                }
+                let _ = thread.isAnonymousConversation
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -6156,7 +6632,7 @@ struct ContentView: View {
             )
         }
 
-        let messagesForThread = chatMessages[thread.id] ?? []
+        let messagesForThread = chatMessages[threadMessageStoreKey(for: thread)] ?? []
         let backDestination: Screen = chatDetailReturnScreen
         let rawThreadUsername = thread.username.isEmpty ? thread.participant : thread.username
         let resolvedUsername = rawThreadUsername.isEmpty ? "you" : (rawThreadUsername.hasPrefix("@") ? String(rawThreadUsername.dropFirst()) : rawThreadUsername)
@@ -6232,7 +6708,7 @@ struct ContentView: View {
 
             Divider()
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(messagesForThread) { message in
                         messageRow(for: message, in: thread)
@@ -6267,6 +6743,7 @@ struct ContentView: View {
         .background(Color(.systemBackground).opacity(0.98))
         .onAppear {
             Task {
+                markChatThreadAsRead(thread)
                 await fetchDirectMessagesForThread(thread)
             }
         }
@@ -6291,6 +6768,18 @@ struct ContentView: View {
             return trimmedThreadUserID
         }
 
+        if let selected = selectedUserProfile {
+            let selectedID = selected.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let selectedUsername = FirebaseSpotService.normalizeUsername(selected.username)
+            let threadUsername = FirebaseSpotService.normalizeUsername(thread.username)
+            if !selectedID.isEmpty,
+               !FirebaseSpotService.isDeviceFallbackUserID(selectedID),
+               !selectedUsername.isEmpty,
+               selectedUsername == threadUsername {
+                return selectedID
+            }
+        }
+
         let rawName = thread.username.isEmpty ? thread.participant : thread.username
         let normalizedUsername = FirebaseSpotService.normalizeUsername(rawName)
         if !normalizedUsername.isEmpty,
@@ -6306,6 +6795,26 @@ struct ContentView: View {
     private func fetchDirectMessagesForThread(_ thread: DirectMessageThread) async {
         let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !chatID.isEmpty else { return }
+        let listenerOwnerID = (try? FirebaseSpotService.shared.currentUserID())?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !listenerOwnerID.isEmpty else { return }
+
+        await MainActor.run {
+            if !chatMessageListenersOwnerID.isEmpty && chatMessageListenersOwnerID != listenerOwnerID {
+                resetAllChatMessageListeners()
+                chatMessages.removeAll()
+            }
+
+            chatMessageListenersOwnerID = listenerOwnerID
+
+            let canonicalThreadID = threadIDByChatID[chatID] ?? thread.id
+            threadIDByChatID[chatID] = canonicalThreadID
+            if canonicalThreadID != thread.id, let staleMessages = chatMessages[thread.id], !staleMessages.isEmpty {
+                var existingMessages = chatMessages[canonicalThreadID] ?? []
+                existingMessages.append(contentsOf: staleMessages)
+                chatMessages[canonicalThreadID] = existingMessages
+                chatMessages.removeValue(forKey: thread.id)
+            }
+        }
 
         do {
             let fetched = try await FirebaseSpotService.shared.fetchChatMessages(chatID: chatID, limit: 200)
@@ -6325,31 +6834,46 @@ struct ContentView: View {
             }
 
             await MainActor.run {
-                chatMessages[thread.id] = localMessages
-                refreshThreadPreview(for: thread.id)
+                let targetThreadID = threadIDByChatID[chatID] ?? thread.id
+                threadIDByChatID[chatID] = targetThreadID
+                chatMessages[targetThreadID] = localMessages
+                refreshThreadPreview(for: targetThreadID)
             }
         } catch {
             print("Spot chat fetch failed for chatID \(chatID): \(error)")
         }
 
-        _ = FirebaseSpotService.shared.listenToChatMessages(chatID: chatID) { fetched in
-            let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
-            let updatedLocalMessages = fetched.enumerated().map { offset, message in
-                let isMine = !currentUID.isEmpty && message.senderID == currentUID
-                let sharedPost = self.resolvedSharedPostForChat(sharedPostID: message.sharedPostID)
-                let hasSharedPostID = !(message.sharedPostID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-                return ChatMessage(
-                    id: offset + 1,
-                    text: sharedPost == nil ? (hasSharedPostID ? "Shared post" : message.text) : "",
-                    isMine: isMine,
-                    time: "now",
-                    remoteMessageID: message.id,
-                    sharedPost: sharedPost
-                )
+        await MainActor.run {
+            guard chatMessageListenersByChatID[chatID] == nil else { return }
+
+            let registration = FirebaseSpotService.shared.listenToChatMessages(chatID: chatID) { fetched in
+                let callbackCurrentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
+                guard callbackCurrentUID == listenerOwnerID else { return }
+
+                let updatedLocalMessages = fetched.enumerated().map { offset, message in
+                    let isMine = !callbackCurrentUID.isEmpty && message.senderID == callbackCurrentUID
+                    let sharedPost = self.resolvedSharedPostForChat(sharedPostID: message.sharedPostID)
+                    let hasSharedPostID = !(message.sharedPostID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                    return ChatMessage(
+                        id: offset + 1,
+                        text: sharedPost == nil ? (hasSharedPostID ? "Shared post" : message.text) : "",
+                        isMine: isMine,
+                        time: "now",
+                        remoteMessageID: message.id,
+                        sharedPost: sharedPost
+                    )
+                }
+
+                Task { @MainActor in
+                    let targetThreadID = self.threadIDByChatID[chatID] ?? thread.id
+                    self.threadIDByChatID[chatID] = targetThreadID
+                    self.chatMessages[targetThreadID] = updatedLocalMessages
+                    self.refreshThreadPreview(for: targetThreadID)
+                }
             }
-            Task { @MainActor in
-                self.chatMessages[thread.id] = updatedLocalMessages
-                self.refreshThreadPreview(for: thread.id)
+
+            if let registration {
+                chatMessageListenersByChatID[chatID] = registration
             }
         }
     }
@@ -6371,9 +6895,46 @@ struct ContentView: View {
         return nil
     }
 
+    @MainActor
+    private func resetAllChatMessageListeners() {
+        for registration in chatMessageListenersByChatID.values {
+            registration.remove()
+        }
+        chatMessageListenersByChatID.removeAll()
+        threadIDByChatID.removeAll()
+        chatLastSenderIDByChatID.removeAll()
+        chatUpdatedAtByChatID.removeAll()
+        chatReadAtByChatID.removeAll()
+    }
+
+    private func chatNumericValue(_ value: Any?) -> TimeInterval {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        }
+        if let intValue = value as? Int {
+            return TimeInterval(intValue)
+        }
+        if let numberValue = value as? NSNumber {
+            return numberValue.doubleValue
+        }
+        return 0
+    }
+
     private func listenToUserChatsFromFirestore() {
         guard let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty else { return }
+        if let existing = userChatsListenerRegistration,
+           !userChatsListenerOwnerID.isEmpty,
+           userChatsListenerOwnerID != currentUID {
+            existing.remove()
+            userChatsListenerRegistration = nil
+            userChatsListenerOwnerID = ""
+            Task { @MainActor in
+                resetAllChatMessageListeners()
+                chatMessages.removeAll()
+            }
+        }
         guard userChatsListenerRegistration == nil else { return }
+        userChatsListenerOwnerID = currentUID
 
         userChatsListenerRegistration = FirebaseSpotService.shared.listenToUserChats(userID: currentUID) { chatData in
             guard let chatID = chatData["id"] as? String,
@@ -6384,6 +6945,9 @@ struct ContentView: View {
 
             let metadataLastSenderID = (chatData["lastSenderID"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            let metadataUpdatedAt = chatNumericValue(chatData["updatedAt"])
+            let metadataReadBy = chatData["readBy"] as? [String: Any] ?? [:]
+            let metadataReadAt = chatNumericValue(metadataReadBy[currentUID])
 
             let isAnon = (chatData["isAnonymous"] as? Bool) ?? chatID.hasPrefix("anon_")
             let otherUID = participantIDs.first { $0 != currentUID } ?? ""
@@ -6417,7 +6981,8 @@ struct ContentView: View {
                         followerCount: 0,
                         followingCount: 0,
                         profilePhotoText: String((fetchedAccount.displayName.isEmpty ? fetchedAccount.username : fetchedAccount.displayName).prefix(2)),
-                        profilePhotoURL: photoURL
+                        profilePhotoURL: photoURL,
+                        isVerifiedUsernameUnderlined: fetchedAccount.isVerifiedUsernameUnderlined
                     )
                     await MainActor.run {
                         self.cachePrefetchedProfile(accountProfile)
@@ -6438,11 +7003,15 @@ struct ContentView: View {
                 let displayName = isAnon ? "Anonymous" : (resolvedUsername.isEmpty ? (fetchedAccount?.displayName.isEmpty == false ? fetchedAccount!.displayName : "User") : "@\(resolvedUsername)")
 
                 await MainActor.run {
+                    chatLastSenderIDByChatID[chatID] = metadataLastSenderID
+                    chatUpdatedAtByChatID[chatID] = metadataUpdatedAt
+                    chatReadAtByChatID[chatID] = metadataReadAt
+
                     if let existingIndex = messages.firstIndex(where: {
                         ($0.chatID == chatID) ||
-                        (!chatID.isEmpty && $0.chatID.isEmpty && $0.participantUserID == otherUID && $0.isAnonymousConversation == isAnon) ||
-                        ($0.chatID.isEmpty && $0.participantUserID.isEmpty && $0.isAnonymousConversation == isAnon && ($0.username.lowercased() == resolvedUsername.lowercased() || $0.participant.lowercased() == displayName.lowercased()))
+                        (!chatID.isEmpty && $0.chatID.isEmpty && $0.participantUserID == otherUID && $0.isAnonymousConversation == isAnon)
                     }) {
+                        threadIDByChatID[chatID] = messages[existingIndex].id
                         messages[existingIndex].chatID = chatID
                         messages[existingIndex].preview = lastMessage.isEmpty ? messages[existingIndex].preview : lastMessage
                         messages[existingIndex].participantUserID = otherUID
@@ -6461,8 +7030,9 @@ struct ContentView: View {
                             }
                         }
                     } else {
+                        let stableThreadID = threadIDByChatID[chatID] ?? Int.random(in: 10000...99999)
                         let newThread = DirectMessageThread(
-                            id: Int.random(in: 10000...99999),
+                            id: stableThreadID,
                             participant: displayName,
                             username: resolvedUsername,
                             preview: lastMessage.isEmpty ? "New message" : lastMessage,
@@ -6473,6 +7043,7 @@ struct ContentView: View {
                             participantUserID: otherUID,
                             chatID: chatID
                         )
+                        threadIDByChatID[chatID] = stableThreadID
                         messages.insert(newThread, at: 0)
                         Task {
                             await fetchDirectMessagesForThread(newThread)
@@ -6509,6 +7080,14 @@ struct ContentView: View {
             let recipientID = await resolveDirectMessageThreadUserID(thread)
             print("💬 [DM DEBUG] Resolved Recipient UID: '\(recipientID)'")
 
+            guard !recipientID.isEmpty else {
+                print("💬 [DM DEBUG] ❌ Aborted send: Unable to resolve recipient UID")
+                await MainActor.run {
+                    accountAuthMessage = "Could not identify this recipient. Reopen the conversation and try again."
+                }
+                return
+            }
+
             if isUserBlocked(username: thread.username, userID: recipientID) || isUserBlocked(username: thread.participant, userID: recipientID) {
                 print("💬 [DM DEBUG] 🚫 Aborted send: Recipient is blocked")
                 await MainActor.run {
@@ -6517,37 +7096,56 @@ struct ContentView: View {
                 return
             }
 
-            let effectiveRecipientID = recipientID.isEmpty ? "local_recipient_\(thread.username.lowercased())" : recipientID
-            let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? FirebaseSpotService.chatID(for: [senderID, effectiveRecipientID], isAnonymous: thread.isAnonymousConversation)
-                : thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard recipientID != senderID else {
+                print("💬 [DM DEBUG] ❌ Aborted send: Sender and recipient IDs are identical")
+                await MainActor.run {
+                    accountAuthMessage = "You cannot send a direct message to this account right now."
+                }
+                return
+            }
 
-            print("💬 [DM DEBUG] Final Chat Document ID: '\(chatID)' (effective recipient: '\(effectiveRecipientID)')")
+            let chatID = FirebaseSpotService.chatID(for: [senderID, recipientID], isAnonymous: thread.isAnonymousConversation)
+
+            print("💬 [DM DEBUG] Final Chat Document ID: '\(chatID)'")
 
             var remoteMessageID: String? = nil
 
-            if recipientID.isEmpty {
-                print("💬 [DM DEBUG] ⚠️ WARNING: Recipient UID is EMPTY! Message will remain local-only until recipient UID is resolved.")
-            } else if recipientID == senderID {
-                print("💬 [DM DEBUG] ⚠️ WARNING: Sender UID and Recipient UID are identical ('\(senderID)'). Messaging self.")
-            } else {
-                print("💬 [DM DEBUG] Creating/fetching cloud chat document for participants [\(senderID), \(recipientID)]...")
-                let cloudChatID = try await FirebaseSpotService.shared.createOrGetChat(participantIDs: [senderID, recipientID], isAnonymous: thread.isAnonymousConversation)
-                print("💬 [DM DEBUG] ✅ Firestore chat document ready: '\(cloudChatID)'")
+            print("💬 [DM DEBUG] Creating/fetching cloud chat document for participants [\(senderID), \(recipientID)]...")
+            let cloudChatID = try await FirebaseSpotService.shared.createOrGetChat(participantIDs: [senderID, recipientID], isAnonymous: thread.isAnonymousConversation)
+            print("💬 [DM DEBUG] ✅ Firestore chat document ready: '\(cloudChatID)'")
 
-                print("💬 [DM DEBUG] Sending message to Firestore collection chats/\(cloudChatID)/messages...")
-                remoteMessageID = try await FirebaseSpotService.shared.sendChatMessage(chatID: cloudChatID, senderID: senderID, text: trimmedText)
-                print("💬 [DM DEBUG] ✅ Successfully saved message to Firestore!")
-            }
+            print("💬 [DM DEBUG] Sending message to Firestore collection chats/\(cloudChatID)/messages...")
+            remoteMessageID = try await FirebaseSpotService.shared.sendChatMessage(chatID: cloudChatID, senderID: senderID, text: trimmedText)
+            print("💬 [DM DEBUG] ✅ Successfully saved message to Firestore!")
+
+            let targetChatID = cloudChatID
 
             await MainActor.run {
-                if let index = messages.firstIndex(where: { $0.id == thread.id }) {
-                    messages[index].chatID = chatID
+                if let index = messages.firstIndex(where: { $0.chatID == targetChatID || $0.id == thread.id }) {
+                    messages[index].chatID = targetChatID
                     messages[index].participantUserID = recipientID
                     messages[index].isIncoming = false
+                    threadIDByChatID[targetChatID] = messages[index].id
+                } else {
+                    let createdThread = DirectMessageThread(
+                        id: thread.id,
+                        participant: thread.participant,
+                        username: thread.username,
+                        preview: trimmedText,
+                        time: "Now",
+                        unread: 0,
+                        isIncoming: false,
+                        isAnonymousConversation: thread.isAnonymousConversation,
+                        participantUserID: recipientID,
+                        chatID: targetChatID
+                    )
+                    messages.insert(createdThread, at: 0)
+                    threadIDByChatID[targetChatID] = createdThread.id
                 }
 
-                var updatedMessages = chatMessages[thread.id] ?? []
+                let targetThreadID = threadIDByChatID[targetChatID] ?? thread.id
+                threadIDByChatID[targetChatID] = targetThreadID
+                var updatedMessages = chatMessages[targetThreadID] ?? []
                 updatedMessages.append(
                     ChatMessage(
                         id: (updatedMessages.last?.id ?? 0) + 1,
@@ -6557,16 +7155,21 @@ struct ContentView: View {
                         remoteMessageID: remoteMessageID
                     )
                 )
-                chatMessages[thread.id] = updatedMessages
-                refreshThreadPreview(for: thread.id)
-                if selectedChatThread?.id == thread.id {
+                chatMessages[targetThreadID] = updatedMessages
+                refreshThreadPreview(for: targetThreadID)
+                if selectedChatThread?.id == targetThreadID || selectedChatThread?.id == thread.id {
                     selectedChatThread?.isIncoming = false
+                    selectedChatThread?.chatID = targetChatID
+                    selectedChatThread?.participantUserID = recipientID
                 }
                 chatComposerText = ""
             }
 
-            print("💬 [DM DEBUG] Fetching latest messages for thread chatID: '\(chatID)'...")
-            await fetchDirectMessagesForThread(thread)
+            print("💬 [DM DEBUG] Fetching latest messages for thread chatID: '\(targetChatID)'...")
+            let refreshedThread = await MainActor.run {
+                messages.first(where: { $0.chatID == targetChatID || $0.id == thread.id }) ?? thread
+            }
+            await fetchDirectMessagesForThread(refreshedThread)
         } catch {
             print("💬 [DM DEBUG] ❌ Direct message send FAILED with error: \(error)")
             await MainActor.run {
@@ -6579,7 +7182,7 @@ struct ContentView: View {
         guard let target = pendingUnsendTarget else { return }
         pendingUnsendTarget = nil
 
-        guard let thread = messages.first(where: { $0.id == target.threadID }) else { return }
+        guard let thread = messages.first(where: { $0.id == target.threadID || threadMessageStoreKey(for: $0) == target.threadID }) else { return }
 
         await MainActor.run {
             var updatedMessages = chatMessages[target.threadID] ?? []
@@ -6686,9 +7289,7 @@ struct ContentView: View {
                             openUserProfile(from: post)
                         },
                         onMessageTap: {
-                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                            openDM(with: matchingUser)
+                            openDM(with: resolvedProfileForPost(post))
                         },
                         onMapFocusTap: { tappedPost in
                             openMapFocusedOnPost(tappedPost)
@@ -6710,7 +7311,7 @@ struct ContentView: View {
                     TapGesture().onEnded {
                         guard message.isMine else { return }
                         pendingUnsendTarget = PendingUnsendTarget(
-                            threadID: thread.id,
+                            threadID: threadMessageStoreKey(for: thread),
                             localMessageID: message.id,
                             remoteMessageID: message.remoteMessageID
                         )
@@ -6736,7 +7337,7 @@ struct ContentView: View {
                     TapGesture().onEnded {
                         guard message.isMine else { return }
                         pendingUnsendTarget = PendingUnsendTarget(
-                            threadID: thread.id,
+                            threadID: threadMessageStoreKey(for: thread),
                             localMessageID: message.id,
                             remoteMessageID: message.remoteMessageID
                         )
@@ -7010,11 +7611,11 @@ struct ContentView: View {
         }
 
         recentLocations.insert(cleaned, at: 0)
-        if recentLocations.count > 3 {
+        if recentLocations.count > 50 {
             recentLocations.removeLast()
         }
 
-        recentLocations = Self.deduplicatedLocationNames(recentLocations, limit: 3)
+        recentLocations = Self.deduplicatedLocationNames(recentLocations, limit: 50)
         persistRecentLocations()
     }
 
@@ -7150,14 +7751,14 @@ struct ContentView: View {
         ]
 
         if let center {
-            let lonDelta = 0.8
-            let latDelta = 0.6
+            let lonDelta = 5.0
+            let latDelta = 4.0
             let left = center.longitude - lonDelta
             let right = center.longitude + lonDelta
             let top = center.latitude + latDelta
             let bottom = center.latitude - latDelta
             items.append(URLQueryItem(name: "viewbox", value: "\(left),\(top),\(right),\(bottom)"))
-            items.append(URLQueryItem(name: "bounded", value: "1"))
+            items.append(URLQueryItem(name: "bounded", value: "0"))
         }
 
         components?.queryItems = items
@@ -7575,6 +8176,22 @@ struct ContentView: View {
         return popularTerms.contains { normalized.contains($0) }
     }
 
+    private func isRestaurantCategory(_ category: String) -> Bool {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let restaurantTerms = [
+            "restaurant", "food", "diner", "eatery", "cafe", "coffee", "fast_food"
+        ]
+        return restaurantTerms.contains { normalized.contains($0) }
+    }
+
+    private func isParkCategory(_ category: String) -> Bool {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let parkTerms = [
+            "park", "playground", "garden", "nature_reserve", "recreation", "dog_park"
+        ]
+        return parkTerms.contains { normalized.contains($0) }
+    }
+
     private func formatDistanceFeetOrMiles(_ miles: Double) -> String {
         let safeMiles = max(0, miles)
         if safeMiles < 0.1 {
@@ -7624,6 +8241,31 @@ struct ContentView: View {
             return lhsDistance < rhsDistance
         }
 
+        let fallbackPool = NearbyPlaceLoader.loadAllPlaces(from: userCoordinate, limit: 180)
+        let sortedFallback = Self.deduplicatedNearbyPlaces(fallbackPool).sorted { lhs, rhs in
+            let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+            )
+            let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+            )
+            return lhsDistance < rhsDistance
+        }
+
+        let categorySelectionPool = Self.deduplicatedNearbyPlaces(sortedNearby + sortedFallback).sorted { lhs, rhs in
+            let lhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+            )
+            let rhsDistance = NearbyPlaceLoader.haversineMiles(
+                from: userCoordinate,
+                to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+            )
+            return lhsDistance < rhsDistance
+        }
+
         var built: [LocationSearchSuggestion] = []
         var used = Set<String>()
 
@@ -7644,33 +8286,30 @@ struct ContentView: View {
             )
         }
 
+        func appendNearestCategory(subtitle: String, matcher: (NearbyPlace) -> Bool) {
+            guard let match = categorySelectionPool.first(where: { candidate in
+                let normalizedName = Self.normalizedLocationRealm(candidate.name)
+                return matcher(candidate) && !used.contains(normalizedName)
+            }) else {
+                return
+            }
+            appendPlace(match, subtitle: subtitle)
+        }
+
         let nearestPOIs = sortedNearby.filter { !isBroadAreaCategory($0.category) }
         for place in nearestPOIs.prefix(3) {
             appendPlace(place)
         }
 
-        if let nearestBusiness = nearestPOIs.first(where: {
-            isBusinessCategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
-        }) {
-            appendPlace(nearestBusiness, subtitle: "Business")
+        // Keep the final three spots user-specific and intent-driven.
+        appendNearestCategory(subtitle: "Business") { place in
+            isBusinessCategory(place.category) && !isRestaurantCategory(place.category)
         }
-
-        if let popularPOI = nearestPOIs.first(where: {
-            isPopularPOICategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
-        }) {
-            appendPlace(popularPOI, subtitle: "Popular")
+        appendNearestCategory(subtitle: "Park") { place in
+            isParkCategory(place.category)
         }
-
-        if let broadArea = sortedNearby.first(where: {
-            isBroadAreaCategory($0.category) && !used.contains(Self.normalizedLocationRealm($0.name))
-        }) {
-            appendPlace(broadArea, subtitle: "Area")
-        } else {
-            let normalizedArea = Self.normalizedLocationRealm(nearbyAreaLabel)
-            if !normalizedArea.isEmpty,
-               let fallbackArea = sortedNearby.first(where: { Self.normalizedLocationRealm($0.name) == normalizedArea }) {
-                appendPlace(fallbackArea, subtitle: "Area")
-            }
+        appendNearestCategory(subtitle: "Restaurant") { place in
+            isRestaurantCategory(place.category)
         }
 
         if built.count < 6 {
@@ -7680,14 +8319,7 @@ struct ContentView: View {
         }
 
         if built.count < 6 {
-            for place in sortedNearby where built.count < 6 {
-                appendPlace(place)
-            }
-        }
-
-        if built.count < 6 {
-            let fallbackPool = NearbyPlaceLoader.loadAllPlaces(from: userCoordinate, limit: 120)
-            for place in fallbackPool where built.count < 6 {
+            for place in categorySelectionPool where built.count < 6 {
                 appendPlace(place)
             }
         }
@@ -8146,9 +8778,7 @@ struct ContentView: View {
                             openUserProfile(from: pinnedPost)
                         },
                         onMessageTap: {
-                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == pinnedPost.handle.lowercased() })
-                                ?? fallbackProfile(for: pinnedPost.handle, displayName: pinnedPost.author, userID: pinnedPost.authorUserID, profilePhotoURL: pinnedPost.authorProfilePhotoURL)
-                            openDM(with: matchingUser)
+                            openDM(with: resolvedProfileForPost(pinnedPost))
                         },
                         onMapFocusTap: { tappedPost in
                             openMapFocusedOnPost(tappedPost)
@@ -8284,11 +8914,47 @@ struct ContentView: View {
         }
     }
 
+    private func emptyLocationSearchResultView(queryText: String, context: LocationContext, closeScreen: Screen?) -> some View {
+        let cleanNodeName = queryText.hasPrefix("#") ? String(queryText.dropFirst()) : queryText
+
+        return Button {
+            let customNodeLocation = cleanNodeName
+            handleLocationSelection(customNodeLocation, context: context, closeScreen: closeScreen, saveToRecent: true, saveToFavorites: false)
+            locationSearchText = ""
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "globe.americas.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.black)
+
+                Text("Tap to establish custom channel: \(cleanNodeName)")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.black)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.black)
+            }
+            .padding(14)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var locationPickerView: some View {
         let context = locationContext
         let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
         let nearbySuggestions = nearbyLocationSuggestions()
-        let recentSearchOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
+        let recentSearchOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 50)
         let currentValue = currentLocationValue(for: context)
         let normalizedCurrentValue = Self.normalizedLocationRealm(currentValue)
         let isNearestFeedSelected = normalizedCurrentValue == Self.normalizedLocationRealm("Metric")
@@ -8309,7 +8975,7 @@ struct ContentView: View {
 
                         LocationField(
                             title: "",
-                            placeholder: "Search places, homes, or areas",
+                            placeholder: "Search",
                             text: $locationSearchText,
                             suggestions: visibleLocationSuggestions,
                             onSuggestionSelected: { chosen in
@@ -8337,17 +9003,8 @@ struct ContentView: View {
                             locationSectionHeader("SEARCH RESULTS")
 
                             if visibleLocationSuggestions.isEmpty {
-                                Text("No locations found")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(12)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                                    )
+                                let queryText = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                emptyLocationSearchResultView(queryText: queryText, context: context, closeScreen: closeScreenAfterSelection)
                             } else {
                                 ForEach(visibleLocationSuggestions.prefix(12), id: \.id) { suggestion in
                                     Button {
@@ -8388,7 +9045,7 @@ struct ContentView: View {
                             )
                         } label: {
                             locationOptionLabel(
-                                "Nearest",
+                                "Tiding",
                                 subtitle: "Every user can post anywhere",
                                 isSelected: isNearestFeedSelected,
                                 showsMetricIcon: false
@@ -8477,10 +9134,12 @@ struct ContentView: View {
         .onAppear {
             requestNearbyLocationsIfNeeded(context: context)
         }
-        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { oldVal, newVal in
+            guard let oldVal, let newVal, abs(oldVal - newVal) > 0.001 else { return }
             requestNearbyLocationsIfNeeded(context: context)
         }
-        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { oldVal, newVal in
+            guard let oldVal, let newVal, abs(oldVal - newVal) > 0.001 else { return }
             requestNearbyLocationsIfNeeded(context: context)
         }
     }
@@ -8488,7 +9147,7 @@ struct ContentView: View {
     private var postLocationPickerView: some View {
         let nearbyOptions = Self.deduplicatedNearbyPlaces(nearbyPlaces)
         let nearbySuggestions = nearbyLocationSuggestions()
-        let recentOrSavedOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 8)
+        let recentOrSavedOptions = Self.deduplicatedLocationNames(recentLocations.isEmpty ? savedLocations : recentLocations, limit: 50)
         let currentPostValue = currentLocationValue(for: .post)
         let normalizedPostLocation = Self.normalizedLocationRealm(currentPostValue)
         let isNearestFeedSelected = normalizedPostLocation == Self.normalizedLocationRealm("Metric")
@@ -8509,7 +9168,7 @@ struct ContentView: View {
 
                         LocationField(
                             title: "",
-                            placeholder: "Search places, homes, or areas",
+                            placeholder: "Search",
                             text: $locationSearchText,
                             suggestions: visibleLocationSuggestions,
                             onSuggestionSelected: { chosen in
@@ -8579,7 +9238,7 @@ struct ContentView: View {
                             handleLocationSelection("Metric", context: .post, closeScreen: nil, saveToRecent: false, saveToFavorites: false)
                         } label: {
                             locationOptionLabel(
-                                "Nearest",
+                                "Tiding",
                                 subtitle: "Every user can post anywhere",
                                 isSelected: isNearestFeedSelected,
                                 showsMetricIcon: false
@@ -8692,10 +9351,12 @@ struct ContentView: View {
         .onAppear {
             requestNearbyLocationsIfNeeded(context: .post)
         }
-        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { oldVal, newVal in
+            guard let oldVal, let newVal, abs(oldVal - newVal) > 0.001 else { return }
             requestNearbyLocationsIfNeeded(context: .post)
         }
-        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { oldVal, newVal in
+            guard let oldVal, let newVal, abs(oldVal - newVal) > 0.001 else { return }
             requestNearbyLocationsIfNeeded(context: .post)
         }
     }
@@ -8745,8 +9406,7 @@ struct ContentView: View {
                 return
             }
 
-            let cleanHandle = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-            let authorHandle = cleanHandle.isEmpty ? "you" : (cleanHandle.hasPrefix("@") ? String(cleanHandle.dropFirst()) : cleanHandle)
+            let authorHandle = resolvedPostingUsername()
             let authorDisplay = authorHandle.isEmpty ? "you" : authorHandle
             let authorPhotoURL = profilePhotoRemoteURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : profilePhotoRemoteURL
 
@@ -8867,11 +9527,6 @@ struct ContentView: View {
                     && !isPostReported(post)
             }
             : []
-        let globalPinnedKeys = Set(
-            adminPinnedRealmMap()
-                .filter { $0.value == Self.adminPinAllNonMetricMarker }
-                .map { $0.key }
-        )
         let includeGlobalPinnedForLocation = !isFriendsFeed
             && !isFollowingFeed
             && !isMapAreaFeed
@@ -8916,7 +9571,7 @@ struct ContentView: View {
             && Self.normalizedLocationRealm(activeLocation) != Self.normalizedLocationRealm("Metric")
         let videoCandidatesByRealmPin = prioritizeAdminPinnedPosts(videoCandidates, activeLocation: activeLocation)
         let sortedVideoPosts = isMetricVideoFeed
-            ? prioritizeAdminVideoMetricPinnedPosts(videoCandidatesByRealmPin)
+            ? rankedDirectNearestNewestPosts(prioritizeAdminVideoMetricPinnedPosts(videoCandidatesByRealmPin))
             : (isNonMetricVideoFeed ? prioritizeAdminVideoNonMetricPinnedPosts(videoCandidatesByRealmPin) : videoCandidatesByRealmPin)
         let restoreVideoTargetIndex = pendingVideoFeedRestorePostID.flatMap { targetID in
             sortedVideoPosts.firstIndex(where: { $0.id == targetID })
@@ -8942,7 +9597,7 @@ struct ContentView: View {
                 .ignoresSafeArea(edges: .top)
 
                 ScrollViewReader { scrollProxy in
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             VStack(alignment: .leading, spacing: 0) {
                                 VStack(spacing: 4) {
@@ -8994,9 +9649,7 @@ struct ContentView: View {
                                             openUserProfile(from: post)
                                         },
                                         onMessageTap: {
-                                            let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                                ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                            openDM(with: matchingUser)
+                                            openDM(with: resolvedProfileForPost(post))
                                         },
                                         onMapFocusTap: { tappedPost in
                                             openMapFocusedOnPost(tappedPost)
@@ -9086,6 +9739,24 @@ struct ContentView: View {
             )
         }
         .onChange(of: posts.map(\.id)) { _, _ in
+            rebuildVideoFeedRanking(
+                candidates: visibleVideoPosts,
+                activeLocation: activeLocation,
+                followingOnly: showFollowingVideoOnly,
+                isFriendsFeed: isFriendsFeed,
+                force: true
+            )
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.latitude) { _, _ in
+            rebuildVideoFeedRanking(
+                candidates: visibleVideoPosts,
+                activeLocation: activeLocation,
+                followingOnly: showFollowingVideoOnly,
+                isFriendsFeed: isFriendsFeed,
+                force: true
+            )
+        }
+        .onChange(of: locationService.lastKnownLocation?.coordinate.longitude) { _, _ in
             rebuildVideoFeedRanking(
                 candidates: visibleVideoPosts,
                 activeLocation: activeLocation,
@@ -9334,7 +10005,7 @@ struct ContentView: View {
                             applyLocationSelection(item, context: .feed)
                             if !recentLocations.contains(item) {
                                 recentLocations.insert(item, at: 0)
-                                if recentLocations.count > 6 {
+                                if recentLocations.count > 50 {
                                     recentLocations.removeLast()
                                 }
                                 persistRecentLocations()
@@ -9382,7 +10053,9 @@ struct ContentView: View {
 
         return GeometryReader { container in
             let userProfileBodyMinHeight = max(320, container.size.height - 16)
-            let profileHeaderHeight: CGFloat = 125
+            let isOwnViewedProfile = isOwnProfile(profile)
+            let profileHeaderHeight: CGFloat = isOwnViewedProfile ? 132 : 118
+            let headerToFirstPostGap: CGFloat = isOwnViewedProfile ? 2 : 2
             let topGrayHeight = container.safeAreaInsets.top + profileHeaderHeight
             let profileChromeColor = Color.white
 
@@ -9398,9 +10071,9 @@ struct ContentView: View {
                 .ignoresSafeArea(edges: .top)
                 .zIndex(1)
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Color.clear.frame(height: profileHeaderHeight + 2)
+                        Color.clear.frame(height: profileHeaderHeight + headerToFirstPostGap)
                         VStack(alignment: .leading, spacing: 0) {
                             userProfilePostsView(profile: profile, profilePosts: profilePosts)
                         }
@@ -9421,6 +10094,10 @@ struct ContentView: View {
                     .ignoresSafeArea(edges: .top)
             }
             .overlay(alignment: .topLeading) {
+                let backChevronTopPadding = isOwnProfile(profile)
+                    ? (container.safeAreaInsets.top + 10)
+                    : max(0, container.safeAreaInsets.top - 46)
+
                 Button {
                     closeUserProfileScreen()
                 } label: {
@@ -9432,7 +10109,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.leading, 18)
-                .padding(.top, container.safeAreaInsets.top + 10)
+                .padding(.top, backChevronTopPadding)
             }
             .zIndex(2)
         }
@@ -9473,6 +10150,11 @@ struct ContentView: View {
     private func userProfileHeaderView(profile: FakeUserProfile, profilePosts: [MockPost], topSafeArea: CGFloat) -> some View {
         let isOwnViewedProfile = isOwnProfile(profile)
         let profileChromeColor = Color.white
+        let publicPosts = profilePosts.filter { !$0.isAnonymous }
+        let publicPostCount = publicPosts.count
+        let publicLikesTotal = publicPosts.reduce(0) { total, post in
+            total + max(0, post.likes)
+        }
 
         let samplePostWithAge = profilePosts.first(where: { !$0.isAnonymous && !($0.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })
         let samplePostWithPosition = profilePosts.first(where: { !$0.isAnonymous && !($0.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })
@@ -9495,6 +10177,19 @@ struct ContentView: View {
         let userPositionText = (isOwnViewedProfile ? postDetailPositionValue : (samplePostWithPosition?.authorPosition ?? "")).trimmingCharacters(in: .whitespacesAndNewlines)
         let shouldShowAge = !userAgeText.isEmpty
         let shouldShowPosition = !userPositionText.isEmpty
+        let profileForDM = FakeUserProfile(
+            id: profile.id,
+            userID: profile.userID,
+            username: resolvedUsername,
+            name: profile.name,
+            city: profile.city,
+            bio: profile.bio,
+            followerCount: profile.followerCount,
+            followingCount: profile.followingCount,
+            profilePhotoText: profile.profilePhotoText,
+            profilePhotoURL: profile.profilePhotoURL,
+            isVerifiedUsernameUnderlined: profile.isVerifiedUsernameUnderlined
+        )
 
         return VStack(spacing: 0) {
             VStack(alignment: .center, spacing: 6) {
@@ -9521,38 +10216,21 @@ struct ContentView: View {
                         .buttonStyle(.plain)
                     }
 
-                    Text(displayUsername(resolvedUsername))
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(usernameGoldTextColor)
-                        .underline(isOwnViewedProfile && isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                    let renderedUsername = displayUsername(resolvedUsername)
+                    let usernameBody = renderedUsername.hasPrefix("@") ? String(renderedUsername.dropFirst()) : renderedUsername
+                    HStack(spacing: 0) {
+                        Text("@")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(usernameGoldTextColor)
 
-                    if !isOwnViewedProfile {
-                        Button {
-                            let profileForDM = FakeUserProfile(
-                                id: profile.id,
-                                userID: profile.userID,
-                                username: resolvedUsername,
-                                name: profile.name,
-                                city: profile.city,
-                                bio: profile.bio,
-                                followerCount: profile.followerCount,
-                                followingCount: profile.followingCount,
-                                profilePhotoText: profile.profilePhotoText,
-                                profilePhotoURL: profile.profilePhotoURL
-                            )
-                            openDM(with: profileForDM)
-                        } label: {
-                            Image(systemName: "message.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.primary)
-                                .padding(7)
-                                .background(Color(.systemGray6))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
+                        Text(usernameBody)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(usernameGoldTextColor)
+                            .underline(profile.isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
                     }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
                 }
 
                 if shouldShowAge || shouldShowPosition {
@@ -9577,11 +10255,36 @@ struct ContentView: View {
                         }
                     }
                 }
+
+                if isOwnViewedProfile {
+                    HStack(alignment: .center, spacing: 8) {
+                        profileSummaryChip(title: "Public posts", value: publicPostCount)
+                        profileSummaryChip(title: "Public likes", value: publicLikesTotal)
+                    }
+                } else {
+                    Button {
+                        openDM(with: profileForDM)
+                    } label: {
+                        Label("Message", systemImage: "bubble.left.and.bubble.right")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color.black, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, topSafeArea + 4)
             .padding(.horizontal, 18)
-            .padding(.bottom, 8)
+            .padding(.bottom, isOwnViewedProfile ? 8 : 0)
             .background(profileChromeColor)
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -9591,45 +10294,26 @@ struct ContentView: View {
 
     @ViewBuilder
     private func userProfileAvatarView(for profile: FakeUserProfile, size: CGFloat, samplePosts: [MockPost] = []) -> some View {
-        let samplePhotoURL = samplePosts.first(where: { !$0.isAnonymous && !($0.authorProfilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) })?.authorProfilePhotoURL ?? ""
-        let remotePhotoURL = (profile.profilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? profile.profilePhotoURL! : samplePhotoURL).trimmingCharacters(in: .whitespacesAndNewlines)
+        let _ = profile
+        let _ = size
+        let _ = samplePosts
+        EmptyView()
+    }
 
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.992, green: 0.996, blue: 1.0), Color(red: 0.97, green: 0.982, blue: 0.995)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size, height: size)
+    private func profileSummaryChip(title: String, value: Int) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color(.systemGray))
 
-            if isOwnProfile(profile), let localImage = displayProfilePhotoImage {
-                Image(uiImage: localImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable()
-                           .scaledToFill()
-                           .frame(width: size, height: size)
-                           .clipShape(Circle())
-                    default:
-                        emptyProfilePersonAvatar(size: size)
-                    }
-                }
-            } else {
-                emptyProfilePersonAvatar(size: size)
-            }
-
-            avatarGoldRing(lineWidth: 1.35)
-                .frame(width: size, height: size)
+            Text(formatFollowerCount(max(0, value)))
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.primary)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color(.systemGray6))
+        .clipShape(Capsule())
     }
 
     private func userProfilePostsView(profile: FakeUserProfile, profilePosts: [MockPost]) -> some View {
@@ -9680,9 +10364,7 @@ struct ContentView: View {
                                 openUserProfile(from: post)
                             },
                             onMessageTap: {
-                                let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                    ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                openDM(with: matchingUser)
+                                openDM(with: resolvedProfileForPost(post))
                             },
                             onMapFocusTap: { tappedPost in
                                 openMapFocusedOnPost(tappedPost)
@@ -9805,9 +10487,7 @@ struct ContentView: View {
                 openUserProfile(from: post)
             },
             onMessageTap: {
-                let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                    ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                openDM(with: matchingUser)
+                openDM(with: resolvedProfileForPost(post))
             },
             onMapFocusTap: { tappedPost in
                 openMapFocusedOnPost(tappedPost)
@@ -9821,7 +10501,7 @@ struct ContentView: View {
 
     private var anonymousPostsView: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         backButton(destination: .settings)
@@ -9853,7 +10533,7 @@ struct ContentView: View {
 
     private var savedPostsView: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         backButton(destination: .settings)
@@ -9903,9 +10583,7 @@ struct ContentView: View {
                                         openUserProfile(from: post)
                                     },
                                     onMessageTap: {
-                                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                                        openDM(with: matchingUser)
+                                        openDM(with: resolvedProfileForPost(post))
                                     },
                                     onMapFocusTap: { tappedPost in
                                         openMapFocusedOnPost(tappedPost)
@@ -9942,6 +10620,11 @@ struct ContentView: View {
             )
             return include && !isPostReported($0)
         })
+        let ownPublicPosts = yourPosts.filter { !$0.isAnonymous }
+        let ownPublicPostCount = ownPublicPosts.count
+        let ownPublicLikesTotal = ownPublicPosts.reduce(0) { total, post in
+            total + max(0, post.likes)
+        }
         let showOwnProfileSparseState = yourPosts.isEmpty
 
         return GeometryReader { container in
@@ -10004,13 +10687,21 @@ struct ContentView: View {
                             Button {
                                 openSettingsScreen()
                             } label: {
-                                Text(displayUsername(profileUsername))
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(usernameGoldTextColor)
-                                    .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                                    .multilineTextAlignment(.center)
+                                let renderedUsername = displayUsername(profileUsername)
+                                let usernameBody = renderedUsername.hasPrefix("@") ? String(renderedUsername.dropFirst()) : renderedUsername
+                                HStack(spacing: 0) {
+                                    Text("@")
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(usernameGoldTextColor)
+
+                                    Text(usernameBody)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(usernameGoldTextColor)
+                                        .underline(isVerifiedUsernameUnderlined, color: usernameGoldTextColor)
+                                }
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .multilineTextAlignment(.center)
                             }
                             .buttonStyle(.plain)
 
@@ -10048,6 +10739,11 @@ struct ContentView: View {
                                         .lineLimit(1)
                                 }
                             }
+                        }
+
+                        HStack(alignment: .center, spacing: 8) {
+                            profileSummaryChip(title: "Public posts", value: ownPublicPostCount)
+                            profileSummaryChip(title: "Public likes", value: ownPublicLikesTotal)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -10256,14 +10952,10 @@ struct ContentView: View {
                         reportPost(post)
                     },
                     onProfileTap: {
-                        let resolvedProfile = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                        openUserProfileScreen(with: resolvedProfile)
+                        openUserProfileScreen(with: resolvedProfileForPost(post))
                     },
                     onMessageTap: {
-                        let matchingUser = fakeUserProfiles.first(where: { $0.username.lowercased() == post.handle.lowercased() })
-                            ?? fallbackProfile(for: post.handle, displayName: post.author, userID: post.authorUserID, profilePhotoURL: post.authorProfilePhotoURL)
-                        openDM(with: matchingUser)
+                        openDM(with: resolvedProfileForPost(post))
                     },
                     onMapFocusTap: { tappedPost in
                         openMapFocusedOnPost(tappedPost)
@@ -10413,7 +11105,7 @@ struct ContentView: View {
     }
 
     private func blockUsersEditorView() -> some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Block Users")
                     .font(.title3.weight(.semibold))
@@ -10538,7 +11230,7 @@ struct ContentView: View {
             (posts: 40, price: 39.99, label: "Free Spirit bundle")
         ]
 
-        return ScrollView {
+        return ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
                     Toggle("", isOn: Binding(
@@ -10642,7 +11334,7 @@ struct ContentView: View {
     }
 
     private func bulkDeletePostsEditorView() -> some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Hard reset platform posts")
                     .font(.title3.weight(.semibold))
@@ -10769,7 +11461,7 @@ struct ContentView: View {
                         case .searchUsers:
                             AnyView(searchUsersEditorView())
                         case .photo:
-                            AnyView(profileTextEditorView())
+                            AnyView(profilePhotoDisabledEditorView())
                         case .technicalSupport:
                             AnyView(technicalSupportEditorView())
                         case .locationAlerts:
@@ -10934,12 +11626,9 @@ struct ContentView: View {
                         .foregroundStyle(Color.green)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("ID verification ready")
+                        Text("Verification ID ready")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.primary)
-                        Text("We found a legal name and prepared your credited username. You can edit it before confirming.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(14)
@@ -10971,7 +11660,7 @@ struct ContentView: View {
                         Image(systemName: "at")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color.orange)
-                        Text("Credited Username")
+                        Text("Credited Underlined Username")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -11015,7 +11704,7 @@ struct ContentView: View {
                         Text("Verified name membership")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Text("Temporarily free")
+                        Text("Free during testing")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.primary)
                     }
@@ -12156,33 +12845,80 @@ struct ContentView: View {
         generatedVerifiedUsername = enforcedVerifiedUsername
 
         isProcessingID = true
+        let previousUsername = capUsernameInput(accountUsername)
+        let legalDisplayName = "\(extractedFirstName) \(extractedLastName)".trimmingCharacters(in: .whitespacesAndNewlines)
+        let preVerificationPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? accountPassword)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let applyLocalVerifiedIdentity = {
+            let resolvedDisplayName = legalDisplayName.isEmpty ? profileName : legalDisplayName
+
+            UserDefaults.standard.set(enforcedVerifiedUsername, forKey: accountUsernameDefaultsKey)
+            UserDefaults.standard.set(true, forKey: accountVerifiedUnderlineDefaultsKey)
+            UserDefaults.standard.set(enforcedVerifiedUsername, forKey: verifiedLockedUsernameDefaultsKey)
+            if !preVerificationPassword.isEmpty {
+                UserDefaults.standard.set(preVerificationPassword, forKey: accountPasswordDefaultsKey)
+            }
+            if !resolvedDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                UserDefaults.standard.set(resolvedDisplayName, forKey: profileNameDefaultsKey)
+            }
+
+            profileUsername = enforcedVerifiedUsername
+            accountUsername = enforcedVerifiedUsername
+            signInUsername = enforcedVerifiedUsername
+            if !resolvedDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                profileName = resolvedDisplayName
+            }
+            if !preVerificationPassword.isEmpty {
+                accountPassword = preVerificationPassword
+            }
+            isVerifiedUsernameUnderlined = true
+            rememberUsernameAliases([enforcedVerifiedUsername, previousUsername])
+            applyUserProfileToOwnPosts(
+                username: enforcedVerifiedUsername,
+                displayName: resolvedDisplayName,
+                previousUsernames: [previousUsername]
+            )
+            upsertSavedAccount(
+                email: accountEmail,
+                username: enforcedVerifiedUsername,
+                displayName: resolvedDisplayName,
+                profilePhotoURL: profilePhotoRemoteURL,
+                password: accountPassword,
+                isVerifiedUsernameUnderlined: true,
+                verifiedLockedUsername: enforcedVerifiedUsername
+            )
+            idVerificationStep = .intro
+            activeSettingsEditor = nil
+            enforceVerifiedCredentialLock()
+        }
 
         do {
-            let previousUsername = capUsernameInput(accountUsername)
             let userID = await ensureAuthenticatedUserRecord()
             guard !userID.isEmpty else {
-                idScanError = "Could not create a user identity for this username."
+                applyLocalVerifiedIdentity()
+                UserDefaults.standard.set(true, forKey: verificationSyncPendingDefaultsKey)
+                idScanError = "Verified username saved locally. Cloud sync pending."
                 isProcessingID = false
                 return
             }
 
-            let isAvailableInFirestore = try await FirebaseSpotService.shared.checkUsernameAvailability(
+            _ = try await FirebaseSpotService.shared.checkUsernameAvailability(
                 username: enforcedVerifiedUsername,
-                currentUserID: userID
+                currentUserID: userID,
+                allowVerifiedDuplicate: true
             )
-            guard isAvailableInFirestore else {
-                idScanError = "That username is taken by another account."
-                isProcessingID = false
-                return
-            }
 
             try await FirebaseSpotService.shared.saveUserProfile(
                 userID: userID,
                 username: enforcedVerifiedUsername,
-                displayName: "\(extractedFirstName) \(extractedLastName)".trimmingCharacters(in: .whitespacesAndNewlines),
+                displayName: legalDisplayName,
                 bio: nil,
-                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL,
+                allowVerifiedDuplicateUsername: true
             )
+            try? await FirebaseSpotService.shared.setUserVerificationUnderline(userID: userID, enabled: true)
+            UserDefaults.standard.set(false, forKey: verificationSyncPendingDefaultsKey)
 
             let verificationRouting = FirebaseIDVerificationRoutingContext(
                 documentFamily: idVerificationDocumentFamilyHint,
@@ -12200,29 +12936,22 @@ struct ContentView: View {
                 provider: .localHeuristic
             )
 
-            UserDefaults.standard.set(enforcedVerifiedUsername, forKey: accountUsernameDefaultsKey)
-            UserDefaults.standard.set(true, forKey: accountVerifiedUnderlineDefaultsKey)
-            profileUsername = enforcedVerifiedUsername
-            accountUsername = enforcedVerifiedUsername
-            signInUsername = enforcedVerifiedUsername
-            isVerifiedUsernameUnderlined = true
-            rememberUsernameAliases([enforcedVerifiedUsername, previousUsername])
-            applyUserProfileToOwnPosts(
+            let aliasCandidates = rememberedUsernameAliases() + [previousUsername]
+            _ = try? await FirebaseSpotService.shared.syncAuthorIdentityForPosts(
+                authorID: userID,
                 username: enforcedVerifiedUsername,
-                displayName: profileName,
-                previousUsernames: [previousUsername]
+                previousUsername: previousUsername,
+                usernameAliases: aliasCandidates,
+                displayName: legalDisplayName.isEmpty ? enforcedVerifiedUsername : legalDisplayName,
+                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL
             )
-            upsertSavedAccount(
-                email: accountEmail,
-                username: enforcedVerifiedUsername,
-                displayName: profileName,
-                profilePhotoURL: profilePhotoRemoteURL,
-                password: accountPassword
-            )
-            idVerificationStep = .intro
-            activeSettingsEditor = nil
+
+            applyLocalVerifiedIdentity()
+            idScanError = ""
         } catch {
-            idScanError = "Could not save verified username: \(error.localizedDescription)"
+            applyLocalVerifiedIdentity()
+            UserDefaults.standard.set(true, forKey: verificationSyncPendingDefaultsKey)
+            idScanError = "Verified username saved locally. Cloud sync pending."
         }
 
         isProcessingID = false
@@ -12270,6 +12999,8 @@ struct ContentView: View {
         private var photoOutput: AVCapturePhotoOutput?
         private var previewLayer: AVCaptureVideoPreviewLayer?
         private let idGuideFrameView = UIView()
+        private let captureSessionQueue = DispatchQueue(label: "spot.id.camera.session.queue")
+        private var hasCompletedCapture = false
 
         override func viewDidLoad() {
             super.viewDidLoad()
@@ -12284,7 +13015,9 @@ struct ContentView: View {
 
             guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
                   let input = try? AVCaptureDeviceInput(device: device) else {
-                onCapture?(nil)
+                DispatchQueue.main.async { [weak self] in
+                    self?.finishCaptureOnce(with: nil)
+                }
                 return
             }
 
@@ -12306,8 +13039,10 @@ struct ContentView: View {
 
             captureSession = session
 
-            DispatchQueue.global(qos: .userInitiated).async {
-                session.startRunning()
+            captureSessionQueue.async {
+                if !session.isRunning {
+                    session.startRunning()
+                }
             }
         }
 
@@ -12354,21 +13089,38 @@ struct ContentView: View {
         }
 
         @objc private func captureTapped() {
+            guard !hasCompletedCapture else { return }
             let settings = AVCapturePhotoSettings()
             settings.flashMode = .auto
             photoOutput?.capturePhoto(with: settings, delegate: self)
         }
 
         func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-            guard error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
-                onCapture?(nil)
-                return
+            let capturedImage: UIImage? = {
+                guard error == nil,
+                      let data = photo.fileDataRepresentation(),
+                      let image = UIImage(data: data)
+                else {
+                    return nil
+                }
+                return image
+            }()
+
+            DispatchQueue.main.async { [weak self] in
+                self?.finishCaptureOnce(with: capturedImage)
             }
+        }
+
+        private func finishCaptureOnce(with image: UIImage?) {
+            guard !hasCompletedCapture else { return }
+            hasCompletedCapture = true
             onCapture?(image)
         }
 
         deinit {
-            captureSession?.stopRunning()
+            captureSessionQueue.async { [captureSession] in
+                captureSession?.stopRunning()
+            }
         }
     }
 
@@ -12415,6 +13167,7 @@ struct ContentView: View {
         let normalizedInput = capUsernameInput(profileUsername)
         let normalizedSaved = capUsernameInput(accountUsername)
         let canSaveUsername = !isVerifiedUsernameUnderlined && FirebaseSpotService.isAllowedUsername(normalizedInput, reservedAgainst: normalizedSaved)
+        let hasUsernameChanges = !normalizedInput.isEmpty && normalizedInput != normalizedSaved
         let rejectionMessage: String = {
             if isVerifiedUsernameUnderlined {
                 return "Username is locked after legal-name verification."
@@ -12456,11 +13209,6 @@ struct ContentView: View {
                 guard !isVerifiedUsernameUnderlined else { return }
                 refreshUsernameAvailabilityStatus()
             }
-            .onSubmit {
-                guard !isVerifiedUsernameUnderlined else { return }
-                guard canSaveUsername else { return }
-                Task { await persistCurrentUsername() }
-            }
             .onAppear {
                 let cappedProfile = capUsernameInput(profileUsername)
                 if cappedProfile != profileUsername {
@@ -12472,11 +13220,22 @@ struct ContentView: View {
                     accountUsername = cappedSaved
                 }
             }
-            .onDisappear {
+
+            Button {
                 guard !isVerifiedUsernameUnderlined else { return }
-                guard canSaveUsername, normalizedInput != normalizedSaved else { return }
-                Task { await persistCurrentUsername() }
+                guard canSaveUsername, hasUsernameChanges else { return }
+                Task { await persistCurrentUsername(closeEditor: false) }
+            } label: {
+                Text("Update username")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background((canSaveUsername && hasUsernameChanges) ? Color.black : Color.gray.opacity(0.35))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .buttonStyle(.plain)
+            .disabled(isVerifiedUsernameUnderlined || !canSaveUsername || !hasUsernameChanges)
 
             if !rejectionMessage.isEmpty {
                 Text(rejectionMessage)
@@ -12535,6 +13294,14 @@ struct ContentView: View {
         let hasDraftPassword = !accountPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasDraftUsername = !capUsernameInput(signInUsername).isEmpty
         let isResolvedSignedIn = resolvedSignedInState
+        let persistedUsername = capUsernameInput(accountUsername)
+        let draftUsername = capUsernameInput(signInUsername)
+        let persistedPassword = (UserDefaults.standard.string(forKey: accountPasswordDefaultsKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let draftPassword = accountPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasUsernameDraftChange = !draftUsername.isEmpty && draftUsername != persistedUsername
+        let hasPasswordDraftChange = !draftPassword.isEmpty && draftPassword != persistedPassword
+        let canPushAccountUpdate = hasUsernameDraftChange || hasPasswordDraftChange
 
         return VStack(alignment: .leading, spacing: 12) {
             if !isResolvedSignedIn {
@@ -12613,9 +13380,6 @@ struct ContentView: View {
                             set: {
                                 let capped = capUsernameInput($0)
                                 signInUsername = capped
-                                accountUsername = capped
-                                profileUsername = capped
-                                UserDefaults.standard.set(capped, forKey: accountUsernameDefaultsKey)
                             }
                         ))
                         .textInputAutocapitalization(.never)
@@ -12645,6 +13409,26 @@ struct ContentView: View {
                             .background(Color(.secondarySystemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
+
+                    Button {
+                        Task {
+                            await pushAccountCredentialUpdate(
+                                draftUsername: draftUsername,
+                                shouldUpdateUsername: hasUsernameDraftChange,
+                                shouldUpdatePassword: hasPasswordDraftChange
+                            )
+                        }
+                    } label: {
+                        Text("Update account")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(canPushAccountUpdate ? Color.black : Color.gray.opacity(0.35))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canPushAccountUpdate)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -12718,6 +13502,49 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func pushAccountCredentialUpdate(draftUsername: String, shouldUpdateUsername: Bool, shouldUpdatePassword: Bool) async {
+        guard resolvedSignedInState else {
+            accountAuthMessage = "Sign in to update account details."
+            return
+        }
+
+        if !shouldUpdateUsername && !shouldUpdatePassword {
+            accountAuthMessage = "No account changes to update."
+            return
+        }
+
+        if shouldUpdateUsername {
+            if isVerifiedUsernameUnderlined {
+                let lockedUsername = resolvedVerifiedLockedUsername()
+                if !lockedUsername.isEmpty, draftUsername != lockedUsername {
+                    accountAuthMessage = "This account is locked to @\(lockedUsername)."
+                    signInUsername = lockedUsername
+                    profileUsername = lockedUsername
+                    accountUsername = lockedUsername
+                    return
+                }
+            }
+
+            profileUsername = draftUsername
+            accountUsername = draftUsername
+            signInUsername = draftUsername
+            await persistCurrentUsername(closeEditor: false)
+
+            if usernameAvailabilityMessage != "Saved" && !isVerifiedUsernameUnderlined {
+                return
+            }
+        }
+
+        if shouldUpdatePassword {
+            await saveAccountPassword()
+        }
+
+        if !shouldUpdatePassword, shouldUpdateUsername, usernameAvailabilityMessage == "Saved" {
+            accountAuthMessage = "Account updated."
+        }
+    }
+
+    @MainActor
     private func signUpFromPasswordSettings() async {
         if isPasswordFaceIDProtectionEnabled {
             let unlocked = await authenticateForSensitivePasswordAction(
@@ -12749,12 +13576,28 @@ struct ContentView: View {
             return
         }
 
-        let usernameAccount = savedAccounts.first {
-            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+        // Self-heal stale saved credentials: verified accounts should always sign in under locked username.
+        var repairedSavedAccounts = false
+        for index in savedAccounts.indices {
+            guard savedAccounts[index].isVerifiedUsernameUnderlined else { continue }
+            let locked = FirebaseSpotService.normalizeUsername(savedAccounts[index].verifiedLockedUsername)
+            guard !locked.isEmpty, FirebaseSpotService.normalizeUsername(savedAccounts[index].username) != locked else { continue }
+            savedAccounts[index].username = locked
+            savedAccounts[index].verifiedLockedUsername = locked
+            repairedSavedAccounts = true
+        }
+        if repairedSavedAccounts {
+            savedAccounts = Self.normalizedSavedAccountCredentials(savedAccounts)
+            persistSavedAccounts()
         }
 
-        if usernameAccount != nil {
-            accountAuthMessage = "An account already exists for that username. Sign in instead."
+        let existingSameCredential = savedAccounts.contains {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+                && $0.password.trimmingCharacters(in: .whitespacesAndNewlines) == cleanedPassword
+        }
+
+        if existingSameCredential {
+            accountAuthMessage = "That username + password already exists. Sign in instead."
             explicitSignUpModeOverride = false
             return
         }
@@ -12843,25 +13686,50 @@ struct ContentView: View {
             return
         }
 
-        let usernameAccount = savedAccounts.first {
-            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+        if isVerifiedUsernameUnderlined {
+            let lockedUsername = resolvedVerifiedLockedUsername()
+            if !lockedUsername.isEmpty, cleanedUsername != lockedUsername {
+                // If attempting to switch to a different account, do not block the device.
+                // Clear active device lock context so the user can freely sign in as a different user.
+                isVerifiedUsernameUnderlined = false
+                UserDefaults.standard.set(false, forKey: accountVerifiedUnderlineDefaultsKey)
+            }
         }
 
-        guard let credentialByUsername = usernameAccount else {
+        let matchingUsernameAccounts = savedAccounts.filter {
+            FirebaseSpotService.normalizeUsername($0.username) == cleanedUsername
+                || ($0.isVerifiedUsernameUnderlined
+                    && FirebaseSpotService.normalizeUsername($0.verifiedLockedUsername) == cleanedUsername)
+        }
+
+        guard !matchingUsernameAccounts.isEmpty else {
             accountAuthMessage = "No account found for that username."
             return
         }
 
-        let savedPasswordForUsername = credentialByUsername.password.trimmingCharacters(in: .whitespacesAndNewlines)
-        if savedPasswordForUsername.isEmpty {
-            // If local saved account has no password set yet, attach this password and sign in/up
+        if let credentialByUsernameAndPassword = matchingUsernameAccounts.first(where: {
+            $0.password.trimmingCharacters(in: .whitespacesAndNewlines) == cleanedPassword
+        }) {
+            let savedEmail = credentialByUsernameAndPassword.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if FirebaseSpotService.isValidEmail(savedEmail) {
+                await signInWithEmailPassword(email: savedEmail, password: cleanedPassword)
+                return
+            }
+
+            await signInWithSavedUsernameCredential(credentialByUsernameAndPassword, password: cleanedPassword)
+            return
+        }
+
+        if let credentialNeedingPassword = matchingUsernameAccounts.first(where: {
+            $0.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) {
             accountPassword = cleanedPassword
             UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
             upsertSavedAccount(
-                email: credentialByUsername.email,
+                email: credentialNeedingPassword.email,
                 username: cleanedUsername,
-                displayName: credentialByUsername.displayName.isEmpty ? cleanedUsername : credentialByUsername.displayName,
-                profilePhotoURL: credentialByUsername.profilePhotoURL,
+                displayName: credentialNeedingPassword.displayName.isEmpty ? cleanedUsername : credentialNeedingPassword.displayName,
+                profilePhotoURL: credentialNeedingPassword.profilePhotoURL,
                 password: cleanedPassword
             )
             accountAuthMessage = "Password added. You're signed in."
@@ -12870,20 +13738,7 @@ struct ContentView: View {
             return
         }
 
-        guard savedPasswordForUsername == cleanedPassword else {
-            accountAuthMessage = "Incorrect password for that username."
-            return
-        }
-
-        let credential = credentialByUsername
-
-        let savedEmail = credential.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if FirebaseSpotService.isValidEmail(savedEmail) {
-            await signInWithEmailPassword(email: savedEmail, password: cleanedPassword)
-            return
-        }
-
-        await signInWithSavedUsernameCredential(credential, password: cleanedPassword)
+        accountAuthMessage = "Incorrect password for that username."
     }
 
     private func signInWithSavedUsernameCredential(_ credential: SavedAccountCredential, password: String) async {
@@ -12908,6 +13763,10 @@ struct ContentView: View {
 
         await MainActor.run {
             let cleanedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+            let credentialLockedUsername = FirebaseSpotService.normalizeUsername(credential.verifiedLockedUsername)
+            let resolvedLockedUsername = credential.isVerifiedUsernameUnderlined
+                ? (credentialLockedUsername.isEmpty ? cleanedUsername : credentialLockedUsername)
+                : ""
 
             accountUsername = cleanedUsername
             profileUsername = cleanedUsername
@@ -12915,11 +13774,18 @@ struct ContentView: View {
             profileName = resolvedDisplayName
             accountEmail = credential.email
             accountPassword = cleanedPassword
+            isVerifiedUsernameUnderlined = credential.isVerifiedUsernameUnderlined
 
             UserDefaults.standard.set(cleanedUsername, forKey: accountUsernameDefaultsKey)
             UserDefaults.standard.set(resolvedDisplayName, forKey: profileNameDefaultsKey)
             UserDefaults.standard.set(cleanedPassword, forKey: accountPasswordDefaultsKey)
             UserDefaults.standard.set(credential.email, forKey: accountEmailDefaultsKey)
+            UserDefaults.standard.set(credential.isVerifiedUsernameUnderlined, forKey: accountVerifiedUnderlineDefaultsKey)
+            if credential.isVerifiedUsernameUnderlined, !resolvedLockedUsername.isEmpty {
+                UserDefaults.standard.set(resolvedLockedUsername, forKey: verifiedLockedUsernameDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: verifiedLockedUsernameDefaultsKey)
+            }
             UserDefaults.standard.set(true, forKey: accountSignedInDefaultsKey)
             UserDefaults.standard.set(true, forKey: hasEverSignedInDefaultsKey)
 
@@ -13008,7 +13874,16 @@ struct ContentView: View {
         do {
             try FirebaseSpotService.shared.signOut()
             stopCurrentUserProfileLiveListener()
+            stopCurrentUserPostsLiveListener()
             stopSelectedUserProfileLiveListener()
+            userChatsListenerRegistration?.remove()
+            userChatsListenerRegistration = nil
+            userChatsListenerOwnerID = ""
+            resetAllChatMessageListeners()
+            chatMessageListenersOwnerID = ""
+            chatLastSenderIDByChatID.removeAll()
+            chatUpdatedAtByChatID.removeAll()
+            chatReadAtByChatID.removeAll()
 
             currentUserID = FirebaseSpotService.makeStableDeviceUserID()
             profileUsername = ""
@@ -13052,11 +13927,9 @@ struct ContentView: View {
             isAnonymousModeEnabled = false
             draftIsAnonymous = false
             UserDefaults.standard.set(false, forKey: anonymousModeDefaultsKey)
-            messages.removeAll { $0.isAnonymousConversation }
+            messages.removeAll()
             chatMessages.removeAll()
-            if selectedChatThread?.isAnonymousConversation == true {
-                selectedChatThread = nil
-            }
+            selectedChatThread = nil
             remainingBoosts = 0
 
             UserDefaults.standard.set(false, forKey: accountSignedInDefaultsKey)
@@ -13065,6 +13938,8 @@ struct ContentView: View {
             UserDefaults.standard.removeObject(forKey: accountUsernameDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountUsernameAliasesDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountVerifiedUnderlineDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: verifiedLockedUsernameDefaultsKey)
+            UserDefaults.standard.removeObject(forKey: verificationSyncPendingDefaultsKey)
             UserDefaults.standard.removeObject(forKey: profileNameDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountEmailDefaultsKey)
             UserDefaults.standard.removeObject(forKey: accountPasswordDefaultsKey)
@@ -13123,9 +13998,46 @@ struct ContentView: View {
     }
 
     private var selectedSavedAccount: SavedAccountCredential? {
-        let selected = selectedSavedAccountEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let selected = selectedSavedAccountEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !selected.isEmpty else { return nil }
         return savedAccounts.first(where: { $0.id == selected })
+    }
+
+    private func savedAccountVerificationSnapshot(username: String, email: String, password: String) -> (isVerified: Bool, lockedUsername: String) {
+        let normalizedUsername = FirebaseSpotService.normalizeUsername(username)
+        let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let usernameMatches = savedAccounts.filter {
+            FirebaseSpotService.normalizeUsername($0.username) == normalizedUsername
+        }
+
+        let fallbackMatches = savedAccounts.filter { account in
+            let accountLocked = FirebaseSpotService.normalizeUsername(account.verifiedLockedUsername)
+            let accountEmail = account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let accountPassword = account.password.trimmingCharacters(in: .whitespacesAndNewlines)
+            let usernameOrLockMatches = (!normalizedUsername.isEmpty)
+                && (FirebaseSpotService.normalizeUsername(account.username) == normalizedUsername || accountLocked == normalizedUsername)
+            let emailMatches = !cleanedEmail.isEmpty && accountEmail == cleanedEmail
+            let passwordMatches = !cleanedPassword.isEmpty && accountPassword == cleanedPassword
+            return usernameOrLockMatches || emailMatches || passwordMatches
+        }
+
+        let candidatePool = usernameMatches.isEmpty ? fallbackMatches : usernameMatches
+
+        let exactPassword = candidatePool.first(where: {
+            $0.password.trimmingCharacters(in: .whitespacesAndNewlines) == cleanedPassword
+        })
+        let exactEmail = candidatePool.first(where: {
+            $0.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == cleanedEmail
+        })
+        let fallback = candidatePool.max(by: { $0.lastUsedAt < $1.lastUsedAt })
+
+        let matched = exactPassword ?? exactEmail ?? fallback
+        return (
+            matched?.isVerifiedUsernameUnderlined ?? false,
+            FirebaseSpotService.normalizeUsername(matched?.verifiedLockedUsername ?? "")
+        )
     }
 
     private static func loadSavedAccountsFromDefaults() -> [SavedAccountCredential] {
@@ -13150,6 +14062,8 @@ struct ContentView: View {
                         displayName: account.displayName,
                         profilePhotoURL: account.profilePhotoURL,
                         password: "",
+                        isVerifiedUsernameUnderlined: account.isVerifiedUsernameUnderlined,
+                        verifiedLockedUsername: account.verifiedLockedUsername,
                         lastUsedAt: Date().timeIntervalSince1970
                     )
                 }
@@ -13172,7 +14086,16 @@ struct ContentView: View {
         var dedupedByIdentity: [String: SavedAccountCredential] = [:]
 
         for account in accounts {
-            let normalizedUsername = FirebaseSpotService.normalizeUsername(account.username)
+            var normalizedAccount = account
+            if normalizedAccount.isVerifiedUsernameUnderlined {
+                let locked = FirebaseSpotService.normalizeUsername(normalizedAccount.verifiedLockedUsername)
+                if !locked.isEmpty {
+                    normalizedAccount.username = locked
+                    normalizedAccount.verifiedLockedUsername = locked
+                }
+            }
+
+            let normalizedUsername = FirebaseSpotService.normalizeUsername(normalizedAccount.username)
             let trimmedEmail = account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
             // Only allow the exact reserved username "tiding". Block prefixed variants.
@@ -13184,9 +14107,16 @@ struct ContentView: View {
                 continue
             }
 
-            // Rule: a normalized username maps to exactly one saved account record.
-            let identityKey = !normalizedUsername.isEmpty ? "u:\(normalizedUsername)" : "e:\(trimmedEmail)"
-            let candidateHasPassword = !account.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let trimmedPassword = normalizedAccount.password.trimmingCharacters(in: .whitespacesAndNewlines)
+            let identityKey: String
+            if !normalizedUsername.isEmpty && !trimmedPassword.isEmpty {
+                identityKey = "u:\(normalizedUsername)|p:\(trimmedPassword)"
+            } else if !normalizedUsername.isEmpty {
+                identityKey = !trimmedEmail.isEmpty ? "u:\(normalizedUsername)|e:\(trimmedEmail)" : "u:\(normalizedUsername)"
+            } else {
+                identityKey = "e:\(trimmedEmail)"
+            }
+            let candidateHasPassword = !normalizedAccount.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
             if let existing = dedupedByIdentity[identityKey] {
                 let existingHasPassword = !existing.password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -13199,10 +14129,10 @@ struct ContentView: View {
                 }
 
                 if shouldReplace {
-                    dedupedByIdentity[identityKey] = account
+                    dedupedByIdentity[identityKey] = normalizedAccount
                 }
             } else {
-                dedupedByIdentity[identityKey] = account
+                dedupedByIdentity[identityKey] = normalizedAccount
             }
         }
 
@@ -13216,6 +14146,8 @@ struct ContentView: View {
                 displayName: "tiding",
                 profilePhotoURL: nil,
                 password: "",
+                isVerifiedUsernameUnderlined: false,
+                verifiedLockedUsername: "",
                 lastUsedAt: Date().timeIntervalSince1970
             )
             dedupedByIdentity["u:tiding"] = seed
@@ -13240,13 +14172,16 @@ struct ContentView: View {
         displayName: String,
         profilePhotoURL: String? = nil,
         password: String? = nil,
+        isVerifiedUsernameUnderlined: Bool? = nil,
+        verifiedLockedUsername: String? = nil,
         preserveExistingPhoto: Bool = true
     ) {
         let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let cleanedUsername = FirebaseSpotService.normalizeUsername(username)
         let fallbackUsername = FirebaseSpotService.normalizeUsername(cleanedEmail.components(separatedBy: "@").first ?? "user")
         let resolvedUsername = cleanedUsername.isEmpty ? (fallbackUsername.isEmpty ? "user" : fallbackUsername) : cleanedUsername
-        let identityKey = Self.savedAccountIdentityKey(username: resolvedUsername, email: cleanedEmail)
+        let resolvedPassword = (password ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let identityKey = Self.savedAccountIdentityKey(username: resolvedUsername, email: cleanedEmail, password: resolvedPassword)
 
         let cleanedPhotoURL = profilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedPhotoURL = cleanedPhotoURL?.isEmpty == false ? cleanedPhotoURL : nil
@@ -13254,23 +14189,39 @@ struct ContentView: View {
         let resolvedPhotoURL = preserveExistingPhoto ? (normalizedPhotoURL ?? existingPhotoURL) : normalizedPhotoURL
 
         let existingPassword = savedAccounts.first(where: { $0.id == identityKey })?.password ?? ""
-        let resolvedPassword = (password ?? existingPassword).trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedPasswordFinal = resolvedPassword.isEmpty ? existingPassword.trimmingCharacters(in: .whitespacesAndNewlines) : resolvedPassword
+        let normalizedResolvedPassword = resolvedPasswordFinal.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let verificationFallbackAccount = savedAccounts.first { account in
+            let accountEmail = account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let accountPassword = account.password.trimmingCharacters(in: .whitespacesAndNewlines)
+            let accountLocked = FirebaseSpotService.normalizeUsername(account.verifiedLockedUsername)
+            let accountUsername = FirebaseSpotService.normalizeUsername(account.username)
+
+            let sameCredentials = !normalizedResolvedPassword.isEmpty
+                && accountPassword == normalizedResolvedPassword
+                && (!cleanedEmail.isEmpty && accountEmail == cleanedEmail)
+            let lockMatchesResolvedUsername = !accountLocked.isEmpty && accountLocked == resolvedUsername
+            let usernameMatchesResolvedUsername = accountUsername == resolvedUsername
+            return account.isVerifiedUsernameUnderlined && (sameCredentials || lockMatchesResolvedUsername || usernameMatchesResolvedUsername)
+        }
+
+        let existingVerifiedFlag = savedAccounts.first(where: { $0.id == identityKey })?.isVerifiedUsernameUnderlined ?? false
+        let resolvedVerifiedFlag = isVerifiedUsernameUnderlined ?? existingVerifiedFlag || (verificationFallbackAccount?.isVerifiedUsernameUnderlined ?? false)
+        let existingLockedUsername = FirebaseSpotService.normalizeUsername(savedAccounts.first(where: { $0.id == identityKey })?.verifiedLockedUsername ?? verificationFallbackAccount?.verifiedLockedUsername ?? "")
+        let candidateLockedUsername = FirebaseSpotService.normalizeUsername(verifiedLockedUsername ?? "")
+        let resolvedLockedUsername = candidateLockedUsername.isEmpty
+            ? (resolvedVerifiedFlag ? (existingLockedUsername.isEmpty ? resolvedUsername : existingLockedUsername) : "")
+            : candidateLockedUsername
 
         let cleanedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = cleanedDisplayName.isEmpty ? resolvedUsername : cleanedDisplayName
         let normalizedResolvedUsername = FirebaseSpotService.normalizeUsername(resolvedUsername)
-        let normalizedResolvedPassword = resolvedPassword.trimmingCharacters(in: .whitespacesAndNewlines)
 
         savedAccounts.removeAll { account in
             let existingUsername = FirebaseSpotService.normalizeUsername(account.username)
             let existingPassword = account.password.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Password-secured username should always override prior entries for that username.
-            if !normalizedResolvedUsername.isEmpty && existingUsername == normalizedResolvedUsername {
-                return true
-            }
-
-            // Also prevent duplicate username+password credential pairs.
+            // Prevent duplicate username+password credential pairs.
             if !normalizedResolvedUsername.isEmpty,
                !normalizedResolvedPassword.isEmpty,
                existingUsername == normalizedResolvedUsername,
@@ -13286,7 +14237,9 @@ struct ContentView: View {
                 username: resolvedUsername,
                 displayName: resolvedDisplayName,
                 profilePhotoURL: resolvedPhotoURL,
-                password: resolvedPassword,
+                password: resolvedPasswordFinal,
+                isVerifiedUsernameUnderlined: resolvedVerifiedFlag,
+                verifiedLockedUsername: resolvedLockedUsername,
                 lastUsedAt: Date().timeIntervalSince1970
             ),
             at: 0
@@ -13309,12 +14262,29 @@ struct ContentView: View {
     }
 
     private func selectSavedAccount(_ account: SavedAccountCredential) {
+        let selectedUsername = FirebaseSpotService.normalizeUsername(account.username)
+        if isVerifiedUsernameUnderlined {
+            let lockedUsername = resolvedVerifiedLockedUsername()
+            if !lockedUsername.isEmpty, selectedUsername != lockedUsername {
+                accountAuthMessage = "This account is locked to @\(lockedUsername)."
+                return
+            }
+        }
+
         selectedSavedAccountEmail = account.id
         accountEmail = account.email
         accountUsername = account.username
         profileUsername = account.username
         profileName = account.displayName
         accountPassword = account.password
+        isVerifiedUsernameUnderlined = account.isVerifiedUsernameUnderlined
+        UserDefaults.standard.set(account.isVerifiedUsernameUnderlined, forKey: accountVerifiedUnderlineDefaultsKey)
+        let lockedUsername = FirebaseSpotService.normalizeUsername(account.verifiedLockedUsername)
+        if account.isVerifiedUsernameUnderlined, !lockedUsername.isEmpty {
+            UserDefaults.standard.set(lockedUsername, forKey: verifiedLockedUsernameDefaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: verifiedLockedUsernameDefaultsKey)
+        }
         profilePhotoRemoteURL = Self.preferredProfilePhotoURL(
             candidateRemoteURL: account.profilePhotoURL,
             savedAccountPhotoURL: account.profilePhotoURL,
@@ -14252,7 +15222,8 @@ struct ContentView: View {
                 followerCount: account.followerCount,
                 followingCount: account.followingCount,
                 profilePhotoText: String(account.displayName.prefix(2)).uppercased(),
-                profilePhotoURL: account.profilePhotoURL
+                profilePhotoURL: account.profilePhotoURL,
+                isVerifiedUsernameUnderlined: account.isVerifiedUsernameUnderlined
             )
         }
 
@@ -14268,7 +15239,8 @@ struct ContentView: View {
                 followerCount: 0,
                 followingCount: 0,
                 profilePhotoText: String((post.author.isEmpty ? cleanedHandle : post.author).prefix(2)).uppercased(),
-                profilePhotoURL: post.authorProfilePhotoURL
+                profilePhotoURL: post.authorProfilePhotoURL,
+                isVerifiedUsernameUnderlined: post.authorIsVerified
             )
         }
 
@@ -14290,7 +15262,8 @@ struct ContentView: View {
             bio: "",
             followerCount: 0,
             followingCount: 0,
-            profilePhotoText: "YO"
+            profilePhotoText: "YO",
+            isVerifiedUsernameUnderlined: isVerifiedUsernameUnderlined
         )
         let mergedProfiles = firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityProfiles + [currentUserProfile]
 
@@ -14299,14 +15272,27 @@ struct ContentView: View {
                 !Self.isCurrentUserDMProfile(profile, currentUsername: profileUsername)
             }
             .reduce(into: [String: FakeUserProfile]()) { result, profile in
-                let key = profile.username.lowercased()
-                if result[key] == nil {
+                let trimmedID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                let normalizedUsername = FirebaseSpotService.normalizeUsername(profile.username)
+                let key = trimmedID.isEmpty ? "u:\(normalizedUsername)" : "id:\(trimmedID)"
+                guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+                if let existing = result[key] {
+                    let existingID = existing.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let shouldReplace = existingID.isEmpty && !trimmedID.isEmpty
+                    if shouldReplace {
+                        result[key] = profile
+                    }
+                } else {
                     result[key] = profile
                 }
             }
             .values
             .sorted { lhs, rhs in
-                lhs.username.lowercased() < rhs.username.lowercased()
+                let l = FirebaseSpotService.normalizeUsername(lhs.username)
+                let r = FirebaseSpotService.normalizeUsername(rhs.username)
+                if l != r { return l < r }
+                return lhs.userID.trimmingCharacters(in: .whitespacesAndNewlines) < rhs.userID.trimmingCharacters(in: .whitespacesAndNewlines)
             }
 
         return Array(candidates)
@@ -14346,7 +15332,8 @@ struct ContentView: View {
                 followerCount: account.followerCount,
                 followingCount: account.followingCount,
                 profilePhotoText: String(account.displayName.prefix(2)).uppercased(),
-                profilePhotoURL: account.profilePhotoURL
+                profilePhotoURL: account.profilePhotoURL,
+                isVerifiedUsernameUnderlined: account.isVerifiedUsernameUnderlined
             )
         }
         let postAuthorProfiles = posts.compactMap { post -> FakeUserProfile? in
@@ -14361,7 +15348,8 @@ struct ContentView: View {
                 followerCount: 0,
                 followingCount: 0,
                 profilePhotoText: String((post.author.isEmpty ? cleanedHandle : post.author).prefix(2)).uppercased(),
-                profilePhotoURL: post.authorProfilePhotoURL
+                profilePhotoURL: post.authorProfilePhotoURL,
+                isVerifiedUsernameUnderlined: post.authorIsVerified
             )
         }
         let communityProfiles = communityUsers.map { profile in
@@ -14382,7 +15370,8 @@ struct ContentView: View {
             bio: "",
             followerCount: 0,
             followingCount: 0,
-            profilePhotoText: "YO"
+            profilePhotoText: "YO",
+            isVerifiedUsernameUnderlined: isVerifiedUsernameUnderlined
         )
         let mergedProfiles = firestoreProfiles + postAuthorProfiles + fakeUserProfiles + communityProfiles + [currentUserProfile]
 
@@ -14395,7 +15384,33 @@ struct ContentView: View {
                 return query.isEmpty || matchText.contains(query)
             }
 
-        return Array(candidates.prefix(12))
+        let deduped = candidates.reduce(into: [String: FakeUserProfile]()) { result, profile in
+            let trimmedID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedUsername = FirebaseSpotService.normalizeUsername(profile.username)
+            let key = trimmedID.isEmpty ? "u:\(normalizedUsername)" : "id:\(trimmedID)"
+            guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+            if let existing = result[key] {
+                let existingID = existing.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                if existingID.isEmpty && !trimmedID.isEmpty {
+                    result[key] = profile
+                }
+            } else {
+                result[key] = profile
+            }
+        }
+
+        return Array(
+            deduped
+                .values
+                .sorted { lhs, rhs in
+                    let l = FirebaseSpotService.normalizeUsername(lhs.username)
+                    let r = FirebaseSpotService.normalizeUsername(rhs.username)
+                    if l != r { return l < r }
+                    return lhs.userID.trimmingCharacters(in: .whitespacesAndNewlines) < rhs.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                .prefix(12)
+        )
     }
 
     private func userSearchAgeAndPosition(for user: FakeUserProfile) -> (age: String, position: String) {
@@ -14490,7 +15505,8 @@ struct ContentView: View {
                 followerCount: account.followerCount,
                 followingCount: account.followingCount,
                 profilePhotoText: String(account.displayName.prefix(2)).uppercased(),
-                profilePhotoURL: account.profilePhotoURL
+                profilePhotoURL: account.profilePhotoURL,
+                isVerifiedUsernameUnderlined: account.isVerifiedUsernameUnderlined
             )
             cachePrefetchedProfile(prefetched)
             prefetchRemoteAvatarIfNeeded(account.profilePhotoURL)
@@ -14550,16 +15566,21 @@ struct ContentView: View {
         locationSearchTask?.cancel()
 
         let trimmedQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Immediately clear results and cancel tasks when query is empty or less than 2 characters
+        // Immediately clear results when query is less than 2 characters
         guard trimmedQuery.count >= 2 else {
             locationSearchTask = nil
             firestorePOISearchResults = []
             return
         }
 
+        // Instant local search sync so the UI displays matching offline/bundled POIs zero-delay without keystroke lag
+        let center = locationService.lastKnownLocation?.coordinate ?? NearbyPlaceLoader.defaultCenter
+        let localInstantMatches = NearbyPlaceLoader.searchLocalIndex(query: trimmedQuery, userCoordinate: center, limit: 80)
+        firestorePOISearchResults = localInstantMatches
+
         locationSearchTask = Task { @MainActor in
-            // Reduced debounce to 60ms for ultra-responsive search update triggering
-            try? await Task.sleep(nanoseconds: 60_000_000)
+            // 400ms debounce for remote OpenStreetMap Nominatim network request so typing stays smooth
+            try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
 
             await self.refreshFirestorePOISearchResults()
@@ -14583,9 +15604,21 @@ struct ContentView: View {
         }
 
         do {
-            let rawResults = try await searchOpenStreetMapPOIs(query: query, center: center, limit: 120)
+            let rawResults = try await searchOpenStreetMapPOIs(query: query, center: center, limit: 100)
 
-            let finalOrderedPOIs = rawResults
+            // Merge remote OpenStreetMap results with local bundled POI index
+            let localResults = NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: center, limit: 80)
+            var merged = rawResults
+            var seenIDs = Set(rawResults.map(\.id))
+            for local in localResults {
+                let norm = Self.normalizedLocationRealm(local.name)
+                if !seenIDs.contains(local.id) && !rawResults.contains(where: { Self.normalizedLocationRealm($0.name) == norm }) {
+                    seenIDs.insert(local.id)
+                    merged.append(local)
+                }
+            }
+
+            let finalOrderedPOIs = merged
                 .sorted { lhs, rhs in
                     let lhsScore = FirebaseSpotService.poiSearchScore(query: query, poi: lhs)
                     let rhsScore = FirebaseSpotService.poiSearchScore(query: query, poi: rhs)
@@ -14601,7 +15634,7 @@ struct ContentView: View {
                     )
                     return lhsDistance < rhsDistance
                 }
-                .prefix(120)
+                .prefix(100)
                 .map { $0 }
 
             await MainActor.run {
@@ -14615,13 +15648,14 @@ struct ContentView: View {
                 guard requestRevision == poiSearchRequestRevision else { return }
                 let currentQuery = locationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard currentQuery == query else { return }
-                firestorePOISearchResults = []
+                let localFallback = NearbyPlaceLoader.searchLocalIndex(query: query, userCoordinate: center, limit: 80)
+                firestorePOISearchResults = localFallback
             }
         }
     }
 
     private func searchUsersEditorView() -> some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Search users")
                     .font(.title3.weight(.semibold))
@@ -15193,7 +16227,30 @@ struct ContentView: View {
         }
     }
 
+    private func profilePhotoDisabledEditorView() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Profile photos disabled")
+                .font(.title3.weight(.semibold))
+            Text("Profile photo editing is turned off. The original editor is still saved in this file for re-enable later.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button {
+                activeSettingsEditor = nil
+            } label: {
+                Text("Close")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.black)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     private func profileTextEditorView() -> some View {
+        // PROFILE_PHOTO_RESTORE_MAP: this full editor remains intentionally preserved for future re-enable.
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Adjust profile photo")
@@ -15433,32 +16490,63 @@ struct ContentView: View {
 
         if type == "Photo" {
             return AnyView(
-                PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
+                PhotosPicker(selection: $draftPhotoItem, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
                     card
                 }
                 .buttonStyle(.plain)
                 .task(id: draftPhotoItem) {
                     guard let newItem = draftPhotoItem else { return }
-                    selectedPostType = type
-                    resetDraftFor(type)
+                    resetDraftFor("Photo")
                     do {
-                        print("Spot: Image picker - attempting to load image data from PhotosPickerItem")
-                        if let data = try await newItem.loadTransferable(type: Data.self),
+                        // Check if selected item is a video
+                        if let selectedURL = try? await newItem.loadTransferable(type: URL.self) {
+                            let ext = selectedURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                            if let utType = UTType(filenameExtension: ext), utType.conforms(to: .movie) {
+                                let stableURL = await MainActor.run { copyVideoToTemporaryLocation(sourceURL: selectedURL) } ?? selectedURL
+                                await MainActor.run {
+                                    selectedPostType = "Video"
+                                    draftVideoURL = stableURL
+                                    draftUrl = stableURL.absoluteString
+                                    draftPhotoImage = nil
+                                    currentScreen = .composer
+                                }
+                                return
+                            }
+                        }
+
+                        // Otherwise try loading as image
+                        if let data = try? await newItem.loadTransferable(type: Data.self),
                            let image = UIImage(data: data) {
-                            print("Spot: Image picker - successfully loaded image, size=\(image.size)")
                             await MainActor.run {
+                                selectedPostType = "Photo"
                                 draftPhotoImage = image
                                 draftPhotoCropScale = 1.0
                                 draftPhotoCropOffset = .zero
                                 currentScreen = .composer
-                                print("Spot: draftPhotoImage has been set")
+                            }
+                        } else if let data = try? await newItem.loadTransferable(type: Data.self) {
+                            // Fallback for video data write if URL transfer wasn't direct
+                            let fallbackURL = URL(fileURLWithPath: NSTemporaryDirectory())
+                                .appendingPathComponent(UUID().uuidString)
+                                .appendingPathExtension("mp4")
+                            try data.write(to: fallbackURL)
+                            await MainActor.run {
+                                selectedPostType = "Video"
+                                draftVideoURL = fallbackURL
+                                draftUrl = fallbackURL.absoluteString
+                                draftPhotoImage = nil
+                                currentScreen = .composer
                             }
                         } else {
-                            print("Spot: Image picker - failed to load data or create UIImage")
+                            await MainActor.run {
+                                selectedPostType = "Photo"
+                                draftPhotoImage = nil
+                                currentScreen = .composer
+                            }
                         }
                     } catch {
-                        print("Spot: Image picker - exception: \(error)")
                         await MainActor.run {
+                            selectedPostType = "Photo"
                             draftPhotoImage = nil
                             currentScreen = .composer
                         }
@@ -15592,18 +16680,33 @@ struct ContentView: View {
 
         if type == "Photo" {
             return AnyView(
-                PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
+                PhotosPicker(selection: $draftPhotoItem, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
                     pillContent
                 }
                 .buttonStyle(.plain)
                 .task(id: draftPhotoItem) {
                     guard let newItem = draftPhotoItem else { return }
-                    selectedPostType = type
-                    resetDraftFor(type)
+                    resetDraftFor("Photo")
                     do {
-                        if let data = try await newItem.loadTransferable(type: Data.self),
+                        if let selectedURL = try? await newItem.loadTransferable(type: URL.self) {
+                            let ext = selectedURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                            if let utType = UTType(filenameExtension: ext), utType.conforms(to: .movie) {
+                                let stableURL = await MainActor.run { copyVideoToTemporaryLocation(sourceURL: selectedURL) } ?? selectedURL
+                                await MainActor.run {
+                                    selectedPostType = "Video"
+                                    draftVideoURL = stableURL
+                                    draftUrl = stableURL.absoluteString
+                                    draftPhotoImage = nil
+                                    currentScreen = .composer
+                                }
+                                return
+                            }
+                        }
+
+                        if let data = try? await newItem.loadTransferable(type: Data.self),
                            let image = UIImage(data: data) {
                             await MainActor.run {
+                                selectedPostType = "Photo"
                                 draftPhotoImage = image
                                 draftPhotoCropScale = 1.0
                                 draftPhotoCropOffset = .zero
@@ -15612,6 +16715,7 @@ struct ContentView: View {
                         }
                     } catch {
                         await MainActor.run {
+                            selectedPostType = "Photo"
                             draftPhotoImage = nil
                             currentScreen = .composer
                         }
@@ -15808,7 +16912,7 @@ struct ContentView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 18) {
                         draftPreviewCard
 
@@ -15919,7 +17023,7 @@ struct ContentView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 18) {
                         mapPinnedComposerLocationCard
                     }
@@ -16123,8 +17227,8 @@ struct ContentView: View {
                             }
                         )
 
-                    PhotosPicker(selection: $draftPhotoItem, matching: .images, photoLibrary: .shared()) {
-                        Text("Choose photo")
+                    PhotosPicker(selection: $draftPhotoItem, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
+                        Text("Choose photo or video")
                             .font(.headline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -16315,7 +17419,7 @@ struct ContentView: View {
 
     private var videoUpgradeView: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack {
                         Button {
@@ -17276,13 +18380,7 @@ struct ContentView: View {
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 10) {
-                if draftIsAnonymous {
-                    anonymousMaskLabel(size: 20)
-                } else {
-                    HStack(spacing: 8) {
-                        profileAvatarView(size: 28, textSize: 12)
-                    }
-                }
+                let _ = draftIsAnonymous
 
                 Spacer()
 
@@ -17889,14 +18987,10 @@ struct ContentView: View {
 
             case "Poll":
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Top choice")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
                     TextField("", text: Binding(
                         get: { draftPollOptionA },
                         set: { draftPollOptionA = String($0.prefix(36)) }
-                    ), prompt: Text("Top option").foregroundStyle(.secondary))
+                    ))
                         .font(.subheadline)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)
@@ -17908,14 +19002,10 @@ struct ContentView: View {
                                 .stroke(Color.black, lineWidth: 1)
                         )
 
-                    Text("Bottom choice")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
                     TextField("", text: Binding(
                         get: { draftPollOptionB },
                         set: { draftPollOptionB = String($0.prefix(36)) }
-                    ), prompt: Text("Bottom option").foregroundStyle(.secondary))
+                    ))
                         .font(.subheadline)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)
@@ -19116,6 +20206,85 @@ struct ContentView: View {
         )
     }
 
+    private func directNearestNewestScore(for post: MockPost, referenceDate: Date) -> Double {
+        let ageSeconds = max(1.0, referenceDate.timeIntervalSince(post.createdAt))
+        let recencyScore = exp(-ageSeconds / (2.0 * 3600.0))
+
+        let distanceMiles = distanceMilesFromUser(to: post) ?? 12.0
+        let proximityScore = 1.0 / (1.0 + max(0.0, distanceMiles) / 2.5)
+
+        // Keep direct feed ordering independent from likes/engagement.
+        return (proximityScore * 0.64) + (recencyScore * 0.36)
+    }
+
+    private func rankedDirectNearestNewestPosts(_ candidates: [MockPost]) -> [MockPost] {
+        guard !candidates.isEmpty else { return candidates }
+        let referenceDate = Date()
+
+        let newest = candidates.max { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.id < rhs.id
+        }
+
+        let nearest = candidates.min { lhs, rhs in
+            let lhsDistance = distanceMilesFromUser(to: lhs) ?? Double.greatestFiniteMagnitude
+            let rhsDistance = distanceMilesFromUser(to: rhs) ?? Double.greatestFiniteMagnitude
+            if lhsDistance != rhsDistance {
+                return lhsDistance < rhsDistance
+            }
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+
+        let ranked = candidates.sorted { lhs, rhs in
+            let lhsScore = directNearestNewestScore(for: lhs, referenceDate: referenceDate)
+            let rhsScore = directNearestNewestScore(for: rhs, referenceDate: referenceDate)
+
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+
+            let lhsDistance = distanceMilesFromUser(to: lhs) ?? Double.greatestFiniteMagnitude
+            let rhsDistance = distanceMilesFromUser(to: rhs) ?? Double.greatestFiniteMagnitude
+            if lhsDistance != rhsDistance {
+                return lhsDistance < rhsDistance
+            }
+
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt > rhs.createdAt
+            }
+            return lhs.id > rhs.id
+        }
+
+        let leadCandidates = [nearest, newest].compactMap { $0 }
+        guard !leadCandidates.isEmpty else { return ranked }
+
+        let top = leadCandidates.max { lhs, rhs in
+            directNearestNewestScore(for: lhs, referenceDate: referenceDate) < directNearestNewestScore(for: rhs, referenceDate: referenceDate)
+        }
+
+        var leading: [MockPost] = []
+        if let top {
+            leading.append(top)
+        }
+        for candidate in leadCandidates where !leading.contains(where: { $0.id == candidate.id }) {
+            leading.append(candidate)
+        }
+
+        var used = Set(leading.map(\.id))
+        var merged = leading
+        for post in ranked where !used.contains(post.id) {
+            merged.append(post)
+            used.insert(post.id)
+        }
+
+        return merged
+    }
+
     private func layeredFeedScore(for post: MockPost, activeLocation: String, isFriendsFeed: Bool) -> Double {
         let now = Date()
         let ageSeconds = max(1.0, now.timeIntervalSince(post.createdAt))
@@ -19224,18 +20393,12 @@ struct ContentView: View {
     }
 
     private func rankedPostsForFeed(_ candidates: [MockPost], activeLocation: String, isFriendsFeed: Bool) -> [MockPost] {
-        candidates.sorted { lhs, rhs in
-            let lhsScore = layeredFeedScore(for: lhs, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
-            let rhsScore = layeredFeedScore(for: rhs, activeLocation: activeLocation, isFriendsFeed: isFriendsFeed)
-
-            if lhsScore != rhsScore {
-                return lhsScore > rhsScore
-            }
-            if lhs.createdAt != rhs.createdAt {
-                return lhs.createdAt > rhs.createdAt
-            }
-            return lhs.id > rhs.id
+        _ = isFriendsFeed
+        if Self.normalizedLocationRealm(activeLocation) == Self.normalizedLocationRealm("Metric") {
+            return rankedDirectNearestNewestPosts(candidates)
         }
+
+        return newestFirstPosts(candidates)
     }
 
     private func newestFirstPosts(_ candidates: [MockPost]) -> [MockPost] {
@@ -19434,13 +20597,7 @@ struct ContentView: View {
             }
         }
 
-        let unpinnedPostsInLocation = posts.filter { p in
-            !globalPinnedKeys.contains(postAdminPinStorageKey(p)) &&
-            Self.resolvedPostedRealms(location: p.location, postedInLocations: p.postedInLocations)
-                .contains { Self.normalizedLocationRealm($0) == activeLocationRealm }
-        }
-
-        return unpinnedPostsInLocation.isEmpty
+        return true
     }
 
     private func isLocationNearestPOI(_ locationName: String) -> Bool {
@@ -19581,12 +20738,12 @@ struct ContentView: View {
         feedRankingSignature = signature
         let isMetricFeed = Self.normalizedLocationRealm(activeLocation) == Self.normalizedLocationRealm("Metric")
         if isMetricFeed {
-            feedLoadedCount = max(feedLoadedCount, ranked.count)
+            feedLoadedCount = max(feedLoadedCount, min(12, ranked.count))
         } else {
-            feedLoadedCount = min(max(24, feedLoadedCount), max(0, ranked.count))
+            feedLoadedCount = min(max(12, feedLoadedCount), max(0, ranked.count))
         }
         if force {
-            feedLoadedCount = ranked.count
+            feedLoadedCount = min(12, max(0, ranked.count))
         }
     }
 
@@ -19650,7 +20807,7 @@ struct ContentView: View {
         let cappedBody = (selectedPostType == "Photo" || selectedPostType == "Video" || selectedPostType == "Link" || selectedPostType == "Photo/Video")
             ? Self.cappedCaptionText(draftBody)
             : String(draftBody.prefix(500))
-        let realHandle = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "you" : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("@") ? String(profileUsername.trimmingCharacters(in: .whitespacesAndNewlines).dropFirst()) : profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let realHandle = resolvedPostingUsername()
         let draftAuthorName = draftIsAnonymous ? "" : realHandle
         let draftAuthorHandle = draftIsAnonymous ? Self.anonymousHandle : realHandle
         let titleIdentity = realHandle
@@ -19982,14 +21139,14 @@ struct ContentView: View {
     }
 
     private func openPostCameraCapture() {
-        selectedPostType = "Photo"
-        resetDraftFor("Photo")
         isShowingPostCameraCapture = true
     }
 
     private func handlePostCameraCapture(_ image: UIImage?) {
         isShowingPostCameraCapture = false
         guard let image else { return }
+        selectedPostType = "Photo"
+        resetDraftFor("Photo")
         draftPhotoImage = image
         draftPhotoCropScale = 1.0
         draftPhotoCropOffset = .zero
@@ -20118,7 +21275,8 @@ struct ContentView: View {
                     followerCount: followers,
                     followingCount: following,
                     profilePhotoText: profile.profilePhotoText,
-                    profilePhotoURL: profile.profilePhotoURL
+                    profilePhotoURL: profile.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: profile.isVerifiedUsernameUnderlined
                 )
             }
         }
@@ -20135,7 +21293,8 @@ struct ContentView: View {
                     followerCount: followers,
                     followingCount: following,
                     profilePhotoText: profile.profilePhotoText,
-                    profilePhotoURL: profile.profilePhotoURL
+                    profilePhotoURL: profile.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: profile.isVerifiedUsernameUnderlined
                 )
             }
         }
@@ -20153,7 +21312,8 @@ struct ContentView: View {
                     followerCount: followers,
                     followingCount: following,
                     profilePhotoText: selected.profilePhotoText,
-                    profilePhotoURL: selected.profilePhotoURL
+                    profilePhotoURL: selected.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: selected.isVerifiedUsernameUnderlined
                 )
             }
         }
@@ -20279,6 +21439,13 @@ struct ContentView: View {
     }
 
     private func preferredPersistedUsername() -> String {
+        let lockedUsername = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: verifiedLockedUsernameDefaultsKey) ?? ""
+        )
+        if isVerifiedUsernameUnderlined, !lockedUsername.isEmpty {
+            return lockedUsername
+        }
+
         let candidates = [
             UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? "",
             selectedSavedAccount?.username ?? "",
@@ -20304,6 +21471,65 @@ struct ContentView: View {
         return ""
     }
 
+    private func resolvedVerifiedLockedUsername() -> String {
+        let stored = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: verifiedLockedUsernameDefaultsKey) ?? ""
+        )
+        if !stored.isEmpty {
+            return stored
+        }
+
+        let fallback = FirebaseSpotService.normalizeUsername(
+            UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? accountUsername
+        )
+        if isVerifiedUsernameUnderlined, !fallback.isEmpty {
+            UserDefaults.standard.set(fallback, forKey: verifiedLockedUsernameDefaultsKey)
+        }
+        return fallback
+    }
+
+    @MainActor
+    private func enforceVerifiedCredentialLock() {
+        guard isVerifiedUsernameUnderlined else { return }
+
+        let lockedUsername = resolvedVerifiedLockedUsername()
+        guard !lockedUsername.isEmpty else { return }
+
+        profileUsername = lockedUsername
+        accountUsername = lockedUsername
+        signInUsername = lockedUsername
+        UserDefaults.standard.set(lockedUsername, forKey: accountUsernameDefaultsKey)
+
+        savedAccounts = savedAccounts.filter { account in
+            let normalized = FirebaseSpotService.normalizeUsername(account.username)
+            return normalized == lockedUsername
+        }
+
+        if savedAccounts.isEmpty {
+            upsertSavedAccount(
+                email: accountEmail,
+                username: lockedUsername,
+                displayName: profileName,
+                profilePhotoURL: profilePhotoRemoteURL,
+                password: accountPassword,
+                isVerifiedUsernameUnderlined: true,
+                verifiedLockedUsername: lockedUsername
+            )
+        } else {
+            selectedSavedAccountEmail = savedAccounts[0].id
+            persistSavedAccounts()
+        }
+
+        let aliasCandidates = rememberedUsernameAliases()
+        applyUserProfileToOwnPosts(
+            username: lockedUsername,
+            displayName: profileName,
+            previousUsernames: aliasCandidates
+        )
+
+        rememberUsernameAliases([lockedUsername])
+    }
+
     private func hydratePersistedIdentity() {
         let savedName = UserDefaults.standard.string(forKey: profileNameDefaultsKey) ?? ""
         let restoredUsername = preferredPersistedUsername()
@@ -20323,6 +21549,8 @@ struct ContentView: View {
         if !savedEmail.isEmpty {
             accountEmail = savedEmail
         }
+
+        enforceVerifiedCredentialLock()
     }
 
     static func preferredUserID(currentUserID: String?, persistedUserID: String?, fallbackUserID: String) -> String {
@@ -20668,9 +21896,10 @@ struct ContentView: View {
             resolvedSourceURL = Self.isRemoteURLString(post.url) ? post.url : nil
         }
         let postedRealms = Self.resolvedPostedRealms(location: post.location, postedInLocations: post.postedInLocations)
+        let postingUsername = resolvedPostingUsername()
         let payloadAuthorUsername = post.isAnonymous
             ? Self.anonymousHandle
-            : displayUsername(profileUsername.isEmpty ? "you" : profileUsername)
+            : postingUsername
         let payloadAuthorDisplayName = post.isAnonymous
             ? ""
             : FirebaseSpotService.normalizeUsername(payloadAuthorUsername)
@@ -20678,6 +21907,7 @@ struct ContentView: View {
             post.tag,
             post.isAnonymous ? Self.anonymousTagMarker : nil,
             post.isBoosted ? Self.boostedTagMarker : nil,
+            (!post.isAnonymous && isVerifiedUsernameUnderlined) ? Self.verifiedTagMarker : nil,
             (post.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? "\(Self.ageTagPrefix)\(post.authorAge!.trimmingCharacters(in: .whitespacesAndNewlines))" : nil,
             (post.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? "\(Self.positionTagPrefix)\(post.authorPosition!.trimmingCharacters(in: .whitespacesAndNewlines))" : nil
         ].compactMap { $0 }
@@ -20799,6 +22029,7 @@ struct ContentView: View {
             let isAnonymousPost = payload.tags.contains(Self.anonymousTagMarker)
                 || normalizedPayloadUsername == Self.anonymousHandle
             let isBoostedPost = payload.tags.contains(Self.boostedTagMarker)
+            let isVerifiedAuthor = payload.tags.contains(Self.verifiedTagMarker)
             let extractedAgeTag = payload.tags.first(where: { $0.hasPrefix(Self.ageTagPrefix) })
             let payloadAge = extractedAgeTag.map { String($0.dropFirst(Self.ageTagPrefix.count)) }
             let extractedPositionTag = payload.tags.first(where: { $0.hasPrefix(Self.positionTagPrefix) })
@@ -20835,6 +22066,7 @@ struct ContentView: View {
                 handle: isAnonymousPost ? Self.anonymousHandle : resolvedHandle,
                 authorUserID: resolvedAuthorID,
                 authorProfilePhotoURL: isAnonymousPost ? nil : payload.authorProfilePhotoURL,
+                authorIsVerified: isAnonymousPost ? false : isVerifiedAuthor,
                 authorAge: isAnonymousPost ? nil : payloadAge,
                 authorPosition: resolvedAuthorPosition,
                 type: payload.contentType,
@@ -20892,6 +22124,10 @@ struct ContentView: View {
             let currentPhotoURL = (current.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if persistedPhotoURL.isEmpty && !currentPhotoURL.isEmpty {
                 next.authorProfilePhotoURL = current.authorProfilePhotoURL
+            }
+
+            if current.authorIsVerified {
+                next.authorIsVerified = true
             }
 
             return next
@@ -21060,6 +22296,19 @@ struct ContentView: View {
         }
     }
 
+    static func postsWithLikedState(_ posts: [MockPost], likedPostIDs: [String]) -> [MockPost] {
+        let likedSet = Set(likedPostIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+
+        return posts.map { post in
+            var updated = post
+            let numericIDString = String(post.id)
+            let firestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+            updated.isLiked = likedSet.contains(numericIDString)
+                || (!firestoreID.isEmpty && likedSet.contains(firestoreID))
+            return updated
+        }
+    }
+
     static func deleteCandidatePostIDs(firestoreID: String, localPostID: Int) -> [String] {
         var seen = Set<String>()
         var ordered: [String] = []
@@ -21111,7 +22360,7 @@ struct ContentView: View {
         }
     }
 
-    private func persistCurrentUsername() async {
+    private func persistCurrentUsername(closeEditor: Bool = true) async {
         if isVerifiedUsernameUnderlined {
             usernameAvailabilityMessage = "Username locked after verification"
             usernameAvailabilityIsAvailable = false
@@ -21183,7 +22432,9 @@ struct ContentView: View {
                 profilePhotoURL: profilePhotoRemoteURL,
                 password: accountPassword
             )
-            activeSettingsEditor = nil
+            if closeEditor {
+                activeSettingsEditor = nil
+            }
         } catch {
             usernameAvailabilityMessage = "Taken or invalid"
             usernameAvailabilityIsAvailable = false
@@ -21606,6 +22857,7 @@ struct ContentView: View {
             let resolvedFollowingCount = liveCounts?.following ?? account.followingCount
             await MainActor.run {
                 startCurrentUserProfileLiveListener(for: userID)
+                startCurrentUserPostsLiveListener(for: userID, username: account.username)
                 let verifiedPhone = (account.phoneNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if !verifiedPhone.isEmpty {
                     phoneNumber = verifiedPhone
@@ -21616,10 +22868,32 @@ struct ContentView: View {
                 }
 
                 let storedUsername = UserDefaults.standard.string(forKey: accountUsernameDefaultsKey) ?? selectedSavedAccount?.username ?? ""
-                let normalizedUsername = Self.preferredAccountUsername(
-                    storedUsername: storedUsername,
-                    firebaseUsername: account.username
+                let savedVerification = savedAccountVerificationSnapshot(
+                    username: account.username,
+                    email: accountEmail,
+                    password: accountPassword
                 )
+                let hasLocalVerifiedLockEvidence = !savedVerification.lockedUsername.isEmpty
+                let resolvedVerifiedUnderline = account.isVerifiedUsernameUnderlined
+                    || savedVerification.isVerified
+                    || hasLocalVerifiedLockEvidence
+                isVerifiedUsernameUnderlined = resolvedVerifiedUnderline
+                UserDefaults.standard.set(resolvedVerifiedUnderline, forKey: accountVerifiedUnderlineDefaultsKey)
+                let firebaseUsername = FirebaseSpotService.normalizeUsername(account.username)
+                let lockedUsername = resolvedVerifiedUnderline
+                    ? (firebaseUsername.isEmpty ? savedVerification.lockedUsername : firebaseUsername)
+                    : ""
+                if resolvedVerifiedUnderline, !lockedUsername.isEmpty {
+                    UserDefaults.standard.set(lockedUsername, forKey: verifiedLockedUsernameDefaultsKey)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: verifiedLockedUsernameDefaultsKey)
+                }
+                let normalizedUsername = (!lockedUsername.isEmpty && isVerifiedUsernameUnderlined)
+                    ? lockedUsername
+                    : Self.preferredAccountUsername(
+                        storedUsername: storedUsername,
+                        firebaseUsername: account.username
+                    )
                 if !normalizedUsername.isEmpty {
                     profileUsername = normalizedUsername
                     accountUsername = normalizedUsername
@@ -21650,6 +22924,8 @@ struct ContentView: View {
                     username: profileUsername,
                     displayName: profileName,
                     profilePhotoURL: account.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: resolvedVerifiedUnderline,
+                    verifiedLockedUsername: lockedUsername,
                     preserveExistingPhoto: false
                 )
 
@@ -21659,6 +22935,15 @@ struct ContentView: View {
                     applyUserProfileToOwnPosts(
                         username: liveUsername,
                         displayName: liveDisplayName.isEmpty ? "You" : liveDisplayName
+                    )
+                    applyAuthorVerificationToPosts(
+                        authorUserID: userID,
+                        username: liveUsername,
+                        isVerified: resolvedVerifiedUnderline
+                    )
+                    applyVerificationToSpecificPosts(
+                        postIDs: account.postedPostIDs,
+                        isVerified: resolvedVerifiedUnderline
                     )
                 }
 
@@ -21684,6 +22969,45 @@ struct ContentView: View {
                     applyProfilePhotoURLToOwnPosts(currentPhotoURL)
                 } else {
                     profilePhotoRemoteURL = fetchedPhotoURL
+                }
+
+                enforceVerifiedCredentialLock()
+
+                let shouldRetryVerificationSync = resolvedVerifiedUnderline
+                    && UserDefaults.standard.bool(forKey: verificationSyncPendingDefaultsKey)
+                if shouldRetryVerificationSync {
+                    Task {
+                        let verifiedUsername = await resolvedUsernameForProfileSave(userID: userID)
+                        let currentDisplayName = profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let resolvedDisplayName = currentDisplayName.isEmpty ? verifiedUsername : currentDisplayName
+
+                        do {
+                            let existingAccount = try? await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
+                            try await FirebaseSpotService.shared.saveUserProfile(
+                                userID: userID,
+                                username: verifiedUsername,
+                                displayName: resolvedDisplayName,
+                                bio: existingAccount?.bio,
+                                photoURL: profilePhotoRemoteURL.isEmpty ? nil : profilePhotoRemoteURL,
+                                allowVerifiedDuplicateUsername: true
+                            )
+                            try await FirebaseSpotService.shared.setUserVerificationUnderline(userID: userID, enabled: true)
+                            await MainActor.run {
+                                UserDefaults.standard.set(false, forKey: verificationSyncPendingDefaultsKey)
+                                upsertSavedAccount(
+                                    email: accountEmail,
+                                    username: verifiedUsername,
+                                    displayName: resolvedDisplayName,
+                                    profilePhotoURL: profilePhotoRemoteURL,
+                                    password: accountPassword,
+                                    isVerifiedUsernameUnderlined: true,
+                                    verifiedLockedUsername: verifiedUsername
+                                )
+                            }
+                        } catch {
+                            // Keep pending flag true and retry next hydration cycle.
+                        }
+                    }
                 }
 
                 let shouldSyncLocalPhotoToCloud = Self.shouldSyncLocalProfilePhotoToCloud(
@@ -21787,6 +23111,10 @@ struct ContentView: View {
                 var hydratedWithSavedState = Self.postsWithSavedState(posts, savedPostIDs: account.savedPostIDs)
                 hydratedWithSavedState = applySavedStateOverrides(to: hydratedWithSavedState)
                 posts = hydratedWithSavedState
+                applyVerificationToSpecificPosts(
+                    postIDs: account.postedPostIDs,
+                    isVerified: resolvedVerifiedUnderline
+                )
                 reconcileSavedPostTimestamps(using: hydratedWithSavedState)
             }
         } catch {
@@ -21833,12 +23161,17 @@ struct ContentView: View {
             guard !post.isAnonymous else { return false }
 
             let postAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
+            let usernameMatches = !postUsername.isEmpty && candidateUsernames.contains(postUsername)
 
             if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty {
-                return postAuthorID == resolvedAuthorID
+                if postAuthorID == resolvedAuthorID {
+                    return true
+                }
+                // Keep verified-username migrations resilient for legacy posts that still carry an old authorID.
+                return usernameMatches
             }
 
-            let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
             guard !postUsername.isEmpty, postUsername != "you", postUsername != Self.anonymousHandle else { return false }
             return candidateUsernames.contains(postUsername)
         }
@@ -21857,6 +23190,7 @@ struct ContentView: View {
     private func applyUserProfileToOwnPosts(username: String, displayName: String, previousUsernames: [String] = []) {
         let resolvedUsername = FirebaseSpotService.normalizeUsername(username)
         guard !resolvedUsername.isEmpty else { return }
+        let verifiedUnderline = isVerifiedUsernameUnderlined
 
         posts = Self.updatedPostsForAuthorIdentity(
             posts: posts,
@@ -21864,7 +23198,13 @@ struct ContentView: View {
             username: resolvedUsername,
             previousUsernames: previousUsernames,
             displayName: displayName
-        )
+        ).map { post in
+            guard !post.isAnonymous else { return post }
+            guard Self.isPostOwnedByUser(post, currentUserID: currentUserID, currentUsername: resolvedUsername) else { return post }
+            var updated = post
+            updated.authorIsVerified = verifiedUnderline
+            return updated
+        }
 
         var candidateUsernames: Set<String> = [resolvedUsername]
         for candidate in previousUsernames {
@@ -21889,6 +23229,7 @@ struct ContentView: View {
                 var updatedSelected = selected
                 updatedSelected.handle = resolvedUsername
                 updatedSelected.author = displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? resolvedUsername : displayName
+                updatedSelected.authorIsVerified = verifiedUnderline
                 selectedProfilePost = updatedSelected
             }
         }
@@ -21908,6 +23249,7 @@ struct ContentView: View {
                 var updatedPending = pending
                 updatedPending.handle = resolvedUsername
                 updatedPending.author = displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? resolvedUsername : displayName
+                updatedPending.authorIsVerified = verifiedUnderline
                 pendingSharePost = updatedPending
             }
         }
@@ -22009,7 +23351,8 @@ struct ContentView: View {
             followerCount: profile.followerCount,
             followingCount: profile.followingCount,
             profilePhotoText: profile.profilePhotoText,
-            profilePhotoURL: photoURL
+            profilePhotoURL: photoURL,
+            isVerifiedUsernameUnderlined: profile.isVerifiedUsernameUnderlined
         )
     }
 
@@ -22089,8 +23432,161 @@ struct ContentView: View {
         }
     }
 
+    @MainActor
+    private func applyAuthorVerificationToPosts(authorUserID: String, username: String?, isVerified: Bool) {
+        let resolvedAuthorID = authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedUsername = FirebaseSpotService.normalizeUsername(username ?? "")
+
+        func shouldUpdate(_ post: MockPost) -> Bool {
+            guard !post.isAnonymous else { return false }
+
+            let postAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty {
+                return postAuthorID == resolvedAuthorID
+            }
+
+            if !resolvedAuthorID.isEmpty, !postAuthorID.isEmpty, postAuthorID != resolvedAuthorID {
+                return false
+            }
+
+            guard !resolvedUsername.isEmpty, resolvedUsername != "you", resolvedUsername != Self.anonymousHandle else { return false }
+            let postUsername = FirebaseSpotService.normalizeUsername(post.handle)
+            guard !postUsername.isEmpty, postUsername != "you", postUsername != Self.anonymousHandle else { return false }
+            return postUsername == resolvedUsername
+        }
+
+        posts = posts.map { post in
+            guard shouldUpdate(post) else { return post }
+
+            let postAuthorID = post.authorUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let usedUsernameFallback = resolvedAuthorID.isEmpty || postAuthorID.isEmpty
+            if !isVerified && post.authorIsVerified && usedUsernameFallback {
+                // Avoid transient false overrides when identity was matched by username fallback only.
+                return post
+            }
+
+            var updatedPost = post
+            updatedPost.authorIsVerified = isVerified
+            return updatedPost
+        }
+
+        if let selected = selectedProfilePost, shouldUpdate(selected) {
+            var updatedSelected = selected
+            updatedSelected.authorIsVerified = isVerified
+            selectedProfilePost = updatedSelected
+        }
+
+        if let pending = pendingSharePost, shouldUpdate(pending) {
+            var updatedPending = pending
+            updatedPending.authorIsVerified = isVerified
+            pendingSharePost = updatedPending
+        }
+
+        if let selectedProfile = selectedUserProfile {
+            let selectedProfileUserID = selectedProfile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let selectedMatchesByID = !resolvedAuthorID.isEmpty
+                && !selectedProfileUserID.isEmpty
+                && selectedProfileUserID == resolvedAuthorID
+            let selectedMatchesByUsername = selectedProfileUserID.isEmpty
+                && resolvedAuthorID.isEmpty
+                && !resolvedUsername.isEmpty
+                && FirebaseSpotService.normalizeUsername(selectedProfile.username) == resolvedUsername
+
+            if selectedMatchesByID || selectedMatchesByUsername {
+                selectedUserProfile = FakeUserProfile(
+                    id: selectedProfile.id,
+                    userID: selectedProfile.userID,
+                    username: selectedProfile.username,
+                    name: selectedProfile.name,
+                    city: selectedProfile.city,
+                    bio: selectedProfile.bio,
+                    followerCount: selectedProfile.followerCount,
+                    followingCount: selectedProfile.followingCount,
+                    profilePhotoText: selectedProfile.profilePhotoText,
+                    profilePhotoURL: selectedProfile.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: isVerified
+                )
+            }
+        }
+
+        fakeUserProfiles = fakeUserProfiles.map { profile in
+            let profileUserID = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+            let matchesByID = !resolvedAuthorID.isEmpty
+                && !profileUserID.isEmpty
+                && profileUserID == resolvedAuthorID
+            let matchesByUsername = profileUserID.isEmpty
+                && resolvedAuthorID.isEmpty
+                && !resolvedUsername.isEmpty
+                && FirebaseSpotService.normalizeUsername(profile.username) == resolvedUsername
+
+            if matchesByID || matchesByUsername {
+                let nextVerified: Bool
+                if !isVerified && profile.isVerifiedUsernameUnderlined && !matchesByID {
+                    // Keep known verified state unless a strict ID match says otherwise.
+                    nextVerified = true
+                } else {
+                    nextVerified = isVerified
+                }
+
+                return FakeUserProfile(
+                    id: profile.id,
+                    userID: profile.userID,
+                    username: profile.username,
+                    name: profile.name,
+                    city: profile.city,
+                    bio: profile.bio,
+                    followerCount: profile.followerCount,
+                    followingCount: profile.followingCount,
+                    profilePhotoText: profile.profilePhotoText,
+                    profilePhotoURL: profile.profilePhotoURL,
+                    isVerifiedUsernameUnderlined: nextVerified
+                )
+            }
+            return profile
+        }
+    }
+
+    @MainActor
+    private func applyVerificationToSpecificPosts(postIDs: [String], isVerified: Bool) {
+        let normalizedIDs = Set(
+            postIDs
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+        guard !normalizedIDs.isEmpty else { return }
+
+        func matches(_ post: MockPost) -> Bool {
+            let firestoreID = post.firestoreID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !firestoreID.isEmpty, normalizedIDs.contains(firestoreID) {
+                return true
+            }
+
+            let localID = String(post.id)
+            return normalizedIDs.contains(localID)
+        }
+
+        posts = posts.map { post in
+            guard !post.isAnonymous, matches(post) else { return post }
+            var updated = post
+            updated.authorIsVerified = isVerified
+            return updated
+        }
+
+        if let selected = selectedProfilePost, !selected.isAnonymous, matches(selected) {
+            var updatedSelected = selected
+            updatedSelected.authorIsVerified = isVerified
+            selectedProfilePost = updatedSelected
+        }
+
+        if let pending = pendingSharePost, !pending.isAnonymous, matches(pending) {
+            var updatedPending = pending
+            updatedPending.authorIsVerified = isVerified
+            pendingSharePost = updatedPending
+        }
+    }
+
     private func refreshActivePostAuthorPhotos(force: Bool = false) async {
-        let snapshot = await MainActor.run { () -> (targets: [(userID: String, username: String, key: String)], currentPhotoByKey: [String: String], now: TimeInterval)? in
+        let snapshot = await MainActor.run { () -> (targets: [(userID: String, username: String, key: String)], currentPhotoByKey: [String: String], currentVerifiedByKey: [String: Bool], now: TimeInterval)? in
             let now = Date().timeIntervalSince1970
             if isActiveAuthorPhotoRefreshInFlight { return nil }
             if !force && (now - lastActiveAuthorPhotoRefreshAt) < 6 { return nil }
@@ -22099,6 +23595,7 @@ struct ContentView: View {
             guard !activePosts.isEmpty else { return nil }
 
             var currentPhotoByKey: [String: String] = [:]
+            var currentVerifiedByKey: [String: Bool] = [:]
             var targets: [(userID: String, username: String, key: String)] = []
             var seenTargets: Set<String> = []
 
@@ -22110,54 +23607,65 @@ struct ContentView: View {
 
                 let currentURL = (post.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 currentPhotoByKey[key] = currentURL
+                currentVerifiedByKey[key] = post.authorIsVerified
                 targets.append((userID: authorID, username: username, key: key))
             }
 
             guard !targets.isEmpty else { return nil }
 
             isActiveAuthorPhotoRefreshInFlight = true
-            return (targets, currentPhotoByKey, now)
+            return (targets, currentPhotoByKey, currentVerifiedByKey, now)
         }
 
         guard let snapshot else { return }
 
-        let resolvedPhotoUpdates = await withTaskGroup(of: (String, String, String?)?.self, returning: [(String, String, String?)].self) { group in
+        let resolvedPhotoUpdates = await withTaskGroup(of: (String, String, String?, Bool)?.self, returning: [(String, String, String?, Bool)].self) { group in
             for target in snapshot.targets {
                 group.addTask {
                     do {
-                        let resolvedUserID: String
+                        var candidateUserIDs: [String] = []
                         if !target.userID.isEmpty {
-                            resolvedUserID = target.userID
-                        } else if !target.username.isEmpty {
-                            resolvedUserID = (try await FirebaseSpotService.shared.resolveUserID(username: target.username)) ?? ""
-                        } else {
-                            resolvedUserID = ""
+                            candidateUserIDs.append(target.userID)
+                        } else if !target.username.isEmpty,
+                                  let resolvedFromUsername = try await FirebaseSpotService.shared.resolveUserID(username: target.username),
+                                  !resolvedFromUsername.isEmpty {
+                            candidateUserIDs.append(resolvedFromUsername)
                         }
 
-                        let account: FirebaseUserAccountRecord
-                        if !resolvedUserID.isEmpty {
-                            account = try await FirebaseSpotService.shared.fetchUserAccount(userID: resolvedUserID)
-                        } else if !target.username.isEmpty {
-                            let fallbackUserID = (try await FirebaseSpotService.shared.resolveUserID(username: target.username)) ?? ""
-                            guard !fallbackUserID.isEmpty else { return nil }
-                            account = try await FirebaseSpotService.shared.fetchUserAccount(userID: fallbackUserID)
-                        } else {
+                        var account: FirebaseUserAccountRecord? = nil
+                        for candidateID in candidateUserIDs {
+                            if let byID = try? await FirebaseSpotService.shared.fetchUserAccount(userID: candidateID) {
+                                account = byID
+                                break
+                            }
+                        }
+
+                        if account == nil, !target.username.isEmpty {
+                            if let byUsername = try await FirebaseSpotService.shared.fetchUserAccount(username: target.username) {
+                                account = byUsername
+                            }
+                        }
+
+                        guard let account else {
                             return nil
                         }
 
                         let fetchedURL = (account.profilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                         let existingURL = snapshot.currentPhotoByKey[target.key] ?? ""
+                        let existingVerified = snapshot.currentVerifiedByKey[target.key] ?? false
 
-                        let shouldUpdate = fetchedURL != existingURL || (existingURL.isEmpty && !fetchedURL.isEmpty)
+                        let shouldUpdatePhoto = fetchedURL != existingURL || (existingURL.isEmpty && !fetchedURL.isEmpty)
+                        let shouldUpdateVerified = existingVerified != account.isVerifiedUsernameUnderlined
+                        let shouldUpdate = shouldUpdatePhoto || shouldUpdateVerified
                         guard shouldUpdate else { return nil }
-                        return (account.uid, target.username, fetchedURL.isEmpty ? nil : fetchedURL)
+                        return (account.uid, target.username, fetchedURL.isEmpty ? nil : fetchedURL, account.isVerifiedUsernameUnderlined)
                     } catch {
                         return nil
                     }
                 }
             }
 
-            var updates: [(String, String, String?)] = []
+            var updates: [(String, String, String?, Bool)] = []
             for await result in group {
                 guard let result else { continue }
                 updates.append(result)
@@ -22169,6 +23677,7 @@ struct ContentView: View {
             for update in resolvedPhotoUpdates {
                 applyProfilePhotoURLToPosts(authorUserID: update.0, username: update.1, photoURL: update.2)
                 prefetchRemoteAvatarIfNeeded(update.2)
+                applyAuthorVerificationToPosts(authorUserID: update.0, username: update.1, isVerified: update.3)
             }
 
             lastActiveAuthorPhotoRefreshAt = snapshot.now
@@ -22248,8 +23757,10 @@ struct ContentView: View {
         do {
             let account = try await FirebaseSpotService.shared.fetchUserAccount(userID: userID)
             var hydratedWithSavedState = Self.postsWithSavedState(hydratedWithCachedEngagement, savedPostIDs: account.savedPostIDs)
+            hydratedWithSavedState = Self.postsWithLikedState(hydratedWithSavedState, likedPostIDs: account.likedPostIDs)
             hydratedWithSavedState = applySavedStateOverrides(to: hydratedWithSavedState)
             posts = hydratedWithSavedState
+            applyVerificationToSpecificPosts(postIDs: account.postedPostIDs, isVerified: account.isVerifiedUsernameUnderlined)
             reconcileSavedPostTimestamps(using: hydratedWithSavedState)
         } catch {
             let hydratedWithOverrides = applySavedStateOverrides(to: hydratedWithCachedEngagement)
@@ -22477,20 +23988,48 @@ struct ContentView: View {
         return nil
     }
 
-    private func persistUserAccountActivity(for post: MockPost, saved: Bool? = nil, flagged: Bool? = nil, locationName: String? = nil) {
+    private func persistUserAccountActivity(for post: MockPost, saved: Bool? = nil, liked: Bool? = nil, flagged: Bool? = nil, locationName: String? = nil) {
         Task {
             guard let accountUserID = await resolvedAccountUserIDForPersistence() else {
                 print("Spot user activity save skipped: no authenticated account user id")
                 return
             }
 
+            let candidatePostIDs = Self.deleteCandidatePostIDs(
+                firestoreID: post.firestoreID,
+                localPostID: post.id
+            )
+            guard !candidatePostIDs.isEmpty else { return }
+
             do {
                 if let saved {
-                    try await FirebaseSpotService.shared.saveUserSavedPost(userID: accountUserID, postID: String(post.id), saved: saved)
+                    for candidatePostID in candidatePostIDs {
+                        try await FirebaseSpotService.shared.saveUserSavedPost(
+                            userID: accountUserID,
+                            postID: candidatePostID,
+                            saved: saved
+                        )
+                    }
+                }
+
+                if let liked {
+                    for candidatePostID in candidatePostIDs {
+                        try await FirebaseSpotService.shared.saveUserLikedPost(
+                            userID: accountUserID,
+                            postID: candidatePostID,
+                            liked: liked
+                        )
+                    }
                 }
 
                 if let flagged {
-                    try await FirebaseSpotService.shared.saveUserFlaggedPost(userID: accountUserID, postID: String(post.id), flagged: flagged)
+                    for candidatePostID in candidatePostIDs {
+                        try await FirebaseSpotService.shared.saveUserFlaggedPost(
+                            userID: accountUserID,
+                            postID: candidatePostID,
+                            flagged: flagged
+                        )
+                    }
                 }
 
                 if let locationName {
@@ -22607,17 +24146,13 @@ struct ContentView: View {
             return
         }
 
-        let representativePost = posts[representativeIndex]
-        let isOwnPost = Self.isPostOwnedByUser(
-            representativePost,
-            currentUserID: currentUserID,
-            currentUsername: profileUsername
-        )
+        // Single-like rule: once liked, additional taps do not toggle or add extra likes.
+        guard !posts[representativeIndex].isLiked else {
+            return
+        }
 
-        let nextLikedState = !posts[representativeIndex].isLiked
-        let updatedLikeCount = isOwnPost
-            ? posts[representativeIndex].likes
-            : max(0, posts[representativeIndex].likes + (nextLikedState ? 1 : -1))
+        let nextLikedState = true
+        let updatedLikeCount = max(0, posts[representativeIndex].likes + 1)
         let updatedSavedCount = posts[representativeIndex].savedCount
 
         if nextLikedState {
@@ -22642,22 +24177,22 @@ struct ContentView: View {
             pendingSharePost = pending
         }
 
+        persistUserAccountActivity(for: posts[representativeIndex], liked: nextLikedState)
         cacheEngagementSnapshot(for: posts[representativeIndex])
 
         let postIDForEngagement = posts[representativeIndex].firestoreID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? String(posts[representativeIndex].id)
             : posts[representativeIndex].firestoreID
-        if !isOwnPost {
-            Task {
-                do {
-                    try await FirebaseSpotService.shared.updatePostEngagement(
-                        postID: postIDForEngagement,
-                        likesCount: updatedLikeCount,
-                        savedCount: updatedSavedCount
-                    )
-                } catch {
-                    print("Spot like engagement update failed for post \(postIDForEngagement): \(error)")
-                }
+        Task {
+            do {
+                try await FirebaseSpotService.shared.updatePostEngagement(
+                    postID: postIDForEngagement,
+                    likesCount: updatedLikeCount,
+                    likesDelta: 1,
+                    savedCount: updatedSavedCount
+                )
+            } catch {
+                print("Spot like engagement update failed for post \(postIDForEngagement): \(error)")
             }
         }
     }
@@ -22831,40 +24366,97 @@ struct ContentView: View {
         selectedChatThread = messages[index]
     }
 
+    private var chatStateScopeID: String {
+        let authUserID = (try? FirebaseSpotService.shared.currentUserID())?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !authUserID.isEmpty { return authUserID }
+
+        let persistedUserID = (UserDefaults.standard.string(forKey: "spot_firebase_user_id") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !persistedUserID.isEmpty { return persistedUserID }
+
+        let stateUserID = currentUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return stateUserID.isEmpty ? "guest" : stateUserID
+    }
+
+    private var readChatThreadIDsDefaultsKey: String {
+        "spot_read_chat_ids_\(chatStateScopeID)"
+    }
+
+    private var deletedChatIDsDefaultsKey: String {
+        "spot_deleted_chat_ids_\(chatStateScopeID)"
+    }
+
+    private func localChatThreadIdentifier(_ thread: DirectMessageThread) -> String {
+        let uidPart = thread.participantUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !uidPart.isEmpty {
+            return "uid:\(uidPart)|anon:\(thread.isAnonymousConversation ? "1" : "0")"
+        }
+
+        let usernamePart = FirebaseSpotService.normalizeUsername(thread.username.isEmpty ? thread.participant : thread.username)
+        return "user:\(usernamePart)|anon:\(thread.isAnonymousConversation ? "1" : "0")"
+    }
+
     private var readChatThreadIDs: Set<String> {
-        let list = UserDefaults.standard.stringArray(forKey: "spot_read_chat_ids") ?? []
+        let list = UserDefaults.standard.stringArray(forKey: readChatThreadIDsDefaultsKey) ?? []
         return Set(list)
     }
 
     private func markChatThreadAsRead(_ thread: DirectMessageThread) {
-        let identifier = !thread.chatID.isEmpty ? thread.chatID : "\(thread.id)"
+        let identifier = !thread.chatID.isEmpty ? thread.chatID : localChatThreadIdentifier(thread)
         var set = readChatThreadIDs
         set.insert(identifier)
-        UserDefaults.standard.set(Array(set), forKey: "spot_read_chat_ids")
+        UserDefaults.standard.set(Array(set), forKey: readChatThreadIDsDefaultsKey)
+        recalculateUnreadDirectMessageCount()
+
+        let chatID = thread.chatID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !chatID.isEmpty,
+              let currentUID = try? FirebaseSpotService.shared.currentUserID(),
+              !currentUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        let readAt = Date().timeIntervalSince1970
+        chatReadAtByChatID[chatID] = max(chatReadAtByChatID[chatID] ?? 0, readAt)
+
+        Task {
+            do {
+                try await FirebaseSpotService.shared.markChatAsRead(chatID: chatID, userID: currentUID, readAt: readAt)
+            } catch {
+                print("Spot markChatAsRead failed for chatID \(chatID): \(error)")
+            }
+        }
     }
 
     private func isChatThreadRead(_ thread: DirectMessageThread) -> Bool {
-        let identifier = !thread.chatID.isEmpty ? thread.chatID : "\(thread.id)"
+        let identifier = !thread.chatID.isEmpty ? thread.chatID : localChatThreadIdentifier(thread)
         return readChatThreadIDs.contains(identifier)
     }
 
     private var deletedChatIDs: Set<String> {
         get {
-            let list = UserDefaults.standard.stringArray(forKey: "spot_deleted_chat_ids") ?? []
+            let list = UserDefaults.standard.stringArray(forKey: deletedChatIDsDefaultsKey) ?? []
             return Set(list)
         }
         set {
-            UserDefaults.standard.set(Array(newValue), forKey: "spot_deleted_chat_ids")
+            UserDefaults.standard.set(Array(newValue), forKey: deletedChatIDsDefaultsKey)
         }
     }
 
     private func deleteChatThread(_ thread: DirectMessageThread) {
+        let messageStoreKey = threadMessageStoreKey(for: thread)
         if !thread.chatID.isEmpty {
             var set = deletedChatIDs
             set.insert(thread.chatID)
-            UserDefaults.standard.set(Array(set), forKey: "spot_deleted_chat_ids")
+            UserDefaults.standard.set(Array(set), forKey: deletedChatIDsDefaultsKey)
+
+            if let registration = chatMessageListenersByChatID[thread.chatID] {
+                registration.remove()
+            }
+            chatMessageListenersByChatID.removeValue(forKey: thread.chatID)
+            threadIDByChatID.removeValue(forKey: thread.chatID)
         }
         messages.removeAll { $0.id == thread.id }
+        chatMessages.removeValue(forKey: messageStoreKey)
         if selectedChatThread?.id == thread.id {
             selectedChatThread = nil
         }
@@ -22938,9 +24530,11 @@ struct ContentView: View {
         await MainActor.run {
             if !resolvedChatID.isEmpty, let index = messages.firstIndex(where: { $0.id == thread.id }) {
                 messages[index].chatID = resolvedChatID
+                threadIDByChatID[resolvedChatID] = messages[index].id
             }
 
-            var updatedMessages = chatMessages[thread.id] ?? []
+            let targetThreadID = threadMessageStoreKey(for: thread)
+            var updatedMessages = chatMessages[targetThreadID] ?? []
             updatedMessages.append(
                 ChatMessage(
                     id: (updatedMessages.last?.id ?? 0) + 1,
@@ -22951,8 +24545,8 @@ struct ContentView: View {
                     sharedPost: post
                 )
             )
-            chatMessages[thread.id] = updatedMessages
-            refreshThreadPreview(for: thread.id)
+            chatMessages[targetThreadID] = updatedMessages
+            refreshThreadPreview(for: targetThreadID)
             pendingSharePost = nil
             isShareFlowActive = false
             chatComposerText = ""
@@ -22977,31 +24571,55 @@ struct ContentView: View {
             ? (user.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "user" : user.name)
             : user.username
 
+        let normalizedTargetUsername = FirebaseSpotService.normalizeUsername(targetUsername)
+        let targetUserID = user.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentUID = (try? FirebaseSpotService.shared.currentUserID()) ?? ""
+        let expectedChatID = (!targetUserID.isEmpty && !currentUID.isEmpty)
+            ? FirebaseSpotService.chatID(for: [currentUID, targetUserID], isAnonymous: startsAnonymous)
+            : ""
+
         if let existingIndex = messages.firstIndex(where: {
-            ($0.username.lowercased() == targetUsername.lowercased() || $0.participant.lowercased() == user.name.lowercased() || (!user.userID.isEmpty && $0.participantUserID == user.userID))
-            && $0.isAnonymousConversation == startsAnonymous
+            if !expectedChatID.isEmpty, $0.chatID == expectedChatID { return true }
+            if !targetUserID.isEmpty, $0.participantUserID == targetUserID, $0.isAnonymousConversation == startsAnonymous {
+                return true
+            }
+            if targetUserID.isEmpty, $0.participantUserID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               $0.isAnonymousConversation == startsAnonymous {
+                return FirebaseSpotService.normalizeUsername($0.username) == normalizedTargetUsername
+            }
+            return false
         }) {
             messages[existingIndex].username = targetUsername
             if !user.name.isEmpty {
                 messages[existingIndex].participant = user.name
             }
-            if !user.userID.isEmpty {
-                messages[existingIndex].participantUserID = user.userID
+            if !targetUserID.isEmpty {
+                messages[existingIndex].participantUserID = targetUserID
             }
-            if messages[existingIndex].chatID.isEmpty, !user.userID.isEmpty, let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty {
-                messages[existingIndex].chatID = FirebaseSpotService.chatID(for: [currentUID, user.userID], isAnonymous: startsAnonymous)
+            if messages[existingIndex].chatID.isEmpty, !expectedChatID.isEmpty {
+                messages[existingIndex].chatID = expectedChatID
+            }
+            if !messages[existingIndex].chatID.isEmpty {
+                threadIDByChatID[messages[existingIndex].chatID] = messages[existingIndex].id
             }
             selectedChatThread = messages[existingIndex]
         } else {
             let initialChatID = {
-                if !user.userID.isEmpty, let currentUID = try? FirebaseSpotService.shared.currentUserID(), !currentUID.isEmpty {
-                    return FirebaseSpotService.chatID(for: [currentUID, user.userID], isAnonymous: startsAnonymous)
+                if !expectedChatID.isEmpty {
+                    return expectedChatID
                 }
                 return ""
             }()
 
+            let createdThreadID: Int = {
+                if !initialChatID.isEmpty, let mapped = threadIDByChatID[initialChatID] {
+                    return mapped
+                }
+                return Int.random(in: 100...9999)
+            }()
+
             let created = DirectMessageThread(
-                id: Int.random(in: 100...9999),
+                id: createdThreadID,
                 participant: user.name.isEmpty ? targetUsername : user.name,
                 username: targetUsername,
                 preview: "No messages yet",
@@ -23009,10 +24627,12 @@ struct ContentView: View {
                 unread: 0,
                 isIncoming: false,
                 isAnonymousConversation: startsAnonymous,
-                participantUserID: user.userID,
+                participantUserID: targetUserID,
                 chatID: initialChatID
             )
-            messages.insert(created, at: 0)
+            if !initialChatID.isEmpty {
+                threadIDByChatID[initialChatID] = createdThreadID
+            }
             selectedChatThread = created
         }
 
@@ -23553,6 +25173,7 @@ struct FakeUserProfile: Identifiable {
     let followingCount: Int
     let profilePhotoText: String
     let profilePhotoURL: String?
+    let isVerifiedUsernameUnderlined: Bool
 
     init(
         id: UUID = UUID(),
@@ -23564,7 +25185,8 @@ struct FakeUserProfile: Identifiable {
         followerCount: Int,
         followingCount: Int,
         profilePhotoText: String,
-        profilePhotoURL: String? = nil
+        profilePhotoURL: String? = nil,
+        isVerifiedUsernameUnderlined: Bool = false
     ) {
         self.id = id
         self.userID = userID
@@ -23576,6 +25198,7 @@ struct FakeUserProfile: Identifiable {
         self.followingCount = followingCount
         self.profilePhotoText = profilePhotoText
         self.profilePhotoURL = profilePhotoURL
+        self.isVerifiedUsernameUnderlined = isVerifiedUsernameUnderlined
     }
 }
 
@@ -23649,6 +25272,7 @@ struct MockPost: Identifiable {
     var handle: String
     let authorUserID: String
     var authorProfilePhotoURL: String?
+    var authorIsVerified: Bool = false
     var authorAge: String? = nil
     var authorPosition: String? = nil
     let type: String
@@ -23679,6 +25303,8 @@ struct MockPost: Identifiable {
     var createdAt: Date
     var firestoreID: String = ""
     var isAnonymous: Bool = false
+    var reactions: [String: Int] = [:]
+    var userReaction: String? = nil
 
     var peakEngagementScore: Double = 0
 
@@ -23746,6 +25372,7 @@ struct MockPost: Identifiable {
         handle: String,
         authorUserID: String = "",
         authorProfilePhotoURL: String? = nil,
+        authorIsVerified: Bool = false,
         authorAge: String? = nil,
         authorPosition: String? = nil,
         type: String,
@@ -23783,6 +25410,7 @@ struct MockPost: Identifiable {
         self.handle = handle
         self.authorUserID = authorUserID
         self.authorProfilePhotoURL = authorProfilePhotoURL
+        self.authorIsVerified = authorIsVerified
         self.authorAge = authorAge
         self.authorPosition = authorPosition
         self.type = type
@@ -24139,9 +25767,14 @@ struct PostCardView: View {
     private static let adminMapTopPinCodeDefaultsKey = "spot_admin_map_top_pin_code"
     private static let adminForceDeletePinCodeDefaultsKey = "spot_admin_force_delete_pin_code"
     private static let adminPinMapTopMarker = "spot:map-top"
+    private static let accountVerifiedUnderlineDefaultsKey = "spot_account_verified_underline_enabled"
 
     private var shouldTrackViews: Bool {
         tracksViewEngagement && Self.shouldCountView(isOwnPost: isOwnPost, showsAuthorLine: showsAuthorLine)
+    }
+
+    private var shouldUnderlineAuthorUsername: Bool {
+        post.authorIsVerified || (isOwnPost && UserDefaults.standard.bool(forKey: Self.accountVerifiedUnderlineDefaultsKey))
     }
 
     private var pollChoices: [String] {
@@ -24751,9 +26384,9 @@ struct PostCardView: View {
         if applyToNearestPOIOnly {
             adminPinErrorMessage = "Pinned to nearest POI feeds"
         } else if applyToAllNonMetricFeeds {
-            adminPinErrorMessage = "Pinned to all non-Metric feeds"
+            adminPinErrorMessage = "Pinned across all non-Nearest channels"
         } else {
-            adminPinErrorMessage = "Pinned to Metric top"
+            adminPinErrorMessage = "Pinned to the top of Nearest"
         }
         onViewTracked(post)
     }
@@ -24864,41 +26497,6 @@ struct PostCardView: View {
             return
         }
 
-        if entered == resolvedAdminNearestPOIPinCode() {
-            persistAdminPinForCurrentPost(applyToNearestPOIOnly: true)
-            adminPinCodeInput = ""
-            showAdminPinCodePrompt = false
-            return
-        }
-
-        if entered == resolvedAdminVideoMetricPinCode() {
-            persistAdminVideoMetricPinForCurrentPost()
-            adminPinCodeInput = ""
-            showAdminPinCodePrompt = false
-            return
-        }
-
-        if entered == resolvedAdminVideoNonMetricPinCode() {
-            persistAdminVideoNonMetricPinForCurrentPost()
-            adminPinCodeInput = ""
-            showAdminPinCodePrompt = false
-            return
-        }
-
-        if entered == resolvedAdminProfilePinCode() {
-            persistAdminProfilePinForCurrentPost()
-            adminPinCodeInput = ""
-            showAdminPinCodePrompt = false
-            return
-        }
-
-        if entered == resolvedAdminMapTopPinCode() {
-            persistAdminMapTopPinForCurrentPost()
-            adminPinCodeInput = ""
-            showAdminPinCodePrompt = false
-            return
-        }
-
         if entered == resolvedAdminUnpinCode() {
             removeAdminPinForCurrentPost()
             adminPinCodeInput = ""
@@ -24918,9 +26516,6 @@ struct PostCardView: View {
 
     private var authorHeaderView: some View {
         let normalizedHandle = FirebaseSpotService.normalizeUsername(post.handle)
-        let authorIdentityText: String = post.isAnonymous
-            ? ""
-            : (normalizedHandle.isEmpty ? "@user" : "@\(normalizedHandle)")
         let authorIdentityColor: Color = post.isAnonymous ? .secondary : ContentView.usernameGoldColor
 
         let ageText = post.authorAge?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -24928,98 +26523,268 @@ struct PostCardView: View {
         let positionText = post.authorPosition?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let shouldShowPosition = !post.isAnonymous && !positionText.isEmpty
 
-        let resolvedPhotoURL = post.authorProfilePhotoURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
         return Button {
             guard !post.isAnonymous else { return }
             suppressNextProfileTap = true
             onProfileTap()
         } label: {
             HStack(alignment: .center, spacing: 8) {
-                if post.isAnonymous {
-                    Image(systemName: "theatermasks.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(ContentView.usernameGoldColor)
-                } else {
-                    if isOwnPost, let localImg = currentUserProfilePhotoImage {
-                        Image(uiImage: localImg)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
-                    } else if !resolvedPhotoURL.isEmpty, let url = URL(string: resolvedPhotoURL) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let img):
-                                img.resizable()
-                                   .scaledToFill()
-                                   .frame(width: 32, height: 32)
-                                   .clipShape(Circle())
-                            default:
-                                Circle()
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Text(String(normalizedHandle.prefix(2)).uppercased())
-                                            .font(.caption2.weight(.bold))
-                                            .foregroundStyle(.secondary)
-                                    )
-                            }
-                        }
-                    } else {
-                        Circle()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Text(String(normalizedHandle.prefix(2)).uppercased())
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                            )
-                    }
-
-                    HStack(alignment: .center, spacing: 6) {
-                        Text(authorIdentityText)
+                HStack(alignment: .center, spacing: 6) {
+                    HStack(spacing: 0) {
+                        Text("@")
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(authorIdentityColor)
 
-                        if shouldShowAge || shouldShowPosition {
+                        Text(normalizedHandle.isEmpty ? "user" : normalizedHandle)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(authorIdentityColor)
+                            .underline(shouldUnderlineAuthorUsername, color: authorIdentityColor)
+                    }
+
+                    if shouldShowAge || shouldShowPosition {
+                        Rectangle()
+                            .fill(Color.black)
+                            .frame(width: 1, height: 10)
+
+                        if shouldShowAge {
+                            Text(ageText)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(.systemGray))
+                        }
+
+                        if shouldShowAge && shouldShowPosition {
                             Rectangle()
                                 .fill(Color.black)
                                 .frame(width: 1, height: 10)
+                        }
 
-                            if shouldShowAge {
-                                Text(ageText)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(Color(.systemGray))
-                            }
-
-                            if shouldShowAge && shouldShowPosition {
-                                Rectangle()
-                                    .fill(Color.black)
-                                    .frame(width: 1, height: 10)
-                            }
-
-                            if shouldShowPosition {
-                                Text(positionText)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(Color(.systemGray))
-                            }
+                        if shouldShowPosition {
+                            Text(positionText)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(.systemGray))
                         }
                     }
                 }
 
                 Spacer()
+
+                postReactionMenuView
             }
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 8)
+        .padding(.horizontal, 8)
+    }
+
+    private var availableReactionOptions: [(systemIcon: String, label: String)] {
+        let text = (post.title + " " + post.body).lowercased()
+        let type = post.type
+
+        switch type {
+        case "Event":
+            return [
+                ("hand.thumbsup", "I'm In"),
+                ("hand.thumbsdown", "I'm Out"),
+                ("mappin.circle", "Going There"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "For Sale":
+            return [
+                ("hand.raised", "Interested"),
+                ("dollarsign.circle", "Price Check"),
+                ("star.fill", "High End"),
+                ("mappin.circle", "Local Pickup"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Work", "Hiring":
+            return [
+                ("briefcase", "Applying"),
+                ("checkmark.seal", "Qualified"),
+                ("arrow.up.right.square", "Sent Resume"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Guide":
+            return [
+                ("bookmark", "Saved Guide"),
+                ("mappin.and.ellipse", "Must Visit"),
+                ("checkmark.circle", "Been Here"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Live Route":
+            return [
+                ("figure.walk", "On Route"),
+                ("location.fill", "Tracking"),
+                ("flag.checkered", "Completed"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Audio", "Song":
+            return [
+                ("speaker.wave.3.fill", "On Repeat"),
+                ("music.note", "Vibe Check"),
+                ("star.fill", "Masterpiece"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Photo", "Video", "Photo/Video":
+            if text.contains("food") || text.contains("coffee") || text.contains("eat") || text.contains("drink") || text.contains("restaurant") {
+                return [
+                    ("fork.knife", "Looks Tasty"),
+                    ("mappin.circle", "Visiting Soon"),
+                    ("star.fill", "Top Spot"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            } else {
+                return [
+                    ("camera", "Great Shot"),
+                    ("mappin.circle", "Visited"),
+                    ("star.fill", "High End"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            }
+        case "Poll":
+            return [
+                ("checkmark.square", "Voted"),
+                ("bubble.left.and.bubble.right", "Debating"),
+                ("lightbulb", "Good Question"),
+                ("heart", "Extra Thanks"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "Link":
+            return [
+                ("safari", "Visited Site"),
+                ("doc.text", "Read Article"),
+                ("arrow.up.right.square", "Saved Link"),
+                ("lightbulb", "Insightful"),
+                ("arrow.2.squarepath", "Repost")
+            ]
+        case "General", "Text":
+            if text.contains("question") || text.contains("?") || text.contains("help") || text.contains("anyone") {
+                return [
+                    ("bubble.left.and.bubble.right", "Has Answer"),
+                    ("hand.raised", "Can Help"),
+                    ("lightbulb", "Good Point"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            } else if text.contains("news") || text.contains("alert") || text.contains("update") || text.contains("psa") {
+                return [
+                    ("exclamationmark.triangle", "Heads Up"),
+                    ("eye", "Verified"),
+                    ("mappin.circle", "Nearby"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            } else {
+                return [
+                    ("heart", "Extra Thanks"),
+                    ("mappin.circle", "Visited"),
+                    ("hand.thumbsup", "Agreed"),
+                    ("star.fill", "Top Thought"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            }
+        default:
+            if text.contains("party") || text.contains("meet") || text.contains("tonight") || text.contains("hangout") {
+                return [
+                    ("hand.thumbsup", "I'm In"),
+                    ("hand.thumbsdown", "I'm Out"),
+                    ("mappin.circle", "Going There"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            } else if text.contains("recommend") || text.contains("spot") || text.contains("place") {
+                return [
+                    ("mappin.circle", "Visited"),
+                    ("star.fill", "Top Spot"),
+                    ("bookmark", "Saved Spot"),
+                    ("heart", "Extra Thanks"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            } else {
+                return [
+                    ("heart", "Extra Thanks"),
+                    ("mappin.circle", "Visited"),
+                    ("hand.thumbsup", "Count Me In"),
+                    ("star.fill", "High End"),
+                    ("arrow.2.squarepath", "Repost")
+                ]
+            }
+        }
+    }
+
+    private var postReactionMenuView: some View {
+        Menu {
+            ForEach(availableReactionOptions, id: \.label) { option in
+                let count = post.reactions[option.label] ?? 0
+                let labelText = count > 0 ? "\(option.label) (\(count))" : option.label
+
+                Button {
+                    togglePostReaction(option.label)
+                } label: {
+                    Label(labelText, systemImage: option.systemIcon)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if let active = post.userReaction, let match = availableReactionOptions.first(where: { $0.label == active }) {
+                    Image(systemName: match.systemIcon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.black)
+                } else {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.secondary)
+                }
+
+                let totalReactions = post.reactions.values.reduce(0, +)
+                if totalReactions > 0 {
+                    Text("\(totalReactions)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.secondary)
+                }
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(post.userReaction != nil ? Color.black.opacity(0.06) : Color.clear)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.black.opacity(0.12), lineWidth: 0.8)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func togglePostReaction(_ label: String) {
+        if post.userReaction == label {
+            post.reactions[label] = max(0, (post.reactions[label] ?? 1) - 1)
+            if post.reactions[label] == 0 { post.reactions.removeValue(forKey: label) }
+            post.userReaction = nil
+        } else {
+            if let previous = post.userReaction {
+                post.reactions[previous] = max(0, (post.reactions[previous] ?? 1) - 1)
+                if post.reactions[previous] == 0 { post.reactions.removeValue(forKey: previous) }
+            }
+            post.reactions[label] = (post.reactions[label] ?? 0) + 1
+            post.userReaction = label
+            if label == "Repost" {
+                onSend()
+            }
+        }
     }
 
     @ViewBuilder
     private func authorSmallAvatarView(size: CGFloat) -> some View {
-        let remotePhotoURL = (post.authorProfilePhotoURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
         ZStack {
             Circle()
                 .fill(
@@ -25031,27 +26796,7 @@ struct PostCardView: View {
                 )
                 .frame(width: size, height: size)
 
-            if isOwnPost, let localImage = currentUserProfilePhotoImage {
-                Image(uiImage: localImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if !remotePhotoURL.isEmpty, let avatarURL = URL(string: remotePhotoURL) {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable()
-                           .scaledToFill()
-                           .frame(width: size, height: size)
-                           .clipShape(Circle())
-                    default:
-                        emptyAuthorSmallAvatar(size: size)
-                    }
-                }
-            } else {
-                emptyAuthorSmallAvatar(size: size)
-            }
+            emptyAuthorSmallAvatar(size: size)
         }
     }
 
@@ -25676,7 +27421,8 @@ struct PostCardView: View {
                     suppressNextProfileTap = false
                     return
                 }
-                onMapFocusTap(post)
+                guard !post.isAnonymous else { return }
+                onProfileTap()
             }
             .onLongPressGesture(minimumDuration: 0.55) {
                 guard allowsAdminPinLongPress else { return }
@@ -25801,7 +27547,7 @@ struct PostCardView: View {
             }
         } message: {
             if adminPinErrorMessage.isEmpty {
-                Text("Enter code: 0420 pins Metric top, 2626 pins all non-Metric feeds, 7373 pins Video Metric feed, 7474 pins non-Metric video feeds, 1717 pins profile flow, 1818 pins map top, 0007 unpins, 9999 permanently deletes post.")
+                Text("Enter code: 0420 pins to the top of the Nearest channel, 2626 pins across all non-Nearest channels, 0007 unpins, 9999 permanently deletes post.")
             } else {
                 Text(adminPinErrorMessage)
             }
@@ -25895,7 +27641,7 @@ struct PostCardView: View {
         let showsTrailingDelete = showsDeleteAction && showsDeleteButtonTrailing
         let targetIconSize: CGFloat = 17
         let heartIconSize: CGFloat = targetIconSize
-        let iconSpacing: CGFloat = 14
+        let iconSpacing: CGFloat = 10
 
         return HStack(spacing: 10) {
             HStack(spacing: iconSpacing) {
@@ -25903,18 +27649,16 @@ struct PostCardView: View {
                     Button {
                         onLike(post)
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 5) {
+                            Text(formatFollowerCount(max(post.likes, 0)))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Color(.systemGray))
+
                             actionRowIcon(
                                 post.isLiked ? "heart.fill" : "heart",
-                                color: post.isLiked ? Color.red : Color(.systemGray),
+                                color: Color(.systemGray),
                                 size: heartIconSize
                             )
-
-                            if showsTrailingDelete {
-                                Text(formatFollowerCount(max(post.likes, 0)))
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(Color(.systemGray))
-                            }
                         }
                     }
                     .buttonStyle(.plain)
@@ -25928,11 +27672,12 @@ struct PostCardView: View {
                 }
 
                 if showsDeleteAction && !showsTrailingDelete {
-                    HStack(spacing: 4) {
-                        actionRowIcon("heart.fill", color: Color.red, size: heartIconSize)
+                    HStack(spacing: 5) {
                         Text(formatFollowerCount(max(post.likes, 0)))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color(.systemGray))
+
+                        actionRowIcon("heart.fill", color: Color(.systemGray), size: heartIconSize)
                     }
 
                     Button {
@@ -25944,37 +27689,40 @@ struct PostCardView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Button {
-                        onReport?()
-                    } label: {
-                        actionRowIcon("flag", color: Color(.systemGray), size: targetIconSize)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        onSend()
-                    } label: {
-                        actionRowIcon("arrow.2.squarepath", color: Color(.systemGray), size: targetIconSize)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        if let onShare {
-                            onShare()
-                        } else {
-                            onSend()
+                    HStack(spacing: 7) {
+                        Button {
+                            onReport?()
+                        } label: {
+                            actionRowIcon("flag", color: Color(.systemGray), size: targetIconSize)
                         }
-                    } label: {
-                        actionRowIcon("square.and.arrow.up", color: Color(.systemGray), size: targetIconSize)
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
 
-                    Button {
-                        onSave(post)
-                    } label: {
-                        actionRowIcon(post.isSaved ? "bookmark.fill" : "bookmark", color: Color(.systemGray), size: targetIconSize)
+                        Button {
+                            onSend()
+                        } label: {
+                            actionRowIcon("arrow.2.squarepath", color: Color(.systemGray), size: targetIconSize)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            if let onShare {
+                                onShare()
+                            } else {
+                                onSend()
+                            }
+                        } label: {
+                            actionRowIcon("square.and.arrow.up", color: Color(.systemGray), size: targetIconSize)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            onSave(post)
+                        } label: {
+                            actionRowIcon(post.isSaved ? "bookmark.fill" : "bookmark", color: Color(.systemGray), size: targetIconSize)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, -1)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.leading, 8)
@@ -26444,6 +28192,8 @@ private class IDCameraViewController: UIViewController {
     private var photoOutput: AVCapturePhotoOutput?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let idGuideFrameView = UIView()
+    private let captureSessionQueue = DispatchQueue(label: "spot.id.camera.session.queue.shared")
+    private var hasCompletedCapture = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -26458,7 +28208,9 @@ private class IDCameraViewController: UIViewController {
 
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device) else {
-            onCapture?(nil)
+            DispatchQueue.main.async { [weak self] in
+                self?.finishCaptureOnce(with: nil)
+            }
             return
         }
 
@@ -26479,8 +28231,10 @@ private class IDCameraViewController: UIViewController {
         previewLayer = preview
 
         captureSession = session
-        DispatchQueue.global(qos: .userInitiated).async {
-            session.startRunning()
+        captureSessionQueue.async {
+            if !session.isRunning {
+                session.startRunning()
+            }
         }
     }
 
@@ -26521,18 +28275,39 @@ private class IDCameraViewController: UIViewController {
     }
 
     @objc private func takePhoto() {
+        guard !hasCompletedCapture else { return }
         let settings = AVCapturePhotoSettings()
         photoOutput?.capturePhoto(with: settings, delegate: self)
+    }
+
+    private func finishCaptureOnce(with image: UIImage?) {
+        guard !hasCompletedCapture else { return }
+        hasCompletedCapture = true
+        onCapture?(image)
+    }
+
+    deinit {
+        captureSessionQueue.async { [captureSession] in
+            captureSession?.stopRunning()
+        }
     }
 }
 
 extension IDCameraViewController: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else {
-            onCapture?(nil)
-            return
+        let capturedImage: UIImage? = {
+            guard error == nil,
+                  let data = photo.fileDataRepresentation(),
+                  let image = UIImage(data: data)
+            else {
+                return nil
+            }
+            return image
+        }()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.finishCaptureOnce(with: capturedImage)
         }
-        onCapture?(image)
     }
 }
 

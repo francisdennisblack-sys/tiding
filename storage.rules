@@ -48,6 +48,25 @@ service firebase.storage {
         && (request.resource == null || isImage());
     }
 
+    // Legacy profile photo paths kept for backward compatibility.
+    match /avatars/{ownerUID}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(ownerUID)
+        && (request.resource == null || isImage());
+    }
+
+    match /profile_photos/{ownerUID}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(ownerUID)
+        && (request.resource == null || isImage());
+    }
+
+    match /users/{ownerUID}/profilePhotos/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(ownerUID)
+        && (request.resource == null || isImage());
+    }
+
     // Default deny for any path not explicitly allowed.
     match /{allPaths=**} {
       allow read, write: if false;
